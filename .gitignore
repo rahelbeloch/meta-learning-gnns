@@ -128,14 +128,13 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-
 # Raw data
-/code/data/raw/*
-/code/data/tsv/*
+/data/raw/*
+/data/tsv/*
 
 # TODO: remove this later!
-/code/data/complete/*
+/data/complete/*
 
 # Intellij project files
 /.idea/*
-/code/data/complete/FakeHealth/HealthStory/engagements/
+/codef/data/complete/FakeHealth/HealthStory/engagements/

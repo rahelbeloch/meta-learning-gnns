@@ -13,9 +13,9 @@ USER_CONTEXTS = ['user_followers', 'user_following']
 USER_CONTEXTS_FILTERED = ['user_followers_filtered', 'user_following_filtered']
 
 USER_2_ID_FILE_NAME = 'user2id_lr_top50_train.json'
+DOC_2_ID_FILE_NAME = 'doc2id_lr_top50_train.json'
 NODE_2_ID_FILE_NAME = 'node2id_lr_top50_train.json'
 NODE_TYPE_FILE_NAME = 'node_type_lr_top50_train.npy'
-DOC_2_ID_FILE_NAME = 'doc2id_lr_top50_train.json'
 DOC_SPLITS_FILE_NAME = 'docSplits.json'
 USER_SPLITS_FILE_NAME = 'userSplits.json'
 ADJACENCY_MATRIX_FILE = 'adj_matrix_lr_top50_train'
@@ -45,11 +45,11 @@ class GraphDataPreprocessor:
         self.data_tsv_dir = config['data_tsv_dir']
         self.exclude_frequent_users = config['exclude_frequent']
 
-        # self.aggregate_user_contexts()
+        self.aggregate_user_contexts()
         # self.create_doc_user_splits()
         # self.create_doc_id_dicts()
         # self.filter_user_contexts()
-        self.create_adjacency_matrix()
+        # self.create_adjacency_matrix()
 
     @staticmethod
     def calc_elapsed_time(start, end):
@@ -63,21 +63,21 @@ class GraphDataPreprocessor:
         return os.path.join(self.data_raw_dir, *parts)
 
     def data_intermediate_path(self, *parts):
-        return os.path.join(self.data_tsv_dir, *parts)
+        return os.path.join(self.data_tsv_dir, self.dataset, *parts)
 
     def data_dest_path(self, *parts):
-        return os.path.join(self.data_complete_dir, *parts)
+        return os.path.join(self.data_complete_dir, self.dataset, *parts)
 
     def print_step(self, step_title):
         print(f'\n{"-" * 100}\n \t\t {step_title} for {self.dataset} dataset.\n{"-" * 100}')
 
     def save_adj_matrix(self, adj_matrix, edge_type):
 
-        adj_file = self.data_dest_path(self.dataset, ADJACENCY_MATRIX_FILE_NAME)
+        adj_file = self.data_dest_path(ADJACENCY_MATRIX_FILE_NAME)
         print(f"\nMatrix construction done! Saving in  {adj_file}")
         save_npz(adj_file, adj_matrix.tocsr())
 
-        edge_type_file = self.data_dest_path(self.dataset, EDGE_TYPE_FILE_NAME)
+        edge_type_file = self.data_dest_path(EDGE_TYPE_FILE_NAME)
         print(f"\nedge_type construction done! Saving in  {edge_type_file}")
         save_npz(edge_type_file, edge_type.tocsr())
 
@@ -91,7 +91,7 @@ class GraphDataPreprocessor:
         edge_index = np.vstack((np.array(rows), np.array(cols)))
         print("Edge index shape = ", edge_index.shape)
 
-        edge_matrix_file = self.data_dest_path(self.dataset, ADJACENCY_MATRIX_FILE + '_edge.npy')
+        edge_matrix_file = self.data_dest_path(ADJACENCY_MATRIX_FILE + '_edge.npy')
         print("saving edge_list format in :  ", edge_matrix_file)
         np.save(edge_matrix_file, edge_index, allow_pickle=True)
 
@@ -99,7 +99,7 @@ class GraphDataPreprocessor:
         edge_index = edge_index.toarray()
         edge_index = edge_index.squeeze(0)
         print("edge_type shape = ", edge_index.shape)
-        edge_matrix_file = self.data_dest_path(self.dataset, EDGE_TYPE_FILE + '_edge.npy')
+        edge_matrix_file = self.data_dest_path(EDGE_TYPE_FILE + '_edge.npy')
         print("saving edge_type edge list format in :  ", edge_matrix_file)
         np.save(edge_matrix_file, edge_index, allow_pickle=True)
 
@@ -115,7 +115,7 @@ class GraphDataPreprocessor:
         if not os.path.exists(src_dir):
             raise ValueError(f'Source directory {src_dir} does not exist!')
 
-        dest_dir = self.data_dest_path(self.dataset, "engagements")
+        dest_dir = self.data_dest_path("engagements")
         if not os.path.exists(dest_dir):
             print(f"Creating destination dir:  {dest_dir}\n")
             os.makedirs(dest_dir)
@@ -157,7 +157,7 @@ class GraphDataPreprocessor:
 
         self.print_step("Creating doc and user splits")
 
-        doc_splits_file = self.data_intermediate_path(self.dataset, DOC_SPLITS_FILE_NAME)
+        doc_splits_file = self.data_intermediate_path(DOC_SPLITS_FILE_NAME)
         doc_splits = load_json_file(doc_splits_file)
 
         train_docs = doc_splits['train_docs']
@@ -166,7 +166,7 @@ class GraphDataPreprocessor:
 
         print("\nCreating users in splits file..")
 
-        src_dir = self.data_dest_path(self.dataset, 'engagements')
+        src_dir = self.data_dest_path('engagements')
 
         train_users, val_users, test_users = set(), set(), set()
         for root, dirs, files in os.walk(src_dir):
@@ -189,7 +189,7 @@ class GraphDataPreprocessor:
                 if str(doc_key) in test_docs:
                     test_users.update(users)
 
-        user_splits_file = self.data_dest_path(self.dataset, USER_SPLITS_FILE_NAME)
+        user_splits_file = self.data_dest_path(USER_SPLITS_FILE_NAME)
         print("User splits stored in : ", user_splits_file)
 
         temp_dict = {'train_users': list(train_users), 'val_users': list(val_users), 'test_users': list(test_users)}
@@ -206,47 +206,56 @@ class GraphDataPreprocessor:
         self.print_step("Creating dicts")
         print("\nCreating doc2id and user2id dicts....\n")
 
-        user_splits_file = self.data_dest_path(self.dataset, USER_SPLITS_FILE_NAME)
+        user_splits_file = self.data_dest_path(USER_SPLITS_FILE_NAME)
         usr_splits = json.load(open(user_splits_file, 'r'))
-        doc_splits_file = self.data_intermediate_path(self.dataset, DOC_SPLITS_FILE_NAME)
+        doc_splits_file = self.data_intermediate_path(DOC_SPLITS_FILE_NAME)
         doc_splits = json.load(open(doc_splits_file, 'r'))
 
         train_users, val_users, test_users = usr_splits['train_users'], usr_splits['val_users'], usr_splits[
             'test_users']
         train_docs, val_docs, test_docs = doc_splits['train_docs'], doc_splits['val_docs'], doc_splits['test_docs']
 
-        doc2id_train = {}
+        doc2Id = {}
         node_type = []
 
         for train_count, doc in enumerate(train_docs):
-            doc2id_train[str(doc)] = train_count
+            doc2Id[str(doc)] = train_count
             node_type.append(1)
 
         print("Train docs = ", len(train_docs))
+        print("doc2id train = ", len(doc2Id))
         print("Node type = ", len(node_type))
+
+        # assert len(train_docs) == len(node_type), "Length of train docs is not the same as length of node type!"
+        # assert len(train_docs) == len(doc2Id), "Length of train docs is not the same as length of doc2Ids!"
 
         for val_count, doc in enumerate(val_docs):
-            doc2id_train[str(doc)] = val_count + len(train_docs)
+            doc2Id[str(doc)] = val_count + len(train_docs)
             node_type.append(1)
 
-        print("Val docs = ", len(val_docs))
-        print("doc2id train = ", len(doc2id_train))
+        print("\nVal docs = ", len(val_docs))
+        print("doc2id train = ", len(doc2Id))
         print("Node type = ", len(node_type))
 
-        doc2id_file = self.data_dest_path(self.dataset, DOC_2_ID_FILE_NAME)
+        assert len(train_docs) + len(val_docs) == len(node_type), \
+            "Sum of train docs and val docs length is not the same as length of node type!"
+
+        doc2id_file = self.data_dest_path(DOC_2_ID_FILE_NAME)
         print("Saving doc2id dict in :", doc2id_file)
         with open(doc2id_file, 'w+') as j:
-            json.dump(doc2id_train, j)
+            json.dump(doc2Id, j)
 
-        print('\nTrain users = ', len(train_users))
-        print("Test users = ", len(test_users))
-        print("Val users = ", len(val_users))
+        # print('\nTrain users = ', len(train_users))
+        # print("Test users = ", len(test_users))
+        # print("Val users = ", len(val_users))
         # print("All users = ", len(all_users))
 
         if self.exclude_frequent_users:
+            print("\nRestricting users ... ")
+
             # Exclude most frequent users
-            restricted_users_file = self.data_intermediate_path(self.dataset, 'restricted_users_5.json')
-            valid_users_file = self.data_intermediate_path(self.dataset, 'valid_users_top50.json')
+            restricted_users_file = self.data_intermediate_path('restricted_users_5.json')
+            valid_users_file = self.data_intermediate_path('valid_users_top50.json')
 
             restricted_users, valid_users = [], []
             try:
@@ -265,10 +274,6 @@ class GraphDataPreprocessor:
 
         # train_users = list(set(train_users)-set(done_users['done_users'])-set(restricted_users['restricted_users']))
 
-        a = set(train_users + val_users)
-        b = set(test_users)
-        print("\nUsers common between train/val and test = ", len(a.intersection(b)))
-
         all_users = list(set(train_users + val_users + test_users))
 
         print('\nTrain users = ', len(train_users))
@@ -276,45 +281,55 @@ class GraphDataPreprocessor:
         print("Val users = ", len(val_users))
         print("All users = ", len(all_users))
 
+        a = set(train_users + val_users)
+        b = set(test_users)
+        print("\nUsers common between train/val and test = ", len(a.intersection(b)))
+
         user2id_train = {}
         for count, user in enumerate(all_users):
-            user2id_train[str(user)] = count + len(doc2id_train)
+            user2id_train[str(user)] = count + len(doc2Id)
             node_type.append(2)
 
-        user2id_train_file = self.data_dest_path(self.dataset, USER_2_ID_FILE_NAME)
-        print("\nuser2id = ", len(user2id_train))
+        user2id_train_file = self.data_dest_path(USER_2_ID_FILE_NAME)
+        print("\nuser2id size = ", len(user2id_train))
         print("Saving user2id_train in : ", user2id_train_file)
         with open(user2id_train_file, 'w+') as j:
             json.dump(user2id_train, j)
 
-        node2id = doc2id_train.copy()
+        node2id = doc2Id.copy()
         node2id.update(user2id_train)
+
+        assert len(node2id) == len(user2id_train) + len(
+            doc2Id), "Length of node2id is not the sum of doc2id and user2id length!"
+
         print("\nnode2id size = ", len(node2id))
-        node2id_file = self.data_dest_path(self.dataset, NODE_2_ID_FILE_NAME)
+        node2id_file = self.data_dest_path(NODE_2_ID_FILE_NAME)
         print("Saving node2id_lr_train in : ", node2id_file)
         with open(node2id_file, 'w+') as json_file:
             json.dump(node2id, json_file)
 
-        print("\nNode type = ", len(node_type))
-        node_type_file = self.data_dest_path(self.dataset, NODE_TYPE_FILE_NAME)
+        # node type already contains train and val docs and train, val and test users
+        assert len(node_type) == len(val_docs) + len(train_docs) + len(all_users)
+
+        print("\nNode type size = ", len(node_type))
+        node_type_file = self.data_dest_path(NODE_TYPE_FILE_NAME)
         node_type = np.array(node_type)
-        # print(node_type.shape)
         print("Saving node_type in :", node_type_file)
         np.save(node_type_file, node_type, allow_pickle=True)
 
         print("\nAdding test docs..")
-        orig_doc2id_len = len(doc2id_train)
+        orig_doc2id_len = len(doc2Id)
         for test_count, doc in enumerate(test_docs):
-            doc2id_train[str(doc)] = test_count + len(user2id_train) + orig_doc2id_len
+            doc2Id[str(doc)] = test_count + len(user2id_train) + orig_doc2id_len
         print("Test docs = ", len(test_docs))
-        print("doc2id_train = ", len(doc2id_train))
-        with open(self.data_dest_path(self.dataset, DOC_2_ID_FILE_NAME), 'w+') as j:
-            json.dump(doc2id_train, j)
+        print("doc2Id = ", len(doc2Id))
+        with open(self.data_dest_path(DOC_2_ID_FILE_NAME), 'w+') as j:
+            json.dump(doc2Id, j)
 
-        node2id = doc2id_train.copy()
+        node2id = doc2Id.copy()
         node2id.update(user2id_train)
         print("node2id size = ", len(node2id))
-        node2id_file = self.data_dest_path(self.dataset, 'node2id_lr_top50.json')
+        node2id_file = self.data_dest_path('node2id_lr_top50.json')
         print("Saving node2id_lr in : ", node2id_file)
         with open(node2id_file, 'w+') as json_file:
             json.dump(node2id, json_file)
@@ -329,7 +344,7 @@ class GraphDataPreprocessor:
 
         self.print_step("Creating filtered follower-following")
 
-        with open(self.data_dest_path(self.dataset, USER_2_ID_FILE_NAME), 'r') as j:
+        with open(self.data_dest_path(USER_2_ID_FILE_NAME), 'r') as j:
             all_users = json.load(j)
 
         # print_iter = int(len(all_users) / 10)
@@ -381,19 +396,23 @@ class GraphDataPreprocessor:
 
         self.print_step(f"Processing {self.dataset} dataset for adj_matrix")
 
-        user2id_file = self.data_dest_path(self.dataset, USER_2_ID_FILE_NAME)
+        user2id_file = self.data_dest_path(USER_2_ID_FILE_NAME)
         user2id = json.load(open(user2id_file, 'r'))
 
-        doc2id_file = self.data_dest_path(self.dataset, DOC_2_ID_FILE_NAME)
+        doc2id_file = self.data_dest_path(DOC_2_ID_FILE_NAME)
         doc2id = json.load(open(doc2id_file, 'r'))
 
-        doc_splits_file = self.data_intermediate_path(self.dataset, DOC_SPLITS_FILE_NAME)
+        doc_splits_file = self.data_intermediate_path(DOC_SPLITS_FILE_NAME)
         doc_splits = json.load(open(doc_splits_file, 'r'))
         test_docs = doc_splits['test_docs']
 
+        # this assumes users and documents are unique in all data sets!
         num_users, num_docs = len(user2id), len(doc2id) - len(test_docs)
-        print("\nNo.of unique users = ", num_users)
-        print("No.of docs = ", num_docs)
+        print("\nNumber of unique users = ", num_users)
+        print("Number of docs = ", num_docs)
+
+        print("\nLength user2id = ", len(user2id))
+        print("Length doc2id = ", len(doc2id))
 
         # Creating the adjacency matrix (doc-user edges)
         adj_matrix = lil_matrix((num_docs + num_users, num_users + num_docs))
@@ -413,7 +432,7 @@ class GraphDataPreprocessor:
         start = time.time()
 
         print("\nPreparing entries for doc-user pairs...")
-        src_dir = self.data_dest_path(self.dataset, 'engagements')
+        src_dir = self.data_dest_path('engagements')
         not_found = 0
         for root, dirs, files in os.walk(src_dir):
             for count, file in enumerate(files):
@@ -447,6 +466,8 @@ class GraphDataPreprocessor:
         key_errors, not_found, overlaps = 0, 0, 0
         print("\nPreparing entries for user-user pairs...")
         print(f"Printing every {int(num_users / 10)}  users done")
+
+        # TODO: we need and expect doc IDs from 0 - x and user IDs from x to y without gabs
 
         for user_context in USER_CONTEXTS_FILTERED:
             print(f"\n    - from {user_context}  folder...")
@@ -493,13 +514,13 @@ class GraphDataPreprocessor:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--data_raw_dir', type=str, default='../data/raw/FakeHealth',
+    parser.add_argument('--data_raw_dir', type=str, default='../../data/raw/FakeHealth',
                         help='Dataset folder path that contains the folders to the raw data.')
 
-    parser.add_argument('--data_complete_dir', type=str, default='../data/complete/FakeHealth',
+    parser.add_argument('--data_complete_dir', type=str, default='../../data/complete/FakeHealth',
                         help='Dataset folder path that contains the folders to the complete data.')
 
-    parser.add_argument('--data_tsv_dir', type=str, default='../data/tsv/FakeHealth',
+    parser.add_argument('--data_tsv_dir', type=str, default='../../data/tsv/FakeHealth',
                         help='Dataset folder path that contains the folders to the intermediate data.')
 
     parser.add_argument('--data_set', type=str, default='HealthStory', help='TODO')
