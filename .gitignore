@@ -134,6 +134,7 @@ dmypy.json
 
 # TODO: remove this later!
 /data/complete/*
+/logs
 
 # Intellij project files
 /.idea/*

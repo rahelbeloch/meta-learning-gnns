@@ -20,10 +20,10 @@ def corpus_to_tsv(dataset):
     nr_articles = len(
         [f for f in os.listdir(content_files_path) if os.path.isfile(os.path.join(content_files_path, f))])
 
-    preprocessor = TSVPreprocessor(RAW_DIR, TSV_DIR)
+    preprocessor = TSVPreprocessor(dataset, RAW_DIR, TSV_DIR)
 
     # When
-    preprocessor.corpus_to_tsv(dataset)
+    preprocessor.corpus_to_tsv()
 
     # Then
     nr_csv_entries = len(list(csv.reader(open(content_file_name))))
