@@ -1,7 +1,7 @@
 import csv
 import os.path
 
-from codef.data_prep.fake_health_tsv_processor import TSVPreprocessor
+from main.data_prep.fake_health_tsv_processor import TSVPreprocessor
 
 RAW_DIR = '../data/raw/FakeHealth'
 TSV_DIR = '../data/tsv/FakeHealth'

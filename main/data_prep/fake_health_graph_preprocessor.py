@@ -53,13 +53,13 @@ class GraphDataPreprocessor(GraphIO):
         self.train_docs, self.val_docs, self.test_docs = None, None, None
 
         # self.aggregate_user_contexts()
-        # self.create_doc_user_splits()
+        self.create_doc_user_splits()
         # self.create_doc_id_dicts()
         # self.filter_user_contexts()
         # self.create_adjacency_matrix()
         # self.create_feature_matrix()
         # self.create_labels()
-        self.create_split_masks()
+        # self.create_split_masks()
 
         # self.create_dgl_graph()
 

@@ -1,7 +1,7 @@
 RAW_DIR = '../../data/raw/FakeHealth'
 TSV_DIR = '../../data/tsv/FakeHealth'
 # COMPLETE_DIR = '../../data/complete/FakeHealth'
-COMPLETE_DIR = '../data/complete/FakeHealth'
+COMPLETE_DIR = '../../data/complete/FakeHealth'
 
 CONTENT_INFO_FILE_NAME = 'docsContentInformation.tsv'
 
