@@ -135,8 +135,8 @@ dmypy.json
 # TODO: remove this later!
 /data/complete/*
 /logs
-data/*
 
 # Intellij project files
 /.idea/*
 /main/data/complete/FakeHealth/HealthStory/engagements/
+.DS_STORE
