@@ -17,7 +17,7 @@ LOG_PATH = "../logs/"
 
 
 def train(model_name, seed, epochs, patience, b_size, l_rate_enc, l_rate_cl, w_decay_enc, w_decay_cl, warmup, max_iters,
-          cf_hidden_dim, data_name, checkpoint, roberta_model, transfer, h_search, eval=False):
+          cf_hidden_dim, data_name, data_dir, checkpoint, roberta_model, transfer, h_search, eval=False):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     if model_name not in SUPPORTED_MODELS:
@@ -33,7 +33,7 @@ def train(model_name, seed, epochs, patience, b_size, l_rate_enc, l_rate_cl, w_d
 
     # the data preprocessing
 
-    train_loader, val_loader, test_loader, num_features = get_data("HealthStory", "gat")
+    train_loader, val_loader, test_loader, num_features = get_data("HealthStory", "gat", data_dir)
 
     optimizer_hparams = {"lr_enc": l_rate_enc,
                          "lr_cl": l_rate_cl,
@@ -136,6 +136,8 @@ if __name__ == "__main__":
 
     parser.add_argument('--dataset', dest='dataset', default='R8', choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use.')
+    parser.add_argument('--data-dir', dest='data_dir', default='../data/complete/FakeHealth',
+                        help='Select the dataset you want to use.')
     parser.add_argument('--model', dest='model', default='gat', choices=SUPPORTED_MODELS,
                         help='Select the model you want to use.')
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
@@ -165,6 +167,7 @@ if __name__ == "__main__":
         max_iters=params["max_iters"],
         cf_hidden_dim=params["cf_hidden_dim"],
         data_name=params["dataset"],
+        data_dir=params["data_dir"],
         checkpoint=params["checkpoint"],
         roberta_model=params["roberta_model"],
         transfer=params["transfer"],

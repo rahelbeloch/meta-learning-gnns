@@ -6,7 +6,7 @@ import pandas as pd
 import torch
 
 from data_prep.config import ALL_LABELS_FILE_NAME
-from data_prep.graph_dataset import DGLSubGraphs, DglGraphDataset
+from data_prep.graph_dataset import DGLSubGraphs, DglGraphDataset, as_dataloader
 
 SUPPORTED_DATASETS = ['HealthRelease', 'HealthStory']
 
@@ -15,7 +15,7 @@ SUPPORTED_DATASETS = ['HealthRelease', 'HealthStory']
 #     return json.load(open(file_name, 'r'))
 
 
-def get_data(data_name, model):
+def get_data(data_name, model, data_dir):
     """
     Creates and returns the correct data object depending on data_name.
     Args:
@@ -38,10 +38,10 @@ def get_data(data_name, model):
         # val_sub_graphs = TorchGeomSubGraphs(graph_data, 'val', b_size=128, h_size=2)
         # test_sub_graphs = TorchGeomSubGraphs(graph_data, 'test', b_size=128, h_size=2)
 
-        graph_data = DglGraphDataset(data_name)
-        train_sub_graphs = DGLSubGraphs(graph_data, 'train', b_size=6, h_size=2).as_dataloader()
-        val_sub_graphs = DGLSubGraphs(graph_data, 'val', b_size=6, h_size=2).as_dataloader()
-        test_sub_graphs = DGLSubGraphs(graph_data, 'test', b_size=6, h_size=2).as_dataloader()
+        graph_data = DglGraphDataset(data_name, data_dir)
+        train_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'train', b_size=6, h_size=2))
+        val_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'val', b_size=6, h_size=2))
+        test_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'test', b_size=6, h_size=2))
 
         return train_sub_graphs, val_sub_graphs, test_sub_graphs, graph_data.num_features
 

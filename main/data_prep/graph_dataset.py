@@ -5,134 +5,134 @@ import dgl
 import torch
 from dgl.data import DGLDataset
 from torch.utils.data import DataLoader
-from torch_geometric.data import Data
+# from torch_geometric.data import Data
 
 from data_prep.fake_health_graph_preprocessor import *
 from data_prep.graph_io import GraphIO
 
 
-class TorchGeomGraphDataset(GraphIO):
-    """
-    Parent class for graph datasets. It loads the graph from respective files.
-    """
-
-    def __init__(self, corpus, verbose=True):
-        super().__init__(dataset=corpus, complete_dir=COMPLETE_DIR)
-
-        self.verbose = verbose
-
-        self.x_data, self.y_data = None, None
-        self.edge_index_data = None
-        self.node2id = None
-        self.split_masks = None
-        self.vocab_size = None
-        self.data = None
-        self.edge_type_data = None
-        self.loader = None
-
-        self.read_files()
-
-    def read_files(self):
-        """
-        Reads all the files necessary for the graph. These are:
-            - adjacency matrix
-            - feature matrix
-            - labels
-            - node2id dict
-            - node type map
-            - split mask
-        """
-
-        self.print_step("Reading files for Torch Geom Graph")
-
-        start = time.time()
-
-        x_feat_matrix_file = self.data_complete_path(FEAT_MATRIX_FILE_NAME)
-        self.x_data = torch.from_numpy(load_npz(x_feat_matrix_file).toarray())
-        num_nodes, self.vocab_size = self.x_data.shape
-
-        y_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME)
-        y_labels = json.load(open(y_labels_file, 'r'))
-        self.y_data = torch.LongTensor(y_labels['all_labels'])
-
-        edge_index_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME)
-        self.edge_index_data = torch.from_numpy(np.load(edge_index_file)).long()
-
-        node2id_file = self.data_complete_path(NODE_2_ID_FILE_NAME)
-        self.node2id = json.load(open(node2id_file, 'r'))
-
-        # TODO: node type
-        # node_type_file = self.data_complete_path( NODE_TYPE_FILE_NAME)
-        # node_type = np.load(node_type_file)
-        # node_type = torch.from_numpy(node_type).float()
-
-        split_mask_file = self.data_complete_path(SPLIT_MASK_FILE_NAME)
-        self.split_masks = json.load(open(split_mask_file, 'r'))
-
-        # if self.config['model_name'] in ['rgcn', 'rgat', 'rsage']:
-        #     edge_type_file = self.data_complete_path(
-        #                                   'edge_type_lr_train_30_5_edge.npy'.format(self.config['data_name']))
-
-        # if self.config['model_name'] in ['rgcn', 'rgat', 'rsage']:
-        #     self.edge_type_data = np.load(edge_type_file)
-        #     self.edge_type_data = torch.from_numpy(self.edge_type_data).long()
-
-        if self.verbose:
-            self.print_header("DATA STATISTICS:")
-            # if self.config['model_name'] != 'HGCN':
-            #     print("Contains isolated nodes = ", isolated_nodes)
-            #     print("Contains self loops = ", self_loops)
-            print("Vocabulary size = ", self.vocab_size)
-            print('No. of nodes in graph = ', num_nodes)
-
-            # print('No. of nodes after removing isolated nodes = ', new_num_nodes)
-
-            # TODO: print this only once data is loaded!
-            print("No. of edges in graph = ", self.data.num_edges)
-            print("\nNo.of train instances = ", self.data.train_mask.sum().item())
-            print("No.of val instances = ", self.data.val_mask.sum().item())
-            nr_test_instances = num_nodes - self.data.train_mask.sum().item() - self.data.val_mask.sum().item()
-            print(f"No.of test instances = {nr_test_instances}")
-
-            hours, minutes, seconds = self.calc_elapsed_time(start, time.time())
-            self.print_header(f'Took  {hours:0>2} hours: {minutes:0>2} mins: {seconds:05.2f} secs  to Prepare Data')
-
-    def initialize_graph(self):
-
-        self.print_step("Initializing TorchGeom graph")
-
-        if self.verbose:
-            print("\n\n==>> Clustering the graph and preparing dataloader....")
-
-        self.data = Data(x=self.x_data.float(), edge_index=self.edge_index_data.long(),
-                         edge_attr=self.edge_type_data, y=self.y_data)
-        new_num_nodes, _ = self.data.x.shape
-
-        self.data.train_mask = torch.FloatTensor(self.split_masks['train_mask'])
-        self.data.val_mask = torch.FloatTensor(self.split_masks['val_mask'])
-        self.data.representation_mask = torch.FloatTensor(self.split_masks['repr_mask'])
-
-        self.data.node2id = torch.tensor(list(self.node2id.values()))
-        # self.data.node_type = self.node_type
-
-        # if not self.config['full_graph']:
-        #     if self.config['cluster']:
-        #         cluster_data = ClusterData(self.data, num_parts=self.config['clusters'], recursive=False)
-        #         self.loader = ClusterLoader(cluster_data, batch_size=self.config['batch_size'],
-        #                                     shuffle=self.config['shuffle'], num_workers=0)
-        #     elif self.config['saint'] == 'random_walk':
-        #         self.loader = GraphSAINTRandomWalkSampler(self.data, batch_size=6000, walk_length=2, num_steps=5,
-        #                                                   sample_coverage=100, num_workers=0)
-        #     elif self.config['saint'] == 'node':
-        #         self.loader = GraphSAINTNodeSampler(self.data, batch_size=6000, num_steps=5, sample_coverage=100,
-        #                                             num_workers=0)
-        #     elif self.config['saint'] == 'edge':
-        #         self.loader = GraphSAINTEdgeSampler(self.data, batch_size=6000, num_steps=5, sample_coverage=100,
-        #                                             num_workers=0)
-        # else:
-        self.loader = None
-
-        return self.loader, self.vocab_size, self.data
+# class TorchGeomGraphDataset(GraphIO):
+#     """
+#     Parent class for graph datasets. It loads the graph from respective files.
+#     """
+#
+#     def __init__(self, corpus, verbose=True):
+#         super().__init__(dataset=corpus, complete_dir=COMPLETE_DIR)
+#
+#         self.verbose = verbose
+#
+#         self.x_data, self.y_data = None, None
+#         self.edge_index_data = None
+#         self.node2id = None
+#         self.split_masks = None
+#         self.vocab_size = None
+#         self.data = None
+#         self.edge_type_data = None
+#         self.loader = None
+#
+#         self.read_files()
+#
+#     def read_files(self):
+#         """
+#         Reads all the files necessary for the graph. These are:
+#             - adjacency matrix
+#             - feature matrix
+#             - labels
+#             - node2id dict
+#             - node type map
+#             - split mask
+#         """
+#
+#         self.print_step("Reading files for Torch Geom Graph")
+#
+#         start = time.time()
+#
+#         x_feat_matrix_file = self.data_complete_path(FEAT_MATRIX_FILE_NAME)
+#         self.x_data = torch.from_numpy(load_npz(x_feat_matrix_file).toarray())
+#         num_nodes, self.vocab_size = self.x_data.shape
+#
+#         y_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME)
+#         y_labels = json.load(open(y_labels_file, 'r'))
+#         self.y_data = torch.LongTensor(y_labels['all_labels'])
+#
+#         edge_index_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME)
+#         self.edge_index_data = torch.from_numpy(np.load(edge_index_file)).long()
+#
+#         node2id_file = self.data_complete_path(NODE_2_ID_FILE_NAME)
+#         self.node2id = json.load(open(node2id_file, 'r'))
+#
+#         # TODO: node type
+#         # node_type_file = self.data_complete_path( NODE_TYPE_FILE_NAME)
+#         # node_type = np.load(node_type_file)
+#         # node_type = torch.from_numpy(node_type).float()
+#
+#         split_mask_file = self.data_complete_path(SPLIT_MASK_FILE_NAME)
+#         self.split_masks = json.load(open(split_mask_file, 'r'))
+#
+#         # if self.config['model_name'] in ['rgcn', 'rgat', 'rsage']:
+#         #     edge_type_file = self.data_complete_path(
+#         #                                   'edge_type_lr_train_30_5_edge.npy'.format(self.config['data_name']))
+#
+#         # if self.config['model_name'] in ['rgcn', 'rgat', 'rsage']:
+#         #     self.edge_type_data = np.load(edge_type_file)
+#         #     self.edge_type_data = torch.from_numpy(self.edge_type_data).long()
+#
+#         if self.verbose:
+#             self.print_header("DATA STATISTICS:")
+#             # if self.config['model_name'] != 'HGCN':
+#             #     print("Contains isolated nodes = ", isolated_nodes)
+#             #     print("Contains self loops = ", self_loops)
+#             print("Vocabulary size = ", self.vocab_size)
+#             print('No. of nodes in graph = ', num_nodes)
+#
+#             # print('No. of nodes after removing isolated nodes = ', new_num_nodes)
+#
+#             # TODO: print this only once data is loaded!
+#             print("No. of edges in graph = ", self.data.num_edges)
+#             print("\nNo.of train instances = ", self.data.train_mask.sum().item())
+#             print("No.of val instances = ", self.data.val_mask.sum().item())
+#             nr_test_instances = num_nodes - self.data.train_mask.sum().item() - self.data.val_mask.sum().item()
+#             print(f"No.of test instances = {nr_test_instances}")
+#
+#             hours, minutes, seconds = self.calc_elapsed_time(start, time.time())
+#             self.print_header(f'Took  {hours:0>2} hours: {minutes:0>2} mins: {seconds:05.2f} secs  to Prepare Data')
+#
+#     def initialize_graph(self):
+#
+#         self.print_step("Initializing TorchGeom graph")
+#
+#         if self.verbose:
+#             print("\n\n==>> Clustering the graph and preparing dataloader....")
+#
+#         self.data = Data(x=self.x_data.float(), edge_index=self.edge_index_data.long(),
+#                          edge_attr=self.edge_type_data, y=self.y_data)
+#         new_num_nodes, _ = self.data.x.shape
+#
+#         self.data.train_mask = torch.FloatTensor(self.split_masks['train_mask'])
+#         self.data.val_mask = torch.FloatTensor(self.split_masks['val_mask'])
+#         self.data.representation_mask = torch.FloatTensor(self.split_masks['repr_mask'])
+#
+#         self.data.node2id = torch.tensor(list(self.node2id.values()))
+#         # self.data.node_type = self.node_type
+#
+#         # if not self.config['full_graph']:
+#         #     if self.config['cluster']:
+#         #         cluster_data = ClusterData(self.data, num_parts=self.config['clusters'], recursive=False)
+#         #         self.loader = ClusterLoader(cluster_data, batch_size=self.config['batch_size'],
+#         #                                     shuffle=self.config['shuffle'], num_workers=0)
+#         #     elif self.config['saint'] == 'random_walk':
+#         #         self.loader = GraphSAINTRandomWalkSampler(self.data, batch_size=6000, walk_length=2, num_steps=5,
+#         #                                                   sample_coverage=100, num_workers=0)
+#         #     elif self.config['saint'] == 'node':
+#         #         self.loader = GraphSAINTNodeSampler(self.data, batch_size=6000, num_steps=5, sample_coverage=100,
+#         #                                             num_workers=0)
+#         #     elif self.config['saint'] == 'edge':
+#         #         self.loader = GraphSAINTEdgeSampler(self.data, batch_size=6000, num_steps=5, sample_coverage=100,
+#         #                                             num_workers=0)
+#         # else:
+#         self.loader = None
+#
+#         return self.loader, self.vocab_size, self.data
 
 
 class DglGraphDataset(GraphIO, DGLDataset):
@@ -140,8 +140,8 @@ class DglGraphDataset(GraphIO, DGLDataset):
     Parent class for graph datasets. It loads the graph from respective files.
     """
 
-    def __init__(self, corpus):
-        super().__init__(dataset=corpus, complete_dir=COMPLETE_DIR)
+    def __init__(self, corpus, complete_dir=COMPLETE_DIR):
+        super().__init__(dataset=corpus, complete_dir=complete_dir)
 
         self.num_features = None
 
@@ -199,8 +199,8 @@ class DglGraphDataset(GraphIO, DGLDataset):
         # print(f"Created DGL graph, saving it in: {graph_file}")
         # dgl.save_graphs(graph_file, g)
 
-    # def process(self):
-    #     pass
+    def process(self):
+        pass
 
     def __getitem__(self, i):
         return self.graph
@@ -248,44 +248,47 @@ class SubGraphs:
 
             sampled_node_ids.append(selected_node)
 
-    def as_dataloader(self, shuffle=False):
-        """
-
-        :param shuffle:
-        :return:
-        """
-
-        # db = DataLoader(train_sub_graphs, args.task_num, shuffle=True, num_workers=args.num_workers, pin_memory=True,
-        #                 collate_fn=collate)
-        # return geom_data.DataLoader(self)
-        # TODO: shuffle should be True?
-        return DataLoader(self, batch_size=self.batch_size, shuffle=False, num_workers=24, pin_memory=True,
-                          collate_fn=self.get_collate_fn())
-
-    def get_collate_fn(self):
-        """
-        Function (collate_fn) to be used to preprocess a batch in the Dataloader.
-        We need to create sub graphs here from the node IDs in the current batch.
-        """
-
-        def collate_fn(batch_node_ids):
-            """
-            Receives a batch of node IDs for which sub graphs need to be generated on the flight.
-            """
-            labels = [self.graph.graph.ndata['label'][node_id] for node_id in batch_node_ids]
-            batch_sub_graphs = [self.generate_subgraph(node_id) for node_id in batch_node_ids]
-            # labels = torch.LongTensor(support_y_relative)
-            # assert len(batch_sub_graphs) == len(labels)
-            return dgl.batch(batch_sub_graphs) #, labels
-
-        return collate_fn
-
     @abc.abstractmethod
     def generate_subgraph(self, node_id):
         """
         Generate sub graphs on the flight.
         """
         raise NotImplementedError
+
+
+# outside of the subgraph class because the collate function can not be pickled
+def as_dataloader(sub_graph, shuffle=False):
+    """
+
+    :param shuffle:
+    :return:
+    """
+
+    # db = DataLoader(train_sub_graphs, args.task_num, shuffle=True, num_workers=args.num_workers, pin_memory=True,
+    #                 collate_fn=collate)
+    # return geom_data.DataLoader(self)
+    # TODO: shuffle should be True?
+    return DataLoader(sub_graph, batch_size=sub_graph.batch_size, shuffle=False, num_workers=24, pin_memory=True,
+                      collate_fn=get_collate_fn(sub_graph))
+
+
+def get_collate_fn(sub_graph):
+    """
+    Function (collate_fn) to be used to preprocess a batch in the Dataloader.
+    We need to create sub graphs here from the node IDs in the current batch.
+    """
+
+    def collate_fn(batch_node_ids):
+        """
+        Receives a batch of node IDs for which sub graphs need to be generated on the flight.
+        """
+        labels = [sub_graph.graph.graph.ndata['label'][node_id] for node_id in batch_node_ids]
+        batch_sub_graphs = [sub_graph.generate_subgraph(node_id) for node_id in batch_node_ids]
+        # labels = torch.LongTensor(support_y_relative)
+        # assert len(batch_sub_graphs) == len(labels)
+        return dgl.batch(batch_sub_graphs)  # , labels
+
+    return collate_fn
 
 
 class DGLSubGraphs(SubGraphs):
@@ -358,20 +361,20 @@ class DGLSubGraphs(SubGraphs):
         #     h_hops_neighbor = np.unique(np.append(h_hops_neighbor, [i]))
 
 
-class TorchGeomSubGraphs(SubGraphs):
-    """
-    Sub graphs class for a smaller graph constructed through the k-hop neighbors of one centroid node.
-    """
-
-    def __init__(self, full_graph, mode, b_size, h_size):
-        super().__init__(full_graph, mode, b_size, h_size)
-
-    def generate_subgraph(self, node_id):
-        """
-        Generates a sub graph using torch.geometric.
-        """
-
-        edge_matrix_file = self.data_complete_path(EDGE_INDEX_FILE_NAME)
-        print("saving edge_type list format in :  ", edge_matrix_file)
-        edge_index_matrix = np.load(edge_matrix_file, allow_pickle=True)
-        torch_geometric.utils.k_hop_subgraph(node_id, self.hop_size, edge_index_matrix)
+# class TorchGeomSubGraphs(SubGraphs):
+#     """
+#     Sub graphs class for a smaller graph constructed through the k-hop neighbors of one centroid node.
+#     """
+#
+#     def __init__(self, full_graph, mode, b_size, h_size):
+#         super().__init__(full_graph, mode, b_size, h_size)
+#
+#     def generate_subgraph(self, node_id):
+#         """
+#         Generates a sub graph using torch.geometric.
+#         """
+#
+#         edge_matrix_file = self.data_complete_path(EDGE_INDEX_FILE_NAME)
+#         print("saving edge_type list format in :  ", edge_matrix_file)
+#         edge_index_matrix = np.load(edge_matrix_file, allow_pickle=True)
+#         torch_geometric.utils.k_hop_subgraph(node_id, self.hop_size, edge_index_matrix)
