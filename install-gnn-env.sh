@@ -18,10 +18,10 @@ source activate gnn-env
 conda install pytorch cudatoolkit=10.2 -c pytorch
 
 pip3 install --no-cache-dir torch==1.8.1+cu102 -f https://download.pytorch.org/whl/torch_stable.html
-pip3 install --no-cache-dir torch-scatter -f https://pytorch-geometric.com/whl/torch-1.7.0+cu102.html
+#pip3 install --no-cache-dir torch-scatter -f https://pytorch-geometric.com/whl/torch-1.7.0+cu102.html
 pip3 install --no-cache-dir torch-sparse -f https://pytorch-geometric.com/whl/torch-1.7.0+cu102.html
-pip3 install --no-cache-dir torch-cluster -f https://pytorch-geometric.com/whl/torch-1.7.0+cu102.html
-pip3 install --no-cache-dir torch-spline-conv -f https://pytorch-geometric.com/whl/torch-1.7.0+cu102.html
+#pip3 install --no-cache-dir torch-cluster -f https://pytorch-geometric.com/whl/torch-1.7.0+cu102.html
+#pip3 install --no-cache-dir torch-spline-conv -f https://pytorch-geometric.com/whl/torch-1.7.0+cu102.html
 pip3 install --no-cache-dir torch-geometric
 
 pip3 install --no-cache-dir dgl
