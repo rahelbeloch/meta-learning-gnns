@@ -29,7 +29,7 @@ def get_data(data_name, model, data_dir):
         raise ValueError("Data with name '%s' is not supported." % data_name)
 
     if model == 'gat':
-        # TODO: create batch of sub graphs (only via node indices) --> every data point can have a different label
+
 
         # load the whole graph once (it internally has the train/val/test masks)
         # graph_data = TorchGeomGraphDataset(data_name)
@@ -39,10 +39,10 @@ def get_data(data_name, model, data_dir):
         # test_sub_graphs = TorchGeomSubGraphs(graph_data, 'test', b_size=128, h_size=2)
 
         graph_data = DglGraphDataset(data_name, data_dir)
-        train_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'train', b_size=6, h_size=2))
-        val_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'val', b_size=6, h_size=2))
-        test_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'test', b_size=6, h_size=2))
-
+        train_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'train_mask', b_size=6, h_size=2))
+        val_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'val_mask', b_size=6, h_size=2))
+        # test_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'test_mask', b_size=6, h_size=2))
+        test_sub_graphs = None
         return train_sub_graphs, val_sub_graphs, test_sub_graphs, graph_data.num_features
 
     # if data_name == 'HealthRelease':

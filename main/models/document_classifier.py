@@ -2,6 +2,7 @@ import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
 from torch import nn
+from torch_geometric.nn import GATv2Conv
 
 
 class DocumentClassifier(pl.LightningModule):
@@ -10,7 +11,7 @@ class DocumentClassifier(pl.LightningModule):
     and overwriting standard functions for training and optimization.
     """
 
-    def __init__(self, graph, model_hparams, optimizer_hparams, checkpoint=None, transfer=False, h_search=False):
+    def __init__(self, model_hparams, optimizer_hparams, checkpoint=None, transfer=False, h_search=False):
         """
         Args:
             model_hparams - Hyperparameters for the whole model, as dictionary.
@@ -23,20 +24,21 @@ class DocumentClassifier(pl.LightningModule):
         self.save_hyperparameters()
 
         model_name = model_hparams['model']
+        cf_hidden_dim = model_hparams['cf_hid_dim']
+        num_classes = model_hparams['output_dim']
 
         if model_name == 'gat':
-            self.model = GATEncoder(graph, model_hparams['input_dim'], model_hparams['output_dim'], hidden_dim=8,
-                                    num_heads=2)
+            self.model = GATEncoder(model_hparams['input_dim'], hidden_dim=cf_hidden_dim, num_heads=2)
+            self.classifier = nn.Sequential(
+                # TODO: maybe
+                # nn.Dropout(config["dropout"]),
+                nn.Linear(3 * cf_hidden_dim, cf_hidden_dim),
+                nn.ReLU(),
+                nn.Linear(cf_hidden_dim, num_classes))
         else:
             raise ValueError("Model type '%s' is not supported." % model_name)
 
-        cf_hidden_dim = model_hparams['cf_hid_dim']
-
-        # self.classifier = nn.Sequential(
-        #     nn.Linear(model_hparams['output_dim'], cf_hidden_dim),
-        #     nn.ReLU(),
-        #     nn.Linear(cf_hidden_dim, model_hparams['num_classes'])
-        # )
+        self.loss_module = nn.CrossEntropyLoss()
 
     def configure_optimizers(self):
         """
@@ -85,22 +87,49 @@ class DocumentClassifier(pl.LightningModule):
         return (labels == predictions.argmax(dim=-1)).float().mean()
 
     def training_step(self, batch, _):
-        out, labels = self.model(batch, mode='train')
-        # predictions = self.classifier(out)
-        loss = self.loss_module(out, labels)
+        # , mode='train'
+        sub_graphs, labels = batch
 
-        self.log('train_accuracy', self.accuracy(out, labels).item(), on_step=False, on_epoch=True)
+        out, node_mask = self.model(sub_graphs)
+
+        predictions = self.classifier(out)
+        loss = self.loss_module(predictions, labels)
+
+        self.log('train_accuracy', self.accuracy(predictions, labels).item(), on_step=False, on_epoch=True)
         self.log('train_loss', loss)
 
         # logging in optimizer step does not work, therefore here
         self.log('lr_rate', self.lr_scheduler.get_lr()[0])
         return loss
 
+    # def training_step(self, batch, _):
+    #     logits = self.model(batch, mode='train')
+    #
+    #     unbatched = dgl.unbatch(batch)
+    #
+    #     classification_mask = batch.ndata['classification_mask']
+    #     labels = batch.ndata['label'][classification_mask]
+    #     predictions = logits[classification_mask]
+    #
+    #     # predictions = self.classifier(out)
+    #     loss = self.loss_module(predictions, labels)
+    #
+    #     self.log('train_accuracy', self.accuracy(predictions, labels).item(), on_step=False, on_epoch=True)
+    #     self.log('train_loss', loss)
+    #
+    #     # logging in optimizer step does not work, therefore here
+    #     # self.log('lr_rate', self.lr_scheduler.get_lr()[0])
+    #     return loss
+
     def validation_step(self, batch, _):
         # By default logs it per epoch (weighted average over batches)
-        out, labels = self.model(batch, mode='val')
-        # predictions = self.classifier(out)
-        self.log('val_accuracy', self.accuracy(out, labels))
+        logits = self.model(batch, mode='val')
+
+        classification_mask = batch.ndata['classification_mask']
+        labels = batch.ndata['label'][classification_mask]
+        predictions = logits[classification_mask]
+
+        self.log('val_accuracy', self.accuracy(predictions, labels))
 
     def test_step(self, batch, _):
         # By default logs it per epoch (weighted average over batches)
@@ -190,96 +219,140 @@ class DocumentClassifier(pl.LightningModule):
 #
 #         return node_feats
 
+# Using GATConv from torch geometric
 class GATEncoder(nn.Module):
-    def __init__(self, graph, in_dim, out_dim, hidden_dim, num_heads):
+    def __init__(self, in_dim, hidden_dim, num_heads, merge='mean'):
         super(GATEncoder, self).__init__()
 
-        # assert out_dim % num_heads == 0, "Number of output features must be a multiple of the count of heads."
-        # out_dim = out_dim // num_heads
+        self.conv1 = GATv2Conv(in_dim, hidden_dim, heads=num_heads, concat=merge == 'cat', dropout=0.1)
+        self.conv2 = GATv2Conv(3 * hidden_dim, hidden_dim, heads=num_heads, concat=merge == 'cat', dropout=0.1)
 
-        self.layer1 = MultiHeadGATLayer(graph, in_dim, hidden_dim, num_heads)
+    def forward(self, sub_graphs):
+        # TODO: check what this is
+        # node_mask = torch.FloatTensor(x.shape[0], 1).uniform_() > self.node_drop
+        # if self.training:
+        #     x = node_mask.to(device) * x  # / (1 - self.node_drop)
+        node_mask = None
 
-        # Be aware that the input dimension is hidden_dim*num_heads since
-        # multiple head outputs are concatenated together. Also, only
-        # one attention head in the output layer.
+        # Check if we can get edge weights
+        x, edge_index = sub_graphs.ndata['feat'], torch.stack(sub_graphs.all_edges())
 
-        self.layer2 = MultiHeadGATLayer(graph, hidden_dim * num_heads, out_dim, 1)
+        x = self.conv1(x.float(), edge_index)
+        x = F.relu(x)
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        # TODO: add edge weight?
+        x = self.conv2(x.float(), edge_index)
 
-    def forward(self, node_feat):
-        node_feat = self.layer1(node_feat)
-        node_feat = F.elu(node_feat)
-        node_feat = self.layer2(node_feat)
-        return node_feat
+        return x, node_mask
 
+# Taken from: https://www.dgl.ai/blog/2019/02/17/gat.html (GAT Encoder in DGL)
 
-class MultiHeadGATLayer(nn.Module):
-    def __init__(self, graph, in_dim, out_dim, num_heads, merge='cat'):
-        super(MultiHeadGATLayer, self).__init__()
-        self.heads = nn.ModuleList()
-        for i in range(num_heads):
-            self.heads.append(GatLayer(graph, in_dim, out_dim))
-        self.merge = merge
-
-    def forward(self, h):
-        head_outs = [attn_head(h) for attn_head in self.heads]
-        if self.merge == 'cat':
-            # concat on the output feature dimension (dim=1)
-            return torch.cat(head_outs, dim=1)
-        else:
-            # merge using average
-            return torch.mean(torch.stack(head_outs))
-
-
-class GatLayer(nn.Module):
-
-    def __init__(self, graph, in_dim, out_dim):
-        super(GatLayer, self).__init__()
-
-        self.graph = graph
-
-        # equation (1)
-        self.fc = nn.Linear(in_dim, out_dim, bias=False)
-
-        # equation (2)
-        self.attn_fc = nn.Linear(2 * out_dim, 1, bias=False)
-
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        """
-        Reinitialize learnable parameters.
-        """
-
-        gain = nn.init.calculate_gain('relu')
-        nn.init.xavier_normal_(self.fc.weight, gain=gain)
-        nn.init.xavier_normal_(self.attn_fc.weight, gain=gain)
-
-    def edge_attention(self, edges):
-        # edge UDF for equation (2)
-        z2 = torch.cat([edges.src['z'], edges.dst['z']], dim=1)
-        a = self.attn_fc(z2)
-        return {'e': F.leaky_relu(a)}
-
-    @staticmethod
-    def message_func(edges):
-        # message UDF for equation (3) & (4)
-        return {'z': edges.src['z'], 'e': edges.data['e']}
-
-    @staticmethod
-    def reduce_func(nodes):
-        # reduce UDF for equation (3) & (4)
-        # equation (3)
-        alpha = F.softmax(nodes.mailbox['e'], dim=1)
-        # equation (4)
-        h = torch.sum(alpha * nodes.mailbox['z'], dim=1)
-        return {'h': h}
-
-    def forward(self, h):
-        # equation (1)
-        z = self.fc(h)
-        self.graph.ndata['z'] = z
-        # equation (2)
-        self.graph.apply_edges(self.edge_attention)
-        # equation (3) & (4)
-        self.graph.update_all(self.message_func, self.reduce_func)
-        return self.g.ndata.pop('h')
+# class GATEncoder(nn.Module):
+#     def __init__(self, in_dim, out_dim, hidden_dim, num_heads, merge='mean'):
+#         super(GATEncoder, self).__init__()
+#
+#         self.merge = merge
+#
+#         # assert out_dim % num_heads == 0, "Number of output features must be a multiple of the count of heads."
+#         # out_dim = out_dim // num_heads
+#
+#         self.layer1 = MultiHeadGATLayer(in_dim, hidden_dim, num_heads, merge)
+#
+#         # Be aware that the input dimension is hidden_dim*num_heads since
+#         # multiple head outputs are concatenated together. Also, only
+#         # one attention head in the output layer.
+#
+#         if self.merge == 'cat':
+#             self.layer2 = MultiHeadGATLayer(hidden_dim * num_heads, out_dim, 1, merge)
+#         elif self.merge == 'mean':
+#             self.layer2 = MultiHeadGATLayer(hidden_dim, out_dim, 1, merge)
+#
+#     def forward(self, graph, mode):
+#         # graph.ndata is a dict containing keys: ['feat', 'label', 'train_mask', 'val_mask', '_ID']
+#         node_feat = graph.ndata['feat'].float()
+#
+#         node_feat = self.layer1(graph, node_feat)
+#         node_feat = F.elu(node_feat)
+#         node_feat = self.layer2(graph, node_feat)
+#
+#         # return node_feat
+#         return node_feat
+#
+#
+# class MultiHeadGATLayer(nn.Module):
+#     def __init__(self, in_dim, out_dim, num_heads, merge):
+#         super(MultiHeadGATLayer, self).__init__()
+#         self.heads = nn.ModuleList()
+#         for i in range(num_heads):
+#             self.heads.append(GatLayer(in_dim, out_dim))
+#         self.merge = merge
+#
+#     def forward(self, graph, h):
+#         head_outs = [attn_head(graph, h) for attn_head in self.heads]
+#         if self.merge == 'cat':
+#             # concat on the output feature dimension (dim=1)
+#             return torch.cat(head_outs, dim=1)
+#         elif self.merge == 'mean':
+#             # merge using average torch.mean(torch.stack(head_outs), dim=0)
+#             # TODO: fix dimensions when using mean
+#             # return torch.mean(torch.stack(head_outs))
+#             return torch.mean(torch.stack(head_outs), dim=0)
+#
+#
+# class GatLayer(nn.Module):
+#
+#     def __init__(self, in_dim, out_dim):
+#         super(GatLayer, self).__init__()
+#
+#         # equation (1)
+#         self.fc = nn.Linear(in_dim, out_dim, bias=False)
+#
+#         # equation (2)
+#         self.attn_fc = nn.Linear(2 * out_dim, 1, bias=False)
+#
+#         self.reset_parameters()
+#
+#     def reset_parameters(self):
+#         """
+#         Reinitialize learnable parameters.
+#         """
+#
+#         gain = nn.init.calculate_gain('relu')
+#         nn.init.xavier_normal_(self.fc.weight, gain=gain)
+#         nn.init.xavier_normal_(self.attn_fc.weight, gain=gain)
+#
+#     def edge_attention(self, edges):
+#         # edge UDF for equation (2)
+#         z2 = torch.cat([edges.src['z'], edges.dst['z']], dim=1)
+#         a = self.attn_fc(z2)
+#         return {'e': F.leaky_relu(a)}
+#
+#     @staticmethod
+#     def message_func(edges):
+#         # message UDF for equation (3) & (4)
+#         return {'z': edges.src['z'], 'e': edges.data['e']}
+#
+#     @staticmethod
+#     def reduce_func(nodes):
+#         # reduce UDF for equation (3) & (4)
+#         # equation (3)
+#         alpha = F.softmax(nodes.mailbox['e'], dim=1)
+#         # equation (4)
+#         h = torch.sum(alpha * nodes.mailbox['z'], dim=1)
+#         return {'h': h}
+#
+#     def forward(self, graph, h):
+#         # equation (1)
+#         z = self.fc(h)
+#
+#         graph.ndata['z'] = z
+#
+#         # equation (2)
+#         graph.apply_edges(self.edge_attention)
+#
+#         # equation (3) & (4)
+#         graph.update_all(self.message_func, self.reduce_func)
+#
+#         h = graph.ndata.pop('h')
+#
+#         return h

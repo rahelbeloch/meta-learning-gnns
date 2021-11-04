@@ -54,7 +54,7 @@ def train(model_name, seed, epochs, patience, b_size, l_rate_enc, l_rate_cl, w_d
     trainer = initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, w_decay_enc, w_decay_cl, warmup,
                                  seed, data_name, transfer, checkpoint)
 
-    model = DocumentClassifier(None, model_params, optimizer_hparams, checkpoint, transfer, h_search)
+    model = DocumentClassifier(model_params, optimizer_hparams, checkpoint, transfer, h_search)
 
     # Training
     print('Fitting model ..........\n')
