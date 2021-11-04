@@ -25,5 +25,6 @@ pip3 install --no-cache-dir torch-sparse -f https://pytorch-geometric.com/whl/to
 pip3 install --no-cache-dir torch-geometric
 
 pip3 install --no-cache-dir dgl
+pip3 install --no-cache-dir pandas
 
 #pip3 install -r requirements.txt
