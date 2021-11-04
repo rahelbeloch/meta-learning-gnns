@@ -311,17 +311,8 @@ def collate_fn_new(batch_samples):
     Receives a batch of node IDs for which sub graphs need to be generated on the flight.
     :param batch_samples: List of pairs where each pair is: (graph, label)
     """
-    # graphs_spt, labels_spt, graph_qry, labels_qry, center_spt, center_qry, nodeidx_spt, nodeidx_qry, support_graph_idx, query_graph_idx = map(
-    #     list, zip(*batch_samples))
-
-    graphs, labels = [], []
-    for graph, label in batch_samples:
-        graphs.append(graph)
-        labels.append(label)
-    graphs = dgl.batch(graphs)
-    labels = torch.LongTensor(labels)
-
-    return graphs, labels,  # center, node_idx, graph_idx
+    graphs, labels = list(map(list, zip(*batch_samples)))
+    return dgl.batch(graphs), torch.LongTensor(labels),  # center, node_idx, graph_idx
 
 
 class DGLSubGraphs(SubGraphs):
