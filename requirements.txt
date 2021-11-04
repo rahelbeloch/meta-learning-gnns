@@ -22,20 +22,20 @@
 
 # project specific packages
 sklearn~=0.0
-joblib==1.0.1
-numpy==1.21.2
-scikit-learn==1.0
-threadpoolctl==2.2.0
+joblib==1.1.0
+numpy==1.21.3
+scikit-learn==1.0.1
+threadpoolctl==3.0.0
 scipy~=1.7.1
-nltk~=3.6.3
+nltk~=3.6.5
 
 # pytest
 attrs~=21.2.0
 iniconfig~=1.1.1
-packaging~=21.0
+packaging~=21.2
 pluggy~=1.0.0
-py~=1.10.0
-pyparsing~=2.4.7
+py~=1.11.0
+pyparsing~=3.0.4
 pytest~=6.2.5
 toml~=0.10.2
 
