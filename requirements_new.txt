@@ -1,0 +1,7 @@
+torch==1.8.1+cu102 -f https://download.pytorch.org/whl/torch_stable.html
+
+torch-sparse -f https://pytorch-geometric.com/whl/torch-1.8.0+cu102.html
+torch-scatter -f https://pytorch-geometric.com/whl/torch-1.8.0+cu102.html
+#torch-cluster -f https://pytorch-geometric.com/whl/torch-1.8.0+cu102.html
+#torch-spline-conv -f https://pytorch-geometric.com/whl/torch-1.8.0+cu102.html
+torch-geometric
