@@ -239,7 +239,8 @@ class GATEncoder(nn.Module):
 
         x = self.conv1(x.float(), edge_index)
         x = F.relu(x)
-        x = F.dropout(x, p=self.dropout, training=self.training)
+        # TODO: add dropout
+        # x = F.dropout(x, p=self.dropout, training=self.training)
         # TODO: add edge weight?
         x = self.conv2(x.float(), edge_index)
 

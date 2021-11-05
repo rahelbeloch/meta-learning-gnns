@@ -56,7 +56,7 @@ def get_data(data_name, model, data_dir, batch_size):
 
 def sample_sub_graphs():
     """
-    G-Meta samples subgraphs based on a train/test/val distribution of labels, where every label appears exactly once in
+    G-Meta samples sub graphs based on a train/test/val distribution of labels, where every label appears exactly once in
     one of the splits. The assignment is done randomized. We can not do this (with HealthStory), because we have
     only labels 0 and 1. Therefore, we need to rely on the randomized assignment of nodes to the different splits.
     We are already doing this --> we can immediately generate subgraphs on the flight for each node.
