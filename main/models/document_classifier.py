@@ -32,7 +32,9 @@ class DocumentClassifier(pl.LightningModule):
             self.classifier = nn.Sequential(
                 # TODO: maybe
                 # nn.Dropout(config["dropout"]),
-                nn.Linear(3 * cf_hidden_dim, cf_hidden_dim),
+                # WHY??
+                # nn.Linear(3 * cf_hidden_dim, cf_hidden_dim),
+                nn.Linear(cf_hidden_dim, cf_hidden_dim),
                 nn.ReLU(),
                 nn.Linear(cf_hidden_dim, num_classes))
         else:
@@ -92,14 +94,17 @@ class DocumentClassifier(pl.LightningModule):
 
         out, node_mask = self.model(sub_graphs)
 
+        # only predict for the center node
+        out = out[sub_graphs.ndata['classification_mask']]
         predictions = self.classifier(out)
         loss = self.loss_module(predictions, labels)
 
         self.log('train_accuracy', self.accuracy(predictions, labels).item(), on_step=False, on_epoch=True)
         self.log('train_loss', loss)
 
+        # TODO: add scheduler
         # logging in optimizer step does not work, therefore here
-        self.log('lr_rate', self.lr_scheduler.get_lr()[0])
+        # self.log('lr_rate', self.lr_scheduler.get_lr()[0])
         return loss
 
     # def training_step(self, batch, _):
@@ -121,13 +126,13 @@ class DocumentClassifier(pl.LightningModule):
     #     # self.log('lr_rate', self.lr_scheduler.get_lr()[0])
     #     return loss
 
-    def validation_step(self, batch, _):
+    def validation_step(self, subgraph_batch, _):
         # By default logs it per epoch (weighted average over batches)
-        logits = self.model(batch, mode='val')
+        sub_graphs, labels = subgraph_batch
 
-        classification_mask = batch.ndata['classification_mask']
-        labels = batch.ndata['label'][classification_mask]
-        predictions = logits[classification_mask]
+        out, node_mask = self.model(sub_graphs)
+        out = out[sub_graphs.ndata['classification_mask']]
+        predictions = self.classifier(out)
 
         self.log('val_accuracy', self.accuracy(predictions, labels))
 
@@ -225,7 +230,11 @@ class GATEncoder(nn.Module):
         super(GATEncoder, self).__init__()
 
         self.conv1 = GATv2Conv(in_dim, hidden_dim, heads=num_heads, concat=merge == 'cat', dropout=0.1)
-        self.conv2 = GATv2Conv(3 * hidden_dim, hidden_dim, heads=num_heads, concat=merge == 'cat', dropout=0.1)
+
+        # why 3 * hidden_dim??
+        # self.conv2 = GATv2Conv(3*hidden_dim, hidden_dim, heads=num_heads, concat=merge == 'cat', dropout=0.1)
+
+        self.conv2 = GATv2Conv(hidden_dim, hidden_dim, heads=num_heads, concat=merge == 'cat', dropout=0.1)
 
     def forward(self, sub_graphs):
         # TODO: check what this is
