@@ -39,8 +39,8 @@ def get_data(data_name, model, data_dir, batch_size):
         # test_sub_graphs = TorchGeomSubGraphs(graph_data, 'test', b_size=128, h_size=2)
 
         graph_data = DglGraphDataset(data_name, data_dir)
-        train_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'train_mask', b_size=batch_size, h_size=2))
-        val_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'val_mask', b_size=batch_size, h_size=2))
+        train_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'train_mask', b_size=batch_size, h_size=1))
+        val_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'val_mask', b_size=batch_size, h_size=1))
         # test_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'test_mask', b_size=batch_size, h_size=2))
         test_sub_graphs = None
         return train_sub_graphs, val_sub_graphs, test_sub_graphs, graph_data.num_features
