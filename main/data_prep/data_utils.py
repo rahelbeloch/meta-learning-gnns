@@ -15,7 +15,7 @@ SUPPORTED_DATASETS = ['HealthRelease', 'HealthStory']
 #     return json.load(open(file_name, 'r'))
 
 
-def get_data(data_name, model, data_dir):
+def get_data(data_name, model, data_dir, batch_size):
     """
     Creates and returns the correct data object depending on data_name.
     Args:
@@ -39,9 +39,9 @@ def get_data(data_name, model, data_dir):
         # test_sub_graphs = TorchGeomSubGraphs(graph_data, 'test', b_size=128, h_size=2)
 
         graph_data = DglGraphDataset(data_name, data_dir)
-        train_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'train_mask', b_size=6, h_size=2))
-        val_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'val_mask', b_size=6, h_size=2))
-        # test_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'test_mask', b_size=6, h_size=2))
+        train_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'train_mask', b_size=batch_size, h_size=2))
+        val_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'val_mask', b_size=batch_size, h_size=2))
+        # test_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'test_mask', b_size=batch_size, h_size=2))
         test_sub_graphs = None
         return train_sub_graphs, val_sub_graphs, test_sub_graphs, graph_data.num_features
 

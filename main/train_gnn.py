@@ -33,7 +33,7 @@ def train(model_name, seed, epochs, patience, b_size, l_rate_enc, l_rate_cl, w_d
 
     # the data preprocessing
 
-    train_loader, val_loader, test_loader, num_features = get_data("HealthStory", "gat", data_dir)
+    train_loader, val_loader, test_loader, num_features = get_data("HealthStory", "gat", data_dir, b_size)
 
     optimizer_hparams = {"lr_enc": l_rate_enc,
                          "lr_cl": l_rate_cl,
@@ -117,7 +117,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--epochs', dest='epochs', type=int, default=50)
     parser.add_argument('--patience', dest='patience', type=int, default=10)
-    parser.add_argument('--batch-size', dest='batch_size', type=int, default=8)
+    parser.add_argument('--batch-size', dest='batch_size', type=int, default=4)
     parser.add_argument('--lr-enc', dest='l_rate_enc', type=float, default=0.01,
                         help="Encoder learning rate.")
     parser.add_argument('--lr-cl', dest='l_rate_cl', type=float, default=-1,
