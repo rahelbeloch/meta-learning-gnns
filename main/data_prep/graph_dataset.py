@@ -49,22 +49,22 @@ from data_prep.graph_io import GraphIO
 #
 #         start = time.time()
 #
-#         x_feat_matrix_file = self.data_complete_path(FEAT_MATRIX_FILE_NAME)
+#         x_feat_matrix_file = self.data_complete_path(FEAT_MATRIX_FILE_NAME % self.top_k)
 #         self.x_data = torch.from_numpy(load_npz(x_feat_matrix_file).toarray())
 #         num_nodes, self.vocab_size = self.x_data.shape
 #
-#         y_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME)
+#         y_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME % self.top_k)
 #         y_labels = json.load(open(y_labels_file, 'r'))
 #         self.y_data = torch.LongTensor(y_labels['all_labels'])
 #
-#         edge_index_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME)
+#         edge_index_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k)
 #         self.edge_index_data = torch.from_numpy(np.load(edge_index_file)).long()
 #
-#         node2id_file = self.data_complete_path(NODE_2_ID_FILE_NAME)
+#         node2id_file = self.data_complete_path(NODE_2_ID_FILE_NAME % self.top_k)
 #         self.node2id = json.load(open(node2id_file, 'r'))
 #
 #         # TODO: node type
-#         # node_type_file = self.data_complete_path( NODE_TYPE_FILE_NAME)
+#         # node_type_file = self.data_complete_path( NODE_TYPE_FILE_NAME % self.top_k)
 #         # node_type = np.load(node_type_file)
 #         # node_type = torch.from_numpy(node_type).float()
 #
@@ -167,12 +167,12 @@ class DglGraphDataset(GraphIO, DGLDataset):
 
         print(f'Graph does not exist, creating it.')
 
-        feat_matrix_file = self.data_complete_path(FEAT_MATRIX_FILE_NAME)
+        feat_matrix_file = self.data_complete_path(FEAT_MATRIX_FILE_NAME % self.top_k)
         feat_matrix = torch.from_numpy(load_npz(feat_matrix_file).toarray())
         n_nodes = feat_matrix.shape[0]
         self.num_features = feat_matrix.shape[1]
 
-        edge_list_file = self.data_complete_path(EDGE_LIST_FILE_NAME)
+        edge_list_file = self.data_complete_path(EDGE_LIST_FILE_NAME % self.top_k)
         edge_list = load_json_file(edge_list_file)
         src, dst = tuple(zip(*edge_list))
 
@@ -181,7 +181,7 @@ class DglGraphDataset(GraphIO, DGLDataset):
 
         g.ndata['feat'] = feat_matrix
 
-        y_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME)
+        y_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME % self.top_k)
         y_labels = load_json_file(y_labels_file)['all_labels']
         g.ndata['label'] = torch.LongTensor(y_labels)
 
@@ -423,7 +423,7 @@ class DGLSubGraphs(SubGraphs):
 #         Generates a sub graph using torch.geometric.
 #         """
 #
-#         edge_matrix_file = self.data_complete_path(EDGE_INDEX_FILE_NAME)
+#         edge_matrix_file = self.data_complete_path(EDGE_INDEX_FILE_NAME % self.top_k)
 #         print("saving edge_type list format in :  ", edge_matrix_file)
 #         edge_index_matrix = np.load(edge_matrix_file, allow_pickle=True)
 #         torch_geometric.utils.k_hop_subgraph(node_id, self.hop_size, edge_index_matrix)

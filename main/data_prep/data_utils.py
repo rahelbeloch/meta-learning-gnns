@@ -8,19 +8,22 @@ import torch
 from data_prep.config import ALL_LABELS_FILE_NAME
 from data_prep.graph_dataset import DGLSubGraphs, DglGraphDataset, as_dataloader
 
-SUPPORTED_DATASETS = ['HealthRelease', 'HealthStory']
+SUPPORTED_DATASETS = ['HealthRelease', 'HealthStory', 'gossipcop']
 
 
 # def load_json_file(file_name):
 #     return json.load(open(file_name, 'r'))
 
 
-def get_data(data_name, model, data_dir, batch_size):
+def get_data(data_name, model, data_dir, batch_size, hop_size):
     """
     Creates and returns the correct data object depending on data_name.
     Args:
         data_name (str): Name of the data corpus which should be used.
         model (str): Name of the model should be used.
+        data_dir (str): Path to the data (full & complete) to be used to create the graph (feature file, edge file etc.)
+        batch_size (str): Size of one batch.
+        hop_size (str): Number of hops used to create subgraphs.
     Raises:
         Exception: if the data_name is not in SUPPORTED_DATASETS.
     """
@@ -30,7 +33,6 @@ def get_data(data_name, model, data_dir, batch_size):
 
     if model == 'gat':
 
-
         # load the whole graph once (it internally has the train/val/test masks)
         # graph_data = TorchGeomGraphDataset(data_name)
         # loader, vocab_size, data = graph_data.initialize_graph_data()
@@ -39,10 +41,10 @@ def get_data(data_name, model, data_dir, batch_size):
         # test_sub_graphs = TorchGeomSubGraphs(graph_data, 'test', b_size=128, h_size=2)
 
         graph_data = DglGraphDataset(data_name, data_dir)
-        train_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'train_mask', b_size=batch_size, h_size=1))
-        val_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'val_mask', b_size=batch_size, h_size=1))
-        # test_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'test_mask', b_size=batch_size, h_size=2))
-        test_sub_graphs = None
+        train_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'train_mask', b_size=batch_size, h_size=hop_size))
+        val_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'val_mask', b_size=batch_size, h_size=hop_size))
+        test_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'test_mask', b_size=batch_size, h_size=hop_size))
+
         return train_sub_graphs, val_sub_graphs, test_sub_graphs, graph_data.num_features
 
     # if data_name == 'HealthRelease':
@@ -68,7 +70,7 @@ def sample_sub_graphs():
     # consist out of different permutation of labels
     num_label_set = 5
 
-    labels_file = "../../data/complete/FakeHealth/HealthStory/" + ALL_LABELS_FILE_NAME
+    labels_file = "../../data/complete/FakeHealth/HealthStory/" + ALL_LABELS_FILE_NAME % str(50)
     labels = json.load(open(labels_file, 'r'))
 
     all_labels = torch.LongTensor(labels['all_labels'])
