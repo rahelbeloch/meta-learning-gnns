@@ -29,7 +29,11 @@ class GraphIO:
         self.dataset = dataset
         self.top_k = top_k
 
-        self.data_raw_dir = self.create_dir(raw_dir)
+        if not os.path.exists(raw_dir):
+            raise ValueError(f"Wanting to preprocess data for dataset {dataset}, but dir with raw data "
+                             f"{raw_dir} does not exist!")
+        self.data_raw_dir = raw_dir
+
         self.data_tsv_dir = self.create_dir(tsv_dir)
         self.data_complete_dir = self.create_dir(complete_dir)
 
