@@ -60,7 +60,13 @@ class TSVPreprocessor(DataPreprocessor):
         print("\nCreating the data corpus file for: ", self.dataset)
 
         content_dest_dir = os.path.join(self.data_tsv_dir, self.dataset, CONTENT_INFO_FILE_NAME)
-        with open(content_dest_dir, 'a', encoding='utf-8') as csv_file:
+        if os.path.isfile(content_dest_dir):
+            print(f"\nTarget data file '{content_dest_dir}' already exists, overwriting it.")
+            open_mode = 'w'
+        else:
+            open_mode = 'a'
+
+        with open(content_dest_dir, open_mode, encoding='utf-8') as csv_file:
             csv_writer = csv.writer(csv_file, delimiter='\t')
             csv_writer.writerow(['id', 'title', 'text', 'label'])
             for file_content in contents:

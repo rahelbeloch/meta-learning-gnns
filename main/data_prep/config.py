@@ -32,7 +32,7 @@ EDGE_LIST_FILE_NAME = 'edge_list_top%s.json'
 FEAT_MATRIX_FILE = 'feat_matrix_lr_top%s_train'
 FEAT_MATRIX_FILE_NAME = f'{FEAT_MATRIX_FILE}.npz'
 
-SPLIT_MASK_FILE_NAME = 'split_mask_lr_30_5.json'
+SPLIT_MASK_FILE_NAME = 'split_mask_lr_top%s.json'
 
 # TOP_50_CONSTRAINT = 'top50'
 # TOP_10_CONSTRAINT = 'top10'
