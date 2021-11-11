@@ -17,17 +17,15 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
     def __init__(self, config):
         super().__init__(config)
 
-        # self.aggregate_user_contexts()
-        # self.create_doc_user_splits()
-        # self.create_doc_id_dicts()
-        # self.filter_user_contexts()
-        # self.create_adjacency_matrix()
+        self.aggregate_user_contexts()
+        self.create_doc_user_splits()
+        self.create_doc_id_dicts()
+        self.filter_user_contexts()
+        self.create_adjacency_matrix()
 
-        # self.create_feature_matrix()
-        # self.create_labels()
-        # self.create_split_masks()
-
-        # self.create_dgl_graph()
+        self.create_feature_matrix()
+        self.create_labels()
+        self.create_split_masks()
 
     def get_doc_key(self, name, name_type='dir'):
         if name_type == 'dir':

@@ -36,9 +36,7 @@ class FakeHealthGraphPreprocessor(GraphPreprocessor):
         # self.create_adjacency_matrix()
         # self.create_feature_matrix()
         # self.create_labels()
-        # self.create_split_masks()
-
-        # self.create_dgl_graph()
+        self.create_split_masks()
 
     def aggregate_user_contexts(self):
         """

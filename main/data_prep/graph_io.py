@@ -25,14 +25,18 @@ USER_CONTEXTS_FILTERED = ['user_followers_filtered', 'user_following_filtered']
 
 class GraphIO:
 
-    def __init__(self, dataset, raw_dir=RAW_DIR, tsv_dir=TSV_DIR, complete_dir=COMPLETE_DIR):
+    def __init__(self, dataset, top_k, raw_dir=RAW_DIR, tsv_dir=TSV_DIR, complete_dir=COMPLETE_DIR):
         self.dataset = dataset
+        self.top_k = top_k
 
         self.data_raw_dir = self.create_dir(raw_dir)
         self.data_tsv_dir = self.create_dir(tsv_dir)
         self.data_complete_dir = self.create_dir(complete_dir)
 
         self.train_docs, self.test_docs, self.val_docs = None, None, None
+
+    def print_step(self, step_title):
+        print(f'\n{"-" * 100}\n \t\t {step_title} for {self.dataset} dataset.\n{"-" * 100}')
 
     @staticmethod
     def create_dir(dir_name):
@@ -59,10 +63,9 @@ class GraphIO:
 class GraphPreprocessor(GraphIO):
 
     def __init__(self, config):
-        super().__init__(config['data_set'], config['data_raw_dir'], config['data_tsv_dir'],
+        super().__init__(config['data_set'], config['top_k'], config['data_raw_dir'], config['data_tsv_dir'],
                          config['data_complete_dir'])
         self.exclude_frequent_users = config['exclude_frequent']
-        self.top_k = config['top_k']
 
         # temporary attributes for data which has been loaded and will be reused
         self.doc2id, self.user2id = None, None
@@ -77,9 +80,6 @@ class GraphPreprocessor(GraphIO):
             doc2id_file = self.data_complete_path(DOC_2_ID_FILE_NAME % self.top_k)
             if os.path.exists(doc2id_file):
                 self.doc2id = json.load(open(doc2id_file, 'r'))
-
-    def print_step(self, step_title):
-        print(f'\n{"-" * 100}\n \t\t {step_title} for {self.dataset} dataset.\n{"-" * 100}')
 
     # @staticmethod
     # def print_header(header_title):
@@ -296,7 +296,7 @@ class GraphPreprocessor(GraphIO):
         node2id = self.doc2id.copy()
         node2id.update(user2id_train)
         print("node2id size = ", len(node2id))
-        node2id_file = self.data_complete_path('node2id_lr_top{self.top_k}.json')
+        node2id_file = self.data_complete_path(f'node2id_lr_top{self.top_k}.json')
         print("Saving node2id_lr in : ", node2id_file)
         with open(node2id_file, 'w+') as json_file:
             json.dump(node2id, json_file)
@@ -652,14 +652,6 @@ class GraphPreprocessor(GraphIO):
     def create_labels(self):
         raise NotImplementedError
 
-    # @abc.abstractmethod
-    # def create_split_masks(self):
-    #     raise NotImplementedError
-
-    @abc.abstractmethod
-    def create_dgl_graph(self):
-        raise NotImplementedError
-
     @staticmethod
     def np_converter(obj):
         """
@@ -683,6 +675,7 @@ class GraphPreprocessor(GraphIO):
 
         if self.n_total is None:
             adj_matrix_train = load_npz(self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k))
+            # need to add length of self test docs because matrix only contains train and validation nodes
             self.n_total = adj_matrix_train.shape[0]
             del adj_matrix_train
 

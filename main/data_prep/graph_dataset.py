@@ -142,8 +142,8 @@ class DglGraphDataset(GraphIO, DGLDataset):
     Parent class for graph datasets. It loads the graph from respective files.
     """
 
-    def __init__(self, corpus, complete_dir=COMPLETE_DIR):
-        super().__init__(dataset=corpus, complete_dir=complete_dir)
+    def __init__(self, corpus, top_k, complete_dir=COMPLETE_DIR):
+        super().__init__(dataset=corpus, top_k=top_k, complete_dir=complete_dir)
 
         self.num_features = None
 
@@ -187,7 +187,7 @@ class DglGraphDataset(GraphIO, DGLDataset):
 
         # If your dataset is a node classification dataset, you will need to assign
         # masks indicating whether a node belongs to training, validation, and test set.
-        split_mask_file = self.data_complete_path(SPLIT_MASK_FILE_NAME)
+        split_mask_file = self.data_complete_path(SPLIT_MASK_FILE_NAME % self.top_k)
         split_masks = load_json_file(split_mask_file)
 
         g.ndata['train_mask'] = torch.tensor(split_masks['train_mask'])

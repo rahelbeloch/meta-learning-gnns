@@ -16,7 +16,8 @@ SUPPORTED_MODELS = ['gat']
 LOG_PATH = "../logs/"
 
 
-def train(model_name, seed, epochs, patience, b_size, h_size, l_rate_enc, l_rate_cl, w_decay_enc, w_decay_cl, warmup, max_iters,
+def train(model_name, seed, epochs, patience, b_size, h_size, top_k, l_rate_enc, l_rate_cl, w_decay_enc, w_decay_cl,
+          warmup, max_iters,
           cf_hidden_dim, data_name, data_dir, checkpoint, transfer, h_search, eval=False):
     os.makedirs(LOG_PATH, exist_ok=True)
 
@@ -36,7 +37,8 @@ def train(model_name, seed, epochs, patience, b_size, h_size, l_rate_enc, l_rate
 
     # the data preprocessing
 
-    train_loader, val_loader, test_loader, num_features = get_data(data_name, model_name, data_dir, b_size, h_size)
+    train_loader, val_loader, test_loader, num_features = get_data(data_name, model_name, data_dir, b_size, h_size,
+                                                                   top_k)
 
     optimizer_hparams = {"lr_enc": l_rate_enc,
                          "lr_cl": l_rate_cl,
@@ -166,10 +168,9 @@ if __name__ == "__main__":
     parser.add_argument('--patience', dest='patience', type=int, default=10)
     parser.add_argument('--batch-size', dest='batch_size', type=int, default=2)
     parser.add_argument('--hop-size', dest='hop_size', type=int, default=2)
-    parser.add_argument('--lr-enc', dest='l_rate_enc', type=float, default=0.01,
-                        help="Encoder learning rate.")
-    parser.add_argument('--lr-cl', dest='l_rate_cl', type=float, default=-1,
-                        help="Classifier learning rate.")
+    parser.add_argument('--top-k', dest='top_k', type=int, default=50)
+    parser.add_argument('--lr-enc', dest='l_rate_enc', type=float, default=0.01, help="Encoder learning rate.")
+    parser.add_argument('--lr-cl', dest='l_rate_cl', type=float, default=-1, help="Classifier learning rate.")
     parser.add_argument("--w-decay-enc", dest='w_decay_enc', type=float, default=2e-3,
                         help="Encoder weight decay for L2 regularization of optimizer AdamW")
     parser.add_argument("--w-decay-cl", dest='w_decay_cl', type=float, default=-1,
@@ -184,7 +185,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--dataset', dest='dataset', default='gossipcop', choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use.')
-    parser.add_argument('--data-dir', dest='data_dir', default='../data/complete/FakeHealth',
+    parser.add_argument('--data-dir', dest='data_dir', default='../data/complete',
                         help='Select the dataset you want to use.')
     parser.add_argument('--model', dest='model', default='gat', choices=SUPPORTED_MODELS,
                         help='Select the model you want to use.')
@@ -206,6 +207,7 @@ if __name__ == "__main__":
         patience=params['patience'],
         b_size=params["batch_size"],
         h_size=params["hop_size"],
+        top_k=params["top_k"],
         l_rate_enc=params["l_rate_enc"],
         l_rate_cl=params["l_rate_cl"],
         w_decay_enc=params["w_decay_enc"],
