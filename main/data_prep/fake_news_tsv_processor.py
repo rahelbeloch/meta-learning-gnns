@@ -13,8 +13,8 @@ class TSVPreprocessor(DataPreprocessor):
         - TSV files for HealthStory or HealthRelease.
     """
 
-    def __init__(self, dataset):
-        super().__init__(dataset)
+    def __init__(self, dataset, top_k):
+        super().__init__(dataset, top_k)
 
     def corpus_to_tsv(self):
         """
@@ -77,6 +77,6 @@ class TSVPreprocessor(DataPreprocessor):
 
 if __name__ == '__main__':
     data = 'gossipcop'
-    preprocessor = TSVPreprocessor(data)
+    preprocessor = TSVPreprocessor(data, top_k=50)
     preprocessor.corpus_to_tsv()
     preprocessor.create_data_splits_standard()
