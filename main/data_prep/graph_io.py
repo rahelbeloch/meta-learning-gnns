@@ -29,7 +29,7 @@ class GraphIO:
         self.dataset = dataset
         self.top_k = top_k
 
-        if not os.path.exists(raw_dir):
+        if not os.path.exists(os.path.join(raw_dir, dataset)):
             raise ValueError(f"Wanting to preprocess data for dataset {dataset}, but dir with raw data "
                              f"{raw_dir} does not exist!")
         self.data_raw_dir = raw_dir
