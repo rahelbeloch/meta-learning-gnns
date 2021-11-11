@@ -17,7 +17,7 @@ import numpy as np
 from scipy.sparse import lil_matrix, save_npz
 from sklearn.model_selection import StratifiedShuffleSplit
 
-from data_prep.config import *
+from config import *
 
 USER_CONTEXTS = ['user_followers', 'user_following']
 USER_CONTEXTS_FILTERED = ['user_followers_filtered', 'user_following_filtered']
