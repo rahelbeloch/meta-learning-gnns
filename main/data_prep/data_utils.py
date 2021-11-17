@@ -11,10 +11,6 @@ from data_prep.graph_dataset import DGLSubGraphs, DglGraphDataset, as_dataloader
 SUPPORTED_DATASETS = ['HealthStory', 'gossipcop']
 
 
-# def load_json_file(file_name):
-#     return json.load(open(file_name, 'r'))
-
-
 def get_data(data_name, model, data_dir, batch_size, hop_size, top_k):
     """
     Creates and returns the correct data object depending on data_name.
@@ -32,7 +28,6 @@ def get_data(data_name, model, data_dir, batch_size, hop_size, top_k):
         raise ValueError("Data with name '%s' is not supported." % data_name)
 
     if model == 'gat':
-
         # load the whole graph once (it internally has the train/val/test masks)
         # graph_data = TorchGeomGraphDataset(data_name)
         # loader, vocab_size, data = graph_data.initialize_graph_data()

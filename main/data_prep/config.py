@@ -12,12 +12,6 @@ DOC_2_ID_FILE_NAME = 'doc2id_lr_top%s_train.json'
 NODE_2_ID_FILE_NAME = 'node2id_lr_top%s_train.json'
 NODE_TYPE_FILE_NAME = 'node_type_lr_top%s_train.npy'
 
-# USED for gossip cop! Check this!
-# USER_2_ID_FILE_NAME = 'user2id_lr_train_30_5.json'
-# DOC_2_ID_FILE_NAME = 'doc2id_lr_train_30_5.json'
-# NODE_2_ID_FILE_NAME = 'node2id_lr_train_30_5.json'
-# NODE_TYPE_FILE_NAME = 'node_type_lr_train_30_5.npy'
-
 VALID_USERS = 'valid_users_top%s.json'
 RESTRICTED_USERS = 'restricted_users_5.json'
 

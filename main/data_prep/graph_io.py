@@ -1,43 +1,40 @@
 import abc
 import csv
 import datetime
-import json
 import os
-import re
 import time
+from collections import defaultdict
+from json import JSONDecodeError
 
 import nltk
-from scipy.sparse import load_npz
 
 nltk.download('stopwords')
 
 from nltk.corpus import stopwords
 
-import numpy as np
 from scipy.sparse import lil_matrix, save_npz
-from sklearn.model_selection import StratifiedShuffleSplit
+from data_preprocess_utils import *
 
 from config import *
 
 USER_CONTEXTS = ['user_followers', 'user_following']
 USER_CONTEXTS_FILTERED = ['user_followers_filtered', 'user_following_filtered']
+LABELS = {0: 'fake', 1: 'real'}
 
 
 class GraphIO:
 
-    def __init__(self, dataset, top_k, raw_dir=RAW_DIR, tsv_dir=TSV_DIR, complete_dir=COMPLETE_DIR):
+    def __init__(self, dataset, raw_dir=RAW_DIR, tsv_dir=TSV_DIR, complete_dir=COMPLETE_DIR):
         self.dataset = dataset
-        self.top_k = top_k
 
-        if not os.path.exists(os.path.join(raw_dir, dataset)):
-            raise ValueError(f"Wanting to preprocess data for dataset {dataset}, but dir with raw data "
-                             f"{raw_dir} does not exist!")
+        full_raw_path = os.path.join(raw_dir, dataset)
+        if not os.path.exists(full_raw_path):
+            raise ValueError(f"Wanting to preprocess data for dataset '{dataset}', but raw data in path"
+                             f" with raw data '{full_raw_path}' does not exist!")
+
         self.data_raw_dir = raw_dir
-
         self.data_tsv_dir = self.create_dir(tsv_dir)
         self.data_complete_dir = self.create_dir(complete_dir)
-
-        self.train_docs, self.test_docs, self.val_docs = None, None, None
 
     def print_step(self, step_title):
         print(f'\n{"-" * 100}\n \t\t {step_title} for {self.dataset} dataset.\n{"-" * 100}')
@@ -57,23 +54,42 @@ class GraphIO:
     def data_complete_path(self, *parts):
         return os.path.join(self.data_complete_dir, self.dataset, *parts)
 
-    def maybe_load_doc_splits(self):
-        doc_splits = load_json_file(self.data_tsv_path(DOC_SPLITS_FILE_NAME))
-        self.train_docs = doc_splits['train_docs']
-        self.test_docs = doc_splits['test_docs']
-        self.val_docs = doc_splits['val_docs']
+    @staticmethod
+    def np_converter(obj):
+        """
+        A converter which can be used when dumping JSON strings to files, as JSON can not work with numpy data types.
+        """
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, datetime.datetime):
+            return obj.__str__()
 
 
 class GraphPreprocessor(GraphIO):
 
     def __init__(self, config):
-        super().__init__(config['data_set'], config['top_k'], config['data_raw_dir'], config['data_tsv_dir'],
+        super().__init__(config['data_set'], config['data_raw_dir'], config['data_tsv_dir'],
                          config['data_complete_dir'])
         self.exclude_frequent_users = config['exclude_frequent']
+        self.top_k = config['top_k']
 
         # temporary attributes for data which has been loaded and will be reused
         self.doc2id, self.user2id = None, None
         self.n_total = None
+        self.train_docs, self.test_docs, self.val_docs = None, None, None
+
+    def doc_used(self, doc_id):
+        return doc_id in self.train_docs or doc_id in self.test_docs or doc_id in self.val_docs
+
+    def maybe_load_doc_splits(self):
+        doc_splits = load_json_file(self.data_tsv_path(DOC_SPLITS_FILE_NAME))
+        self.train_docs = doc_splits['train_docs']
+        self.test_docs = doc_splits['test_docs']
+        self.val_docs = doc_splits['val_docs']
 
     def maybe_load_id_mappings(self):
         if self.user2id is None:
@@ -85,22 +101,16 @@ class GraphPreprocessor(GraphIO):
             if os.path.exists(doc2id_file):
                 self.doc2id = json.load(open(doc2id_file, 'r'))
 
-    # @staticmethod
-    # def print_header(header_title):
-    #     print(f'\n\n{"-" * 50}\n{header_title}\n{"-" * 50}')
+        self.n_total = len(self.user2id) + len(self.doc2id)
 
-    @staticmethod
-    def calc_elapsed_time(start, end):
-        hours, rem = divmod(end - start, 3600)
-        time_hours, time_rem = divmod(end, 3600)
-        minutes, seconds = divmod(rem, 60)
-        time_mins, _ = divmod(time_rem, 60)
-        return int(hours), int(minutes), int(seconds)
+    def save_user_doc_engagements(self, docs_users):
 
-    @staticmethod
-    def save_user_docs(count, dest_dir, docs_users):
-        print(f"\nTotal tweets/re-tweets in the data set = {count}")
-        print(f"\nWriting all the info in the dir: {dest_dir}")
+        dest_dir = self.data_complete_path('engagements')
+        if not os.path.exists(dest_dir):
+            print(f"Creating destination dir:  {dest_dir}\n")
+            os.makedirs(dest_dir)
+
+        print(f"\nWriting engagement info in the dir: {dest_dir}")
 
         for doc, user_list in docs_users.items():
             document_user_file = os.path.join(dest_dir, f'{str(doc)}.json')
@@ -123,32 +133,87 @@ class GraphPreprocessor(GraphIO):
         """
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def create_doc_user_splits(self):
-        raise NotImplementedError
+    def filter_restricted_users(self):
 
-    def create_user_splits(self, src_dir):
+        doc2labels = load_json_file(self.data_tsv_path('doc2labels.json'))
+        user_stats = defaultdict(lambda: {'fake': 0, 'real': 0})
+
+        restriction_docs = 0
+        for root, dirs, files in os.walk(self.data_complete_path('engagements')):
+            for count, file in enumerate(files):
+
+                # only restrict users interacting with this document ID if we actually use this doc in our splits
+                doc_key = self.get_doc_key(file, name_type='file')
+                if not self.doc_used(doc_key):
+                    continue
+
+                restriction_docs += 1
+
+                try:
+                    src_file = load_json_file(os.path.join(root, file))
+                except UnicodeDecodeError:
+                    # TODO: fix this error / keep track of files for which this happens
+                    print(f"Exception for doc {doc_key}")
+                    continue
+                except JSONDecodeError:
+                    # TODO: fix this error / keep track of files for which this happens
+                    print(f"Exception for doc {doc_key}")
+                    continue
+
+                users = src_file['users']
+
+                for u in users:
+                    if doc_key in doc2labels:
+                        user_stats[u][LABELS[doc2labels[doc_key]]] += 1
+
+        # based on user stats, exclude some
+        n_docs = len(self.train_docs) + len(self.test_docs) + len(self.val_docs)
+
+        assert n_docs == restriction_docs, "Total nr of documents used does not equal the number of docs for " \
+                                           "which we restrict users!"
+
+        user_stats_avg = user_stats.copy()
+        for user, stat in user_stats_avg.items():
+            for label in LABELS.values():
+                stat[label] = stat[label] / n_docs
+
+        # filter for 30% in either one of the classes
+        restricted_users = []
+        for user, stat in user_stats_avg.items():
+            restricted = stat['fake'] >= 0.3 or stat['real'] >= 0.3
+            if restricted:
+                restricted_users.append(user)
+
+        print('Restricted users done.')
+
+    def create_user_splits(self):
+        """
+
+        :return:
+        """
 
         self.print_step("Creating doc and user splits")
-
-        self.maybe_load_doc_splits()
 
         print("\nCreating users in splits file..")
 
         train_users, val_users, test_users = set(), set(), set()
-        for root, dirs, files in os.walk(src_dir):
-            for count, file in enumerate(files):
-                doc_key = self.get_doc_key(file, name_type='file')
-                src_file_path = os.path.join(root, file)
 
+        # walk through user-doc engagement files created before
+        for root, dirs, files in os.walk(self.data_complete_path('engagements')):
+            for count, file in enumerate(files):
+                src_file_path = os.path.join(root, file)
                 try:
                     src_file = json.load(open(src_file_path, 'r'))
                 except UnicodeDecodeError:
+                    # TODO: fix this error / keep track of files for which this happens
                     print("Exception")
                     continue
 
+                doc_key = self.get_doc_key(file, name_type='file')
                 users = src_file['users']
+
                 users = [int(s) for s in users if isinstance(s, int)]
+
                 if str(doc_key) in self.train_docs:
                     train_users.update(users)
                 if str(doc_key) in self.val_docs:
@@ -163,10 +228,6 @@ class GraphPreprocessor(GraphIO):
         with open(user_splits_file, 'w+') as j:
             json.dump(temp_dict, j)
 
-    # @abc.abstractmethod
-    # def create_doc_id_dicts(self):
-    #     raise NotImplementedError
-
     def create_doc_id_dicts(self):
         """
         Creates and saves doc2id and node2id dictionaries based on the document and user splits created by
@@ -174,50 +235,20 @@ class GraphPreprocessor(GraphIO):
         (e.g. only top k active users).
         """
 
-        self.print_step("Creating dicts")
-        print("\nCreating doc2id and user2id dicts....\n")
+        self.print_step("Creating doc2id and user2id dicts")
 
-        user_splits_file = self.data_complete_path(USER_SPLITS_FILE_NAME)
-        usr_splits = json.load(open(user_splits_file, 'r'))
-        train_users, val_users, test_users = usr_splits['train_users'], usr_splits['val_users'], usr_splits[
-            'test_users']
+        n_train = len(self.train_docs)
+        print("Train docs = ", n_train)
+        doc2id_train, node_type_train = self.doc_node_info(self.train_docs)
 
-        self.maybe_load_doc_splits()
+        n_val = len(self.val_docs)
+        print("Val docs = ", n_val)
+        doc2id_val, node_type_val = self.doc_node_info(self.val_docs)
 
-        doc2id = {}
-        node_type = []
+        self.doc2id = doc2id_train | doc2id_val
 
-        for train_count, doc in enumerate(self.train_docs):
-            doc2id[str(doc)] = train_count
-            node_type.append(1)
-
-        print("Train docs = ", len(self.train_docs))
-        print("doc2id train = ", len(doc2id))
-        print("Node type = ", len(node_type))
-
-        # assert len(self.train_docs) == len(node_type), "Length of train docs is not the same as length of node type!"
-        # assert len(self.train_docs) == len(self.doc2id), "Length of train docs is not the same as length of doc2ids!"
-
-        for val_count, doc in enumerate(self.val_docs):
-            doc2id[str(doc)] = val_count + len(self.train_docs)
-            node_type.append(1)
-
-        print("\nVal docs = ", len(self.val_docs))
-        print("doc2id train = ", len(doc2id))
-        print("Node type = ", len(node_type))
-
-        assert len(self.train_docs) + len(self.val_docs) == len(node_type), \
-            "Sum of train docs and val docs length is not the same as length of node type!"
-
-        doc2id_file = self.data_complete_path(DOC_2_ID_FILE_NAME % self.top_k)
-        print("Saving doc2id dict in :", doc2id_file)
-        with open(doc2id_file, 'w+') as j:
-            json.dump(doc2id, j)
-
-        # print('\nTrain users = ', len(train_users))
-        # print("Test users = ", len(test_users))
-        # print("Val users = ", len(val_users))
-        # print("All users = ", len(all_users))
+        splits = load_json_file(self.data_complete_path(USER_SPLITS_FILE_NAME))
+        train_users, val_users, test_users = splits['train_users'], splits['val_users'], splits['test_users']
 
         if self.exclude_frequent_users:
             print("\nRestricting users ... ")
@@ -233,15 +264,15 @@ class GraphPreprocessor(GraphIO):
             except FileNotFoundError:
                 print("\nDid not find file for restricted and valid users although they should be excluded!\n")
 
+            # find restricted users (shared more than 30% of articles in either class)
+
+            # for each
+            # walk through doc-user engagements
+
             train_users = [u for u in train_users if str(u) not in restricted_users and str(u) in valid_users]
             val_users = [u for u in val_users if str(u) not in restricted_users and str(u) in valid_users]
             test_users = [u for u in test_users if str(u) not in restricted_users and str(u) in valid_users]
-        else:
-            train_users = [u for u in train_users]
-            val_users = [u for u in val_users]
-            test_users = [u for u in test_users]
-
-        # train_users = list(set(train_users)-set(done_users['done_users'])-set(restricted_users['restricted_users']))
+            # train_users = list(set(train_users)-set(done_users['done_users'])-set(restricted_users['restricted_users']))
 
         all_users = list(set(train_users + val_users + test_users))
 
@@ -254,60 +285,69 @@ class GraphPreprocessor(GraphIO):
         b = set(test_users)
         print("\nUsers common between train/val and test = ", len(a.intersection(b)))
 
-        self.maybe_load_id_mappings()
+        node_type_user = []
+        self.user2id = {}
 
-        user2id_train = {}
         for count, user in enumerate(all_users):
-            user2id_train[str(user)] = count + len(self.doc2id)
-            node_type.append(2)
+            self.user2id[str(user)] = count + len(self.doc2id)
+            node_type_user.append(2)
 
+        print("\nUser2id size = ", len(self.user2id))
         user2id_train_file = self.data_complete_path(USER_2_ID_FILE_NAME % self.top_k)
-        print("\nuser2id size = ", len(user2id_train))
         print("Saving user2id_train in : ", user2id_train_file)
         with open(user2id_train_file, 'w+') as j:
-            json.dump(user2id_train, j)
+            json.dump(self.user2id, j)
 
-        node2id = self.doc2id.copy()
-        node2id.update(user2id_train)
+        # node type should contain train and val docs and train, val and test users
+        node_type = node_type_train + node_type_val + node_type_user
+        assert len(node_type) == n_val + n_train + len(all_users)
 
-        assert len(node2id) == len(user2id_train) + len(self.doc2id), \
-            "Length of node2id is not the sum of doc2id and user2id length!"
-
-        print("\nnode2id size = ", len(node2id))
-        node2id_file = self.data_complete_path(NODE_2_ID_FILE_NAME % self.top_k)
-        print("Saving node2id_lr_train in : ", node2id_file)
-        with open(node2id_file, 'w+') as json_file:
-            json.dump(node2id, json_file)
-
-        # node type already contains train and val docs and train, val and test users
-        assert len(node_type) == len(self.val_docs) + len(self.train_docs) + len(all_users)
-
-        print("\nNode type size = ", len(node_type))
+        print(f"\nNode type size = {len(node_type)}")
         node_type_file = self.data_complete_path(NODE_TYPE_FILE_NAME % self.top_k)
         node_type = np.array(node_type)
-        print("Saving node_type in :", node_type_file)
+        print(f"Saving node type in : {node_type_file}")
         np.save(node_type_file, node_type, allow_pickle=True)
 
         print("\nAdding test docs..")
+        n_test = len(self.test_docs)
+        print("Test docs = ", n_test)
         orig_doc2id_len = len(self.doc2id)
+
         for test_count, doc in enumerate(self.test_docs):
-            self.doc2id[str(doc)] = test_count + len(user2id_train) + orig_doc2id_len
-        print("Test docs = ", len(self.test_docs))
-        print("doc2id = ", len(self.doc2id))
+            # n_test + len(self.user2id) + orig_doc2id_len
+            self.doc2id[doc] = test_count + len(self.user2id) + orig_doc2id_len
+
+        assert len(self.doc2id) == (n_val + n_train + n_test), "Doc2id does not contain all documents!"
+        print("New doc2id len including test docs = ", len(self.doc2id))
         with open(self.data_complete_path(DOC_2_ID_FILE_NAME % self.top_k), 'w+') as j:
             json.dump(self.doc2id, j)
 
         node2id = self.doc2id.copy()
-        node2id.update(user2id_train)
-        print("node2id size = ", len(node2id))
-        node2id_file = self.data_complete_path(f'node2id_lr_top{self.top_k}.json')
+        node2id.update(self.user2id)
+        assert len(node2id) == len(self.user2id) + len(self.doc2id), \
+            "Length of node2id is not the sum of doc2id and user2id length!"
+
+        print("\nNode2id size = ", len(node2id))
+        node2id_file = self.data_complete_path(NODE_2_ID_FILE_NAME % self.top_k)
         print("Saving node2id_lr in : ", node2id_file)
         with open(node2id_file, 'w+') as json_file:
             json.dump(node2id, json_file)
 
-        print("\nDone ! All files written..")
+        print("\nDone ! All files written.")
 
-    def filter_contexts(self, follower_key):
+    def doc_node_info(self, docs):
+        doc2id, node_type = {}, []
+
+        for doc_count, doc_name in enumerate(docs):
+            doc2id[doc_name] = doc_count
+            node_type.append(1)
+
+        assert len(docs) == len(doc2id) == len(node_type), \
+            "doc2id and node type for train to not match number of train documents!"
+
+        return doc2id, node_type
+
+    def filter_contexts(self, follower_key=None):
         """
         Reduces the follower/ing data to users that are among the top k users.
         """
@@ -317,9 +357,9 @@ class GraphPreprocessor(GraphIO):
         with open(self.data_complete_path(USER_2_ID_FILE_NAME % self.top_k), 'r') as j:
             all_users = json.load(j)
 
-        # print_iter = int(len(all_users) / 10)
         print("Total users in this dataset = ", len(all_users))
 
+        unknown_user_ids = 0
         for user_context in USER_CONTEXTS:
             print(f"\n    - from {user_context}  folder...")
 
@@ -333,6 +373,7 @@ class GraphPreprocessor(GraphIO):
 
                     user_id = file.split(".")[0]
                     if user_id not in all_users:
+                        unknown_user_ids += 1
                         continue
 
                     print_iter = int(len(files) / 10)
@@ -347,8 +388,7 @@ class GraphPreprocessor(GraphIO):
                     if os.path.isfile(dest_file_path):
                         continue
 
-                    src_file_path = os.path.join(root, file)
-                    src_file = json.load(open(src_file_path, 'r'))
+                    src_file = json.load(open(os.path.join(root, file), 'r'))
 
                     follower_dest_key = 'followers' if user_context == 'user_followers' else 'following'
 
@@ -367,58 +407,50 @@ class GraphPreprocessor(GraphIO):
                         json.dump(temp_dict, v)
 
                     if count % print_iter == 0:
-                        # print("{}/{} done..  Non-zeros =  {}".format(count+1, num_users, adj_matrix.getnnz()))
                         print(f"{count + 1} done..")
 
-    def create_adj_matrix(self, src_dir):
+    def create_adj_matrix(self):
 
         self.print_step(f"Processing {self.dataset} dataset for adj_matrix")
 
         self.maybe_load_id_mappings()
-        self.maybe_load_doc_splits()
 
         # this assumes users and documents are unique in all data sets!
-        num_users, num_docs = len(self.user2id), len(self.doc2id) - len(self.test_docs)
-        print("\nNumber of unique users = ", num_users)
-        print("Number of docs = ", num_docs)
+        n_users, n_docs = len(self.user2id), len(self.doc2id)
+        print("\nNumber of unique users = ", n_users)
+        print("Number of docs = ", n_users)
+        print("\nLength user2id = ", n_users)
+        print("Length doc2id = ", n_docs)
 
-        print("\nLength user2id = ", len(self.user2id))
-        print("Length doc2id = ", len(self.doc2id))
-
-        # Creating and filling the adjacency matrix (doc-user edges)
-        adj_matrix = lil_matrix((num_docs + num_users, num_users + num_docs))
-        self.n_total = adj_matrix.shape[0]
-
-        edge_type = lil_matrix((num_docs + num_users, num_users + num_docs))
-
-        # adj_matrix = np.zeros((num_docs+num_users, num_users+num_docs))
-        # adj_matrix_file = './data/complete_data/adj_matrix_pheme.npz'
-        # adj_matrix = load_npz(adj_matrix_file)
-        # adj_matrix = lil_matrix(adj_matrix)
+        # Creating and filling the adjacency matrix (doc-user edges); includes test docs!
+        self.n_total = n_docs + n_users
+        adj_matrix = lil_matrix((self.n_total, self.n_total))
+        edge_type = lil_matrix((self.n_total, self.n_total))
 
         # Creating self-loops for each node (diagonals are 1's)
         for i in range(adj_matrix.shape[0]):
             adj_matrix[i, i] = 1
             edge_type[i, i] = 1
 
-        print(f"\nSize of adjacency matrix = {adj_matrix.shape} \nPrinting every  {int(num_docs / 10)} docs")
+        print(f"\nSize of adjacency matrix = {adj_matrix.shape} \nPrinting every  {int(n_docs / 10)} docs")
         start = time.time()
 
-        edge_list = []
-
         print("\nPreparing entries for doc-user pairs...")
-
+        edge_list = []
         not_found = 0
-        for root, dirs, files in os.walk(src_dir):
+        for root, dirs, files in os.walk(self.data_complete_path('engagements')):
             for count, file_name in enumerate(files):
                 doc_key = str(file_name.split(".")[0])
                 if doc_key == '':
                     continue
-                src_file = json.load(open(os.path.join(root, file_name), 'r'))
+                src_file = load_json_file(os.path.join(root, file_name))
                 users = map(str, src_file['users'])
                 for user in users:
-                    if doc_key in self.doc2id and user in self.user2id and doc_key not in self.test_docs:
+                    if doc_key in self.test_docs:
+                        # no connections between users and test documents!
+                        continue
 
+                    if doc_key in self.doc2id and user in self.user2id and doc_key:
                         doc_id = self.doc2id[doc_key]
                         user_id = self.user2id[user]
 
@@ -433,19 +465,16 @@ class GraphPreprocessor(GraphIO):
                     else:
                         not_found += 1
 
-        end = time.time()
-        hrs, mins, secs = self.calc_elapsed_time(start, end)
+        hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
         print(f"Not Found users = {not_found}")
         print(f"Non-zero entries = {adj_matrix.getnnz()}")
         print(f"Non-zero entries edge_type = {edge_type.getnnz()}")
-        # print("Non-zero entries = ", len(np.nonzero(adj_matrix)[0]))
 
-        # Filling the adjacency matrix (user-user edges)
         start = time.time()
         key_errors, not_found, overlaps = 0, 0, 0
         print("\nPreparing entries for user-user pairs...")
-        print(f"Printing every {int(num_users / 10)}  users done")
+        print(f"Printing every {int(n_users / 10)}  users done.")
 
         for user_context in USER_CONTEXTS_FILTERED:
             print(f"\n    - from {user_context} folder...")
@@ -454,7 +483,7 @@ class GraphPreprocessor(GraphIO):
                 for count, file in enumerate(files):
                     src_file_path = os.path.join(root, file)
                     # user_id = src_file_path.split(".")[0]
-                    src_file = json.load(open(src_file_path, 'r'))
+                    src_file = load_json_file(src_file_path)
                     user_id = str(int(src_file['user_id']))
                     if user_id not in self.user2id:
                         continue
@@ -484,15 +513,13 @@ class GraphPreprocessor(GraphIO):
         with open(edge_list_file, 'w+') as j:
             json.dump(edge_list, j)
 
-        hrs, mins, secs = self.calc_elapsed_time(start, time.time())
+        hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
         print(f"Not found user_ids = {not_found}")
         print(f"Total Non-zero entries = {adj_matrix.getnnz()}")
         print(f"Total Non-zero entries edge_type = {edge_type.getnnz()}")
 
-        self.save_adj_matrix(adj_matrix, edge_type)
-
-    def save_adj_matrix(self, adj_matrix, edge_type):
+        # SAVING everything
 
         adj_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k)
         print(f"\nMatrix construction done! Saving in  {adj_file}")
@@ -502,97 +529,71 @@ class GraphPreprocessor(GraphIO):
         print(f"\nEdge type construction done! Saving in  {edge_type_file}")
         save_npz(edge_type_file, edge_type.tocsr())
 
-        # Creating an edge_list matrix of the adj_matrix as required by some GCN frameworks
-        print("\nCreating edge_index format of adj_matrix...")
-        # G = nx.DiGraph(adj_matrix.tocsr())
-        # temp_matrix = adj_matrix.toarray()
-        # rows, cols = np.nonzero(temp_matrix)
         rows, cols = adj_matrix.nonzero()
-
         edge_index = np.vstack((np.array(rows), np.array(cols)))
         print("Edge index shape = ", edge_index.shape)
+        edge_index_file = self.data_complete_path(EDGE_INDEX_FILE_NAME % self.top_k)
+        print("saving edge_index format in :  ", edge_index_file)
+        np.save(edge_index_file, edge_index, allow_pickle=True)
 
-        edge_matrix_file = self.data_complete_path(ADJACENCY_MATRIX_FILE % self.top_k + '_edge.npy')
-        print("saving edge_list format in :  ", edge_matrix_file)
-        np.save(edge_matrix_file, edge_index, allow_pickle=True)
-
-        edge_index = edge_type[edge_type.nonzero()]
-        edge_index = edge_index.toarray()
-        edge_index = edge_index.squeeze(0)
-        print("edge_type shape = ", edge_index.shape)
-        edge_matrix_file = self.data_complete_path(EDGE_INDEX_FILE_NAME % self.top_k)
-        print("saving edge_type list format in :  ", edge_matrix_file)
-        np.save(edge_matrix_file, edge_index, allow_pickle=True)
+        edge_type = edge_type[edge_type.nonzero()].toarray().squeeze(0)
+        print("edge_type shape = ", edge_type.shape)
+        edge_type_file = self.data_complete_path(EDGE_TYPE_FILE_NAME % self.top_k)
+        print("saving edge_type list format in :  ", edge_type_file)
+        np.save(edge_type_file, edge_index, allow_pickle=True)
 
     def create_fea_matrix(self, file_contents):
-        self.print_step("Processing feature matrix for ")
+        self.print_step("Creating feature matrix")
 
         self.maybe_load_id_mappings()
-        self.maybe_load_doc_splits()
 
-        vocab = self.build_vocab(self.train_docs, self.doc2id, file_contents)
-        vocab_size = len(vocab)
-        stop_words = set(stopwords.words('english'))
-
-        n_total = len(self.train_docs) + len(self.val_docs) + len(self.user2id)
-        feat_matrix = lil_matrix((n_total, vocab_size))
+        vocab = self.build_vocab(file_contents)
+        feat_matrix = lil_matrix((self.n_total, len(vocab)))
         print("\nSize of feature matrix = ", feat_matrix.shape)
         print("\nCreating feat_matrix entries for docs nodes...")
 
         start = time.time()
         split_docs = self.train_docs + self.val_docs
+        stop_words = set(stopwords.words('english'))
 
-        for count, (doc_id, content_file) in enumerate(file_contents.items()):
+        for count, (doc_name, content_file) in enumerate(file_contents.items()):
             print_iter = int(len(file_contents) / 5)
-            # doc_name = content_file.split('\\')[-1].split('.')[0]
-            if str(doc_id) in split_docs:
-                if doc_id in self.doc2id and doc_id not in self.test_docs:
+            if doc_name in split_docs:
+                if doc_name in self.doc2id and doc_name not in self.test_docs:
                     # feat_matrix[doc2id[str(doc_name)], :] = np.random.random(len(vocab)) > 0.99
 
                     with open(content_file, 'r') as f:
-                        vector = np.zeros(len(vocab))
-                        file_content = json.load(f)
-                        text = file_content['text'].replace('\n', ' ')[:1500]
-                        text = text.replace('\t', ' ').lower()
-                        text = re.sub(r'#[\w-]+', 'hashtag', text)
-                        text = re.sub(r'https?://\S+', 'url', text)
-                        # text = re.sub(r"[^A-Za-z(),!?\'`]", " ", text)
-                        text = nltk.word_tokenize(text)
+                        text = nltk.word_tokenize(sanitize_text(json.load(f)['text'], 1500))
                         text_filtered = [w for w in text if w not in stop_words]
+
+                        vector = np.zeros(len(vocab))
                         for token in text_filtered:
                             if token in vocab.keys():
                                 vector[vocab[token]] = 1
-                        feat_matrix[self.doc2id[doc_id], :] = vector
+                        feat_matrix[self.doc2id[doc_name], :] = vector
 
             if count % print_iter == 0:
                 print("{} / {} done..".format(count + 1, len(file_contents)))
 
-        hrs, mins, secs = self.calc_elapsed_time(start, time.time())
+        hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
 
-        feat_matrix_sum = np.array(feat_matrix.sum(axis=1)).squeeze(1)
-        # print(feat_matrix_sum.shape)
-        idx = np.where(feat_matrix_sum == 0)
-        # print(len(idx[0]))
+        # feat_matrix_sum = np.array(feat_matrix.sum(axis=1)).squeeze(1)
 
         print("\nCreating feat_matrix entries for users nodes...")
         start = time.time()
-        not_found, use = 0, 0
-        # user_splits = json.load(open('./data/complete_data/{}/user_splits.json'.format(dataset), 'r'))
-        # train_users = user_splits['train_users']
 
-        src_dir = self.data_raw_path('engagements', 'complete', self.dataset)
+        src_dir = self.data_complete_path('engagements')
         for root, dirs, files in os.walk(src_dir):
+            print_iter = int(len(files) / 10)
+
             for count, file in enumerate(files):
-                print_iter = int(len(files) / 10)
-                src_file_path = os.path.join(root, file)
-                src_file = json.load(open(src_file_path, 'r'))
-                users = src_file['users']
+                src_file = load_json_file(os.path.join(root, file))
                 doc_key = file.split(".")[0]
                 # if str(doc_key) in self.train_docs:
                 # Each user of this doc has its features as the features of the doc
-                if (str(doc_key) in split_docs) and str(doc_key) in self.doc2id:
-                    for user in users:
+                if doc_key in split_docs and doc_key in self.doc2id:
+                    for user in src_file['users']:
                         if str(user) in self.user2id:
                             feat_matrix[self.user2id[str(user)], :] += feat_matrix[self.doc2id[str(doc_key)], :]
 
@@ -600,24 +601,20 @@ class GraphPreprocessor(GraphIO):
                     print(" {} / {} done..".format(count + 1, len(files)))
                     print(datetime.datetime.now())
 
-        hrs, mins, secs = self.calc_elapsed_time(start, time.time())
-        # print(not_found, use)
+        hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
 
         feat_matrix = feat_matrix >= 1
         feat_matrix = feat_matrix.astype(int)
 
         # Sanity Checks
-        feat_matrix_sum = np.array(feat_matrix.sum(axis=1)).squeeze(1)
-        # print(feat_matrix_sum.shape)
-        idx = np.where(feat_matrix_sum == 0)
-        # print(len(idx[0]))
+        # feat_matrix_sum = np.array(feat_matrix.sum(axis=1)).squeeze(1)
 
         filename = self.data_complete_path(FEAT_MATRIX_FILE_NAME % self.top_k)
         print("Matrix construction done! Saving in: {}".format(filename))
         save_npz(filename, feat_matrix.tocsr())
 
-    def build_vocab(self, train_docs, doc2id, content_files):
+    def build_vocab(self, content_files):
 
         vocab_file = self.data_complete_path('vocab.json')
         if os.path.isfile(vocab_file):
@@ -630,7 +627,7 @@ class GraphPreprocessor(GraphIO):
         start = time.time()
 
         for doc_id, content_file in content_files.items():
-            if doc_id in train_docs and doc_id in doc2id:
+            if doc_id in self.train_docs and doc_id in self.doc2id:
                 with open(content_file, 'r') as f:
                     file_content = json.load(f)
                     text = file_content['text'].lower()[:500]
@@ -643,7 +640,7 @@ class GraphPreprocessor(GraphIO):
                         if token not in vocab.keys():
                             vocab[token] = len(vocab)
 
-        hrs, mins, secs = self.calc_elapsed_time(start, time.time())
+        hrs, mins, secs = calc_elapsed_time(start, time.time())
         print("Done. Took {}hrs and {}mins and {}secs\n".format(hrs, mins, secs))
         print("Size of vocab =  ", len(vocab))
         print(f"Saving vocab for {self.dataset} at: {vocab_file}")
@@ -656,32 +653,11 @@ class GraphPreprocessor(GraphIO):
     def create_labels(self):
         raise NotImplementedError
 
-    @staticmethod
-    def np_converter(obj):
-        """
-        A converter which can be used when dumping JSON strings to files, as JSON can not work with numpy data types.
-        """
-        if isinstance(obj, np.integer):
-            return int(obj)
-        elif isinstance(obj, np.floating):
-            return float(obj)
-        elif isinstance(obj, np.ndarray):
-            return obj.tolist()
-        elif isinstance(obj, datetime.datetime):
-            return obj.__str__()
-
     def create_split_masks(self):
 
         self.print_step("Creating split masks")
 
         self.maybe_load_id_mappings()
-        self.maybe_load_doc_splits()
-
-        if self.n_total is None:
-            adj_matrix_train = load_npz(self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k))
-            # need to add length of self test docs because matrix only contains train and validation nodes
-            self.n_total = adj_matrix_train.shape[0]
-            del adj_matrix_train
 
         train_mask, val_mask, test_mask = np.zeros(self.n_total), np.zeros(self.n_total), np.zeros(self.n_total)
         representation_mask = np.ones(self.n_total)
@@ -695,7 +671,8 @@ class GraphPreprocessor(GraphIO):
                 val_mask[doc_id] = 1
                 representation_mask[doc_id] = 0
             elif doc_n in self.test_docs:
-                # TODO: there are many more items in the doc2dict than length of masks --> Why? --> because adjacency matrix only contains length for val and train docs
+                # TODO: there are many more items in the doc2dict than length of masks -->
+                #  Why? --> because adjacency matrix only contains length for val and train docs
                 if doc_id < test_mask.shape[0]:
                     test_mask[doc_id] = 1
             else:
@@ -716,153 +693,150 @@ class GraphPreprocessor(GraphIO):
 
 class DataPreprocessor(GraphIO):
 
-    @staticmethod
-    def print_step(step_title):
-        print(f'\n{"=" * 50}\n \t\t{step_title}\n{"=" * 50}')
-
-    def create_data_splits_standard(self, max_len=5000):
+    def preprocess(self, min_len=6, max_len=5000):
         """
-        Creates train, val and test splits via random splitting of the dataset in a stratified fashion to ensure
-        similar data distribution.
+        Applies some preprocessing to the data, e.g. replacing special characters, filters non-requiured articles out.
+        :param min_len: Minimum required length for articles.
+        :param max_len: Maximum required length for articles.
+        :return: Numpy arrays for article tests (x_data), article labels (y_data), and article names (doc_names).
         """
-        self.print_step("Creating Data Splits")
 
-        print(f"\nPreparing {self.dataset} ...")
-        x_data, y_data, doc_data = [], [], []
+        x_data, y_data, doc_names, x_lengths, invalid = [], [], [], [], []
 
-        # Reading the dataset into workable lists
-        removed, lens = [], []
         data_file = os.path.join(self.data_tsv_dir, self.dataset, CONTENT_INFO_FILE_NAME)
 
         with open(data_file, encoding='utf-8') as data:
             reader = csv.DictReader(data, delimiter='\t')
             for row in reader:
-                if isinstance(row['text'], str) and len(row['text']) > 5:
-                    text = row['text'].replace('\n', ' ')
-                    text = text.replace('\t', ' ')
-                    text = re.sub(r'#[\w-]+', 'hashtag', text)
-                    text = re.sub(r'https?://\S+', 'url', text)
-
-                    x_data.append(str(text[:max_len]))
-                    lens.append(len(text[:max_len]))
+                if isinstance(row['text'], str) and len(row['text']) >= min_len:
+                    text = sanitize_text(row['text'], max_len)
+                    x_data.append(text)
+                    x_lengths.append(len(text))
                     y_data.append(int(row['label']))
-                    doc_data.append(str(row['id']))
+                    doc_names.append(str(row['id']))
                 else:
-                    removed.append(row['id'])
+                    invalid.append(row['id'])
 
-        print("Average length = ", sum(lens) / len(lens))
-        print("Maximum length = ", max(lens))
-        print("Minimum Length = ", min(lens))
-        print("Total data points removed (length < 6) = ", len(removed))
+        print(f"Average length = {sum(x_lengths) / len(x_lengths)}")
+        print(f"Maximum length = {max(x_lengths)}")
+        print(f"Minimum Length = {min(x_lengths)}")
+        print(f"Total data points invalid and therefore removed (length < {min_len}) = {len(invalid)}")
+
+        return np.array(x_data), np.array(y_data), np.array(doc_names)
+
+    def create_data_splits(self, test_size=0.2, val_size=0.1, splits=1, duplicate_stats=False):
+        """
+        Creates train, val and test splits via random splitting of the dataset in a stratified fashion to ensure
+        similar data distribution. Currently only supports splitting data in 1 split for each set.
+
+        :param test_size: Size of the test split compared to the whole data.
+        :param val_size: Size of the val split compared to the whole data.
+        :param splits: Number of splits.
+        """
+
+        self.print_step("Creating Data Splits")
+
+        data = self.preprocess()
+
+        if duplicate_stats:
+            # counting duplicates in test set
+            texts = []
+            duplicates = defaultdict(lambda: {'counts': 1, 'd_names': []})
+
+            for i in range(len(data[0])):
+                d_text = data[0][i]
+                if d_text in texts:
+                    duplicates[d_text]['counts'] += 1
+                    duplicates[d_text]['d_names'].append(data[2][i])
+                else:
+                    texts.append(d_text)
+
+            duplicates_file = self.data_tsv_path('duplicates_info.json')
+            json.dump(duplicates, open(duplicates_file, 'w+'), default=self.np_converter)
 
         # Creating train-val-test split with same/similar label distribution in each split
-        sss = StratifiedShuffleSplit(n_splits=1, test_size=0.20, random_state=21)
-        x_rest, x_test, y_rest, y_test = [], [], [], []
-        doc_rest, doc_id_test = [], []
 
-        for train_index, test_index in sss.split(x_data, y_data):
-            for idx in train_index:
-                x_rest.append(x_data[idx])
-                y_rest.append(y_data[idx])
-                doc_rest.append(doc_data[idx])
+        # one tuple is one split and contains: (x, y, doc_names)
+        rest_split, test_split = split_data(splits, test_size, data)
 
-            for idx in test_index:
-                article_text = x_data[idx]
-                # if article_text not in x_test:
-                x_test.append(article_text)
-                y_test.append(y_data[idx])
-                doc_id_test.append(doc_data[idx])
+        assert len(set(test_split[2])) == len(test_split[2]), "Test split contains duplicate doc names!"
 
-        # TODO: may there be duplicates in train/test/val documents? Is this intended?
-        # assert len(set(doc_id_test)) == len(doc_id_test), "doc_id_test contains duplicate doc IDs!"
+        # split rest data into validation and train splits
+        train_split, val_split = split_data(splits, val_size, rest_split)
 
-        sss = StratifiedShuffleSplit(n_splits=1, test_size=0.10, random_state=21)
+        assert len(set(val_split[2])) == len(val_split[2]), "Validation split contains duplicate doc names!"
+        assert len(set(train_split[2])) == len(train_split[2]), "Train split contains duplicate doc names!"
 
-        for fold, (train_index, val_index) in enumerate(sss.split(x_rest, y_rest)):
-            # TODO: why is this in the inner loop?
-            x_train, x_val, y_train, y_val = [], [], [], []
-            doc_id_train, doc_id_val = [], []
-
-            for idx in train_index:
-                article_text = x_rest[idx]
-                # TODO: check if we allow duplicates or not
-                # if article_text not in x_train:
-                x_train.append(article_text)
-                y_train.append(y_rest[idx])
-                doc_id_train.append(doc_rest[idx])
-
-            for idx in val_index:
-                article_text = x_rest[idx]
-                # TODO: check if we allow duplicates or not
-                # if article_text not in x_val:
-                x_val.append(article_text)
-                y_val.append(y_rest[idx])
-                doc_id_val.append(doc_rest[idx])
-
-            # TODO: may there be duplicates in train/test/val documents? Is this intended?
-            # assert len(set(doc_id_train)) == len(doc_id_train), "doc_id_train contains duplicate doc IDs!"
-            # assert len(set(doc_id_val)) == len(doc_id_val), "doc_id_val contains duplicate doc IDs!"
-
-        fake, real = self.get_label_distribution(y_train)
-        print(f"\nFake labels in train split  = {fake * 100:.2f} %")
-        print(f"Real labels in train split  = {real * 100:.2f} %")
-
-        fake, real = self.get_label_distribution(y_val)
-        print(f"\nFake labels in val split  = {fake * 100:.2f} %")
-        print(f"Real labels in val split  = {real * 100:.2f} %")
-
-        fake, real = self.get_label_distribution(y_test)
-        print(f"\nFake labels in test split = {fake * 100:.2f} %")
-        print(f"Real labels in test split  = {real * 100:.2f} %")
+        print_label_distribution(train_split[1])
+        print_label_distribution(val_split[1])
+        print_label_distribution(test_split[1])
 
         print("\nWriting train-val-test files..")
-        splits = ['train', 'val', 'test']
-        for split in splits:
-            if split == 'train':
-                x = x_train
-                y = y_train
-                id_list = doc_id_train
-            elif split == 'val':
-                x = x_val
-                y = y_val
-                id_list = doc_id_val
-            else:
-                x = x_test
-                y = y_test
-                id_list = doc_id_test
 
-            data_tsv_dir = os.path.join(self.data_tsv_dir, self.dataset, 'splits')
-            if not os.path.exists(data_tsv_dir):
-                os.makedirs(data_tsv_dir)
+        splits = {'train': train_split, 'val': val_split, 'test': test_split}
+        for split, data in splits.items():
+            x, y, name_list = data
 
-            data_tsv_dir = os.path.join(data_tsv_dir, f'{split}.tsv')
-            print(f"{split} file in : {data_tsv_dir}")
+            split_path = self.data_tsv_path('splits')
+            if not os.path.exists(split_path):
+                os.makedirs(split_path)
 
-            with open(data_tsv_dir, 'a', encoding='utf-8', newline='') as csv_file:
+            split_file_path = os.path.join(split_path, f'{split}.tsv')
+            print(f"{split} file in : {split_file_path}")
+
+            with open(split_file_path, 'a', encoding='utf-8', newline='') as csv_file:
                 csv_writer = csv.writer(csv_file, delimiter='\t')
                 # csv_writer.writerow(['text', 'label'])
                 for i in range(len(x)):
-                    csv_writer.writerow([x[i], y[i], id_list[i]])
+                    csv_writer.writerow([x[i], y[i], name_list[i]])
 
-        doc_splits_file = os.path.join(self.data_tsv_dir, self.dataset, 'docSplits.json')
+        doc_splits_file = self.data_tsv_path(DOC_SPLITS_FILE_NAME)
         print("Writing doc_splits in : ", doc_splits_file)
 
-        print("\nTotal train = ", len(doc_id_train))
-        print("Total test = ", len(doc_id_test))
-        print("Total val = ", len(doc_id_val))
+        doc_names_train, doc_names_test, doc_names_val = train_split[2], test_split[2], val_split[2]
+        print("\nTotal train = ", len(doc_names_train))
+        print("Total test = ", len(doc_names_test))
+        print("Total val = ", len(doc_names_val))
 
-        # print("\nDuplicates train = ", str(len(doc_id_train) - len(set(doc_id_train))))
+        split_dict = {'test_docs': doc_names_test, 'train_docs': doc_names_train, 'val_docs': doc_names_val}
+        json.dump(split_dict, open(doc_splits_file, 'w+'), default=self.np_converter)
 
-        temp_dict = {'test_docs': doc_id_test, 'train_docs': doc_id_train, 'val_docs': doc_id_val}
-        json.dump(temp_dict, open(doc_splits_file, 'w+'))
+    def store_doc2labels(self, doc2labels):
+        """
+        Stores the doc2label dictionary as JSON file in the respective directory.
 
-    @staticmethod
-    def get_label_distribution(labels):
-        fake = labels.count(1)
-        real = labels.count(0)
-        denom = fake + real
-        return fake / denom, real / denom
+        :param doc2labels: Dictionary containing document names mapped to the label for that document.
+        """
 
+        print(f"Total docs : {len(doc2labels)}")
+        doc2labels_file = self.data_tsv_path('doc2labels.json')
 
-def load_json_file(file_name):
-    return json.load(open(file_name, 'r'))
+        print(f"Writing doc2labels JSON in :  {doc2labels_file}")
+        json.dump(doc2labels, open(doc2labels_file, 'w+'))
+
+    def store_doc_contents(self, contents):
+        """
+        Stores document contents (doc name/id, title, text and label) as a TSV file.
+
+        :param contents: List of entries (doc name/id, title, text and label) for every article.
+        """
+        print("\nCreating the data corpus file for: ", self.dataset)
+
+        content_dest_file = self.data_tsv_path(CONTENT_INFO_FILE_NAME)
+        # TODO: should this be append or just always be overwritten?
+        if os.path.isfile(content_dest_file):
+            print(f"\nTarget data file '{content_dest_file}' already exists, overwriting it.")
+            open_mode = 'w'
+        else:
+            open_mode = 'a'
+
+        with open(content_dest_file, open_mode, encoding='utf-8', newline='') as csv_file:
+            csv_writer = csv.writer(csv_file, delimiter='\t')
+            csv_writer.writerow(['id', 'title', 'text', 'label'])
+            for file_content in contents:
+                csv_writer.writerow(file_content)
+
+        print("Final file written in :  ", content_dest_file)
+
+    def print_step(self, step_title):
+        print(f'\n{"-" * 50}\n \t\t {step_title} for {self.dataset} dataset.\n{"-" * 50}')

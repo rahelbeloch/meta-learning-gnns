@@ -9,7 +9,7 @@ import pandas as pd
 from scipy.sparse import load_npz
 
 from data_prep.config import *
-from data_prep.graph_io import GraphPreprocessor
+from data_prep.graph_io import GraphPreprocessor, LABELS
 
 
 class FakeNewsGraphPreprocessor(GraphPreprocessor):
@@ -17,15 +17,17 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
     def __init__(self, config):
         super().__init__(config)
 
-        self.aggregate_user_contexts()
-        self.create_doc_user_splits()
-        self.create_doc_id_dicts()
-        self.filter_user_contexts()
-        self.create_adjacency_matrix()
+        self.maybe_load_doc_splits()
 
-        self.create_feature_matrix()
-        self.create_labels()
-        self.create_split_masks()
+        self.aggregate_user_contexts()
+        self.filter_restricted_users()
+        # self.create_user_splits()
+        # self.create_doc_id_dicts()
+        # self.filter_contexts()
+        # self.create_adj_matrix()
+        # self.create_feature_matrix()
+        # self.create_labels()
+        # self.create_split_masks()
 
     def get_doc_key(self, name, name_type='dir'):
         if name_type == 'dir':
@@ -37,11 +39,6 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
     def aggregate_user_contexts(self):
         self.print_step("Aggregating follower/ing relations")
-
-        dest_dir = self.data_complete_path('complete')
-        if not os.path.exists(dest_dir):
-            print(f"Creating destination dir:  {dest_dir}\n")
-            os.makedirs(dest_dir)
 
         docs_users = defaultdict(set)
         count = 0
@@ -72,38 +69,35 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
                     user_ids = list(set([s for s in user_ids if isinstance(s, int)]))
 
                     doc_id = file.split('.')[0]
+
+                    # only include this document ID in doc_users if we actually use it in our splits
+                    if not self.doc_used(doc_id):
+                        continue
+
                     docs_users[doc_id].update(user_ids)
                     if count == 1:
                         print(doc_id, docs_users[doc_id])
                     if count % 2000 == 0:
                         print(f"{count} done")
 
-        self.save_user_docs(count, dest_dir, docs_users)
-
-    def create_doc_user_splits(self):
-        self.create_user_splits(self.data_complete_path('complete'))
-
-    def filter_user_contexts(self):
-        self.filter_contexts(None)
-
-    def create_adjacency_matrix(self):
-        self.create_adj_matrix(self.data_complete_path('complete'))
+        print(f"\nTotal tweets/re-tweets in the data set = {count}")
+        self.save_user_doc_engagements(docs_users)
 
     def create_feature_matrix(self):
-        all_contents = {}
-        for label in ['fake', 'real']:
+        content_files = {}
+
+        for label in LABELS.values():
             src_doc_files = os.path.join(self.data_raw_dir, self.dataset, label, '*')
             for folder_name in glob.glob(src_doc_files):
                 content_file = folder_name + "/news content.json"
                 doc_id = folder_name.split('/')[-1]
-                all_contents[doc_id] = content_file
+                content_files[doc_id] = content_file
 
-        self.create_fea_matrix(all_contents)
+        self.create_fea_matrix(content_files)
 
     def create_labels(self):
 
         self.maybe_load_id_mappings()
-        self.maybe_load_doc_splits()
 
         # TODO same as FakeHealth, extract
         if self.n_total is None:
@@ -121,7 +115,7 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
         # split_docs = self.train_docs + self.val_docs
         # doc2labels = {}
         #
-        # user_contexts = ['fake', 'real']
+        # user_contexts = LABELS.values()
         # for user_context in user_contexts:
         #     label = 1 if user_context == 'fake' else 0
         #     for root, dirs, files in os.walk(self.data_raw_path(self.dataset, user_context)):
