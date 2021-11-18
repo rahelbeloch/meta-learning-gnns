@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 from scipy.sparse import load_npz
 
-from data_prep.config import *
-from data_prep.graph_io import GraphPreprocessor, LABELS
+from config import *
+from graph_io import GraphPreprocessor, LABELS
 from data_preprocess_utils import save_json_file
 
 
@@ -22,16 +22,16 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         # self.aggregate_user_contexts()
 
-        # if self.only_valid_users:
-        #     self.filter_valid_users()
+        #if self.only_valid_users:
+        #    self.filter_valid_users()
 
         self.create_user_splits()
-        # self.create_doc_id_dicts()
-        # self.filter_contexts()
-        # self.create_adj_matrix()
-        # self.create_feature_matrix()
-        # self.create_labels()
-        # self.create_split_masks()
+        self.create_doc_id_dicts()
+        self.filter_contexts()
+        self.create_adj_matrix()
+        self.create_feature_matrix()
+        self.create_labels()
+        self.create_split_masks()
 
     def get_doc_key(self, name, name_type='dir'):
         if name_type == 'dir':
