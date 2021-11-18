@@ -5,7 +5,7 @@ import nltk
 
 nltk.download('stopwords')
 
-from data_prep.graph_io import *
+from graph_io import *
 from data_preprocess_utils import load_json_file, save_json_file
 
 
@@ -50,7 +50,7 @@ class FakeHealthGraphPreprocessor(GraphPreprocessor):
 
         docs_users = defaultdict(set)
         count = 0
-        for root, dirs, files in os.walk(src_dir):
+        for root, _, files in os.walk(src_dir):
             if root.endswith("replies"):
                 continue
             for count, file in enumerate(files):

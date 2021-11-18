@@ -9,8 +9,8 @@ import pandas as pd
 from scipy.sparse import load_npz
 
 from config import *
-from graph_io import GraphPreprocessor, LABELS
 from data_preprocess_utils import save_json_file
+from graph_io import GraphPreprocessor, LABELS
 
 
 class FakeNewsGraphPreprocessor(GraphPreprocessor):
@@ -25,7 +25,7 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
         #if self.only_valid_users:
         #    self.filter_valid_users()
 
-        self.create_user_splits()
+        # self.create_user_splits()
         self.create_doc_id_dicts()
         self.filter_contexts()
         self.create_adj_matrix()
@@ -53,7 +53,7 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
             if not os.path.exists(src_dir):
                 raise ValueError(f'Source directory {src_dir} does not exist!')
 
-            for root, dirs, files in os.walk(src_dir):
+            for root, _, files in os.walk(src_dir):
                 for count, file in enumerate(files):
                     file_path = os.path.join(root, file)
 

@@ -111,7 +111,7 @@ class GraphPreprocessor(GraphIO):
     def load_if_exists(self, file_name):
         file = self.data_complete_path(file_name)
         if os.path.exists(file):
-            return json.load(open(file, 'r'))
+            return load_json_file(file)
         else:
             raise ValueError(f"Wanting to load file with name {file_name}, but this file does not exist!!")
 
@@ -245,31 +245,43 @@ class GraphPreprocessor(GraphIO):
         train_users, val_users, test_users = set(), set(), set()
 
         # walk through user-doc engagement files created before
-        for root, dirs, files in os.walk(self.data_complete_path('engagements')):
+        for root, _, files in os.walk(self.data_complete_path('engagements')):
+            print_iter = int(len(files) / 20)
+
             for count, file in enumerate(files):
-                src_file_path = os.path.join(root, file)
                 try:
-                    src_file = json.load(open(src_file_path, 'r'))
+                    src_file = load_json_file(os.path.join(root, file))
                 except UnicodeDecodeError:
                     # TODO: fix this error / keep track of files for which this happens
                     print("Exception")
                     continue
 
+                if count % print_iter == 0:
+                    print("{} / {} done..".format(count + 1, len(files)))
+
                 doc_key = self.get_doc_key(file, name_type='file')
                 users = src_file['users']
 
-                users = [u for u in users if not self.only_valid_users or u in self.valid_users]
+                # TODO: fix the runtime here, this is suuuper slow
+                users_filtered = [u for u in users if not self.only_valid_users or u in self.valid_users]
+                # users_filtered = []
+                # for u in users:
+                #     if not self.only_valid_users:
+                #         users_filtered.append(u)
+                #     else:
+                #         if u in self.valid_users:
+                #             users_filtered.append(u)
 
                 if doc_key in self.train_docs:
-                    train_users.update(users)
+                    train_users.update(users_filtered)
                 if doc_key in self.val_docs:
-                    val_users.update(users)
+                    val_users.update(users_filtered)
                 if doc_key in self.test_docs:
-                    test_users.update(users)
+                    test_users.update(users_filtered)
 
         if self.only_valid_users:
             all_users = set.union(*[train_users, val_users, test_users])
-            print(f'All users: {all_users}')
+            print(f'All users: {len(all_users)}')
             assert len(all_users) <= self.top_k * 1000, \
                 f"Total nr of users for all splits is greater than top K {self.top_k}!"
 
@@ -294,7 +306,10 @@ class GraphPreprocessor(GraphIO):
         print("Val docs = ", n_val)
         doc2id_val, node_type_val = self.doc_node_info(self.val_docs)
 
-        self.doc2id = doc2id_train | doc2id_val
+        self.doc2id = {**doc2id_train, **doc2id_val}
+
+        # only for Python 3.9+
+        # self.doc2id = doc2id_train | doc2id_val
 
         splits = load_json_file(self.data_complete_path(USER_SPLITS_FILE_NAME))
         train_users, val_users, test_users = splits['train_users'], splits['val_users'], splits['test_users']
@@ -369,15 +384,9 @@ class GraphPreprocessor(GraphIO):
         return doc2id, node_type
 
     def filter_contexts(self, follower_key=None):
-        """
-        Reduces the follower/ing data to users that are among the top k users.
-        """
-
         self.print_step("Creating filtered follower-following")
 
-        with open(self.data_complete_path(USER_2_ID_FILE_NAME % self.top_k), 'r') as j:
-            all_users = json.load(j)
-
+        all_users = load_json_file(self.data_complete_path(USER_2_ID_FILE_NAME % self.top_k))
         print("Total users in this dataset = ", len(all_users))
 
         unknown_user_ids = 0
@@ -409,7 +418,7 @@ class GraphPreprocessor(GraphIO):
                     if os.path.isfile(dest_file_path):
                         continue
 
-                    src_file = json.load(open(os.path.join(root, file), 'r'))
+                    src_file = load_json_file(os.path.join(root, file))
 
                     follower_dest_key = 'followers' if user_context == 'user_followers' else 'following'
 
@@ -566,6 +575,9 @@ class GraphPreprocessor(GraphIO):
 
         self.maybe_load_id_mappings()
 
+        # TODO: filter file contents / only use file contents for files that we actually use in the splits!
+        # TODO: also create vocab only based on these...
+
         vocab = self.build_vocab(file_contents)
         feat_matrix = lil_matrix((self.n_total, len(vocab)))
         print("\nSize of feature matrix = ", feat_matrix.shape)
@@ -577,19 +589,22 @@ class GraphPreprocessor(GraphIO):
 
         for count, (doc_name, content_file) in enumerate(file_contents.items()):
             print_iter = int(len(file_contents) / 5)
-            if doc_name in split_docs:
-                if doc_name in self.doc2id and doc_name not in self.test_docs:
-                    # feat_matrix[doc2id[str(doc_name)], :] = np.random.random(len(vocab)) > 0.99
 
-                    with open(content_file, 'r') as f:
-                        text = nltk.word_tokenize(sanitize_text(json.load(f)['text'], 1500))
-                        text_filtered = [w for w in text if w not in stop_words]
+            if doc_name not in split_docs:
+                continue
 
-                        vector = np.zeros(len(vocab))
-                        for token in text_filtered:
-                            if token in vocab.keys():
-                                vector[vocab[token]] = 1
-                        feat_matrix[self.doc2id[doc_name], :] = vector
+            if doc_name in self.doc2id and doc_name not in self.test_docs:
+                # feat_matrix[doc2id[str(doc_name)], :] = np.random.random(len(vocab)) > 0.99
+
+                with open(content_file, 'r') as f:
+                    text = nltk.word_tokenize(sanitize_text(json.load(f)['text'], 1500))
+                    text_filtered = [w for w in text if w not in stop_words]
+
+                    vector = np.zeros(len(vocab))
+                    for token in text_filtered:
+                        if token in vocab.keys():
+                            vector[vocab[token]] = 1
+                    feat_matrix[self.doc2id[doc_name], :] = vector
 
             if count % print_iter == 0:
                 print("{} / {} done..".format(count + 1, len(file_contents)))
@@ -602,23 +617,34 @@ class GraphPreprocessor(GraphIO):
         print("\nCreating feat_matrix entries for users nodes...")
         start = time.time()
 
+        feature_id_mapping = defaultdict(lambda: [])
         src_dir = self.data_complete_path('engagements')
-        for root, dirs, files in os.walk(src_dir):
-            print_iter = int(len(files) / 10)
+        for root, _, files in os.walk(src_dir):
+            print_iter = int(len(files) / 1000)
 
             for count, file in enumerate(files):
                 src_file = load_json_file(os.path.join(root, file))
                 doc_key = file.split(".")[0]
-                # if str(doc_key) in self.train_docs:
+
                 # Each user of this doc has its features as the features of the doc
                 if doc_key in split_docs and doc_key in self.doc2id:
                     for user in src_file['users']:
-                        if str(user) in self.user2id:
-                            feat_matrix[self.user2id[str(user)], :] += feat_matrix[self.doc2id[str(doc_key)], :]
+                        user_key = str(user)
+                        if user_key not in self.user2id:
+                            continue
+
+                        # TODO: optimize this, memorize which doc_id the features for every user come from
+
+                        feature_id_mapping[self.user2id[user_key]].append(self.doc2id[str(doc_key)])
+                        # feat_matrix[self.user2id[user_id], :] += feat_matrix[self.doc2id[str(doc_key)], :]
 
                 if count % print_iter == 0:
                     print(" {} / {} done..".format(count + 1, len(files)))
-                    print(datetime.datetime.now())
+
+        # actually copying the features
+        for user_id, doc_ids in feature_id_mapping.items():
+            for doc_id in doc_ids:
+                feat_matrix[user_id, :] += feat_matrix[doc_id, :]
 
         hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
@@ -638,7 +664,7 @@ class GraphPreprocessor(GraphIO):
         vocab_file = self.data_complete_path('vocab.json')
         if os.path.isfile(vocab_file):
             print("\nReading vocabulary from:  ", vocab_file)
-            return json.load(open(vocab_file, 'r'))
+            return load_json_file(vocab_file)
 
         print("\nBuilding vocabulary...")
         vocab = {}
