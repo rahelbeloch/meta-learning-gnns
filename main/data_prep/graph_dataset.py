@@ -54,7 +54,7 @@ from data_preprocess_utils import load_json_file
 #         self.x_data = torch.from_numpy(load_npz(x_feat_matrix_file).toarray())
 #         num_nodes, self.vocab_size = self.x_data.shape
 #
-#         y_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME % self.top_k)
+#         y_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME)
 #         y_labels = json.load(open(y_labels_file, 'r'))
 #         self.y_data = torch.LongTensor(y_labels['all_labels'])
 #
@@ -182,13 +182,13 @@ class DglGraphDataset(GraphIO, DGLDataset):
 
         g.ndata['feat'] = feat_matrix
 
-        y_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME % self.top_k)
+        y_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME)
         y_labels = load_json_file(y_labels_file)['all_labels']
         g.ndata['label'] = torch.LongTensor(y_labels)
 
         # If your dataset is a node classification dataset, you will need to assign
         # masks indicating whether a node belongs to training, validation, and test set.
-        split_mask_file = self.data_complete_path(SPLIT_MASK_FILE_NAME % self.top_k)
+        split_mask_file = self.data_complete_path(SPLIT_MASK_FILE_NAME)
         split_masks = load_json_file(split_mask_file)
 
         g.ndata['train_mask'] = torch.tensor(split_masks['train_mask'])

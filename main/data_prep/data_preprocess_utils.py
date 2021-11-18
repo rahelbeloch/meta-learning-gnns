@@ -1,8 +1,13 @@
 import json
+import os
 import re
+from string import punctuation
 
 import numpy as np
 from sklearn.model_selection import StratifiedShuffleSplit
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STOP_WORDS = set(open(os.path.join(BASE_DIR, '../resources/stopwords.txt'), 'r').read().split())
 
 
 def split_data(splits, size, data):
@@ -36,7 +41,10 @@ def print_label_distribution(labels):
 
 
 def load_json_file(file_name):
-    return json.load(open(file_name, 'r'))
+    if os.path.exists(file_name):
+        return json.load(open(file_name, 'r'))
+    else:
+        raise ValueError(f"File {file_name} does not exist!")
 
 
 def save_json_file(data, file_name, mode='w+', converter=None):
@@ -51,14 +59,18 @@ def calc_elapsed_time(start, end):
     return int(hours), int(minutes), int(seconds)
 
 
-def sanitize_text(text, max_len):
+def sanitize_text(text):
+    text = text.lower()
+
     # replace special symbols in the text
-    text = text.replace('\n', ' ').replace('\t', ' ')
-    text = re.sub(r'#[\w-]+', 'hashtag', text)
-    text = re.sub(r'https?://\S+', 'url', text)
-    # text = re.sub(r"[^A-Za-z(),!?\'`]", " ", text)
+    text = re.sub('[' + punctuation + ']', ' ', text)
+    text = re.sub('\\b[0-9]+\\b', '', text)
+    text = re.sub('\\s+', ' ', text)
 
-    # cut off text after max length
-    text = text[:max_len]
+    # text = re.sub(r'#[\w-]+', 'hashtag', text)
+    # text = re.sub(r'https?://\S+', 'url', text)
 
-    return text
+    # filter out stopwords
+    text = [w for w in text.split(' ') if w not in STOP_WORDS]
+
+    return ' '.join(text)

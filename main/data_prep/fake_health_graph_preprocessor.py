@@ -1,8 +1,6 @@
 import argparse
-import glob
 
-from graph_io import *
-from data_preprocess_utils import load_json_file, save_json_file
+from data_prep.graph_io import *
 
 
 class FakeHealthGraphPreprocessor(GraphPreprocessor):
@@ -62,10 +60,6 @@ class FakeHealthGraphPreprocessor(GraphPreprocessor):
         print(f"\nTotal tweets/re-tweets in the data set = {count}")
         self.save_user_doc_engagements(docs_users)
 
-    def create_feature_matrix(self):
-        src_doc_dir = self.data_raw_path('content', self.dataset + "/*.json")
-        self.create_fea_matrix(glob.glob(src_doc_dir))
-
     def create_labels(self):
         """
         Create labels for each node of the graph
@@ -102,7 +96,7 @@ class FakeHealthGraphPreprocessor(GraphPreprocessor):
 
     def save_labels(self, doc2labels):
 
-        doc2labels_file = self.data_complete_path(DOC_2_LABELS_FILE_NAME % self.top_k)
+        doc2labels_file = self.data_complete_path(DOC_2_LABELS_FILE_NAME)
         print(f"Saving doc2labels for {self.dataset} at: {doc2labels_file}")
         save_json_file(doc2labels, doc2labels_file)
 
@@ -116,13 +110,13 @@ class FakeHealthGraphPreprocessor(GraphPreprocessor):
         # print(sum(labels_list[2402:]))
         # print(sum(labels_list[:2402]))
 
-        labels_file = self.data_complete_path(LABELS_FILE_NAME % self.top_k)
+        labels_file = self.data_complete_path(TRAIN_LABELS_FILE_NAME)
         print(f"\nLabels list construction done! Saving in : {labels_file}")
         save_json_file({'labels_list': list(labels_list)}, labels_file, converter=self.np_converter)
 
         # Create the all_labels file
         all_labels = np.zeros(self.n_total, dtype=int)
-        all_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME % self.top_k)
+        all_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME)
         for doc in doc2labels.keys():
             all_labels[self.doc2id[str(doc)]] = doc2labels[str(doc)]
 

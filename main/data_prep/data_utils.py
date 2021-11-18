@@ -66,7 +66,7 @@ def sample_sub_graphs():
     # consist out of different permutation of labels
     num_label_set = 5
 
-    labels_file = "../../data/complete/FakeHealth/HealthStory/" + ALL_LABELS_FILE_NAME % str(50)
+    labels_file = "../../data/complete/FakeHealth/HealthStory/" + ALL_LABELS_FILE_NAME
     labels = json.load(open(labels_file, 'r'))
 
     all_labels = torch.LongTensor(labels['all_labels'])

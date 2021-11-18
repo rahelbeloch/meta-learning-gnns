@@ -140,3 +140,4 @@ dmypy.json
 /.idea/*
 /main/data/complete/FakeHealth/HealthStory/engagements/
 .DS_STORE
+main/data_prep/.vector_cache

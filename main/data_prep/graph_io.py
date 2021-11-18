@@ -2,18 +2,18 @@ import abc
 import copy
 import csv
 import datetime
-import os
+import glob
 import time
 from collections import OrderedDict
 from collections import defaultdict
 from json import JSONDecodeError
 
 import nltk
+import torch
 
-nltk.download('stopwords')
 nltk.download('punkt')
 
-from nltk.corpus import stopwords
+from torchtext.vocab import GloVe
 
 from scipy.sparse import lil_matrix, save_npz
 from data_preprocess_utils import *
@@ -40,7 +40,7 @@ class GraphIO:
         self.data_complete_dir = self.create_dir(complete_dir)
 
     def print_step(self, step_title):
-        print(f'\n{"-" * 100}\n \t\t {step_title} for {self.dataset} dataset.\n{"-" * 100}')
+        print(f'\n{"-" * 100}\n \t\t\t\t {step_title} for {self.dataset} dataset.\n{"-" * 100}')
 
     @staticmethod
     def create_dir(dir_name):
@@ -305,12 +305,22 @@ class GraphPreprocessor(GraphIO):
 
         n_val = len(self.val_docs)
         print("Val docs = ", n_val)
-        doc2id_val, node_type_val = self.doc_node_info(self.val_docs)
+        doc2id_val, node_type_val = self.doc_node_info(self.val_docs, offset=n_train)
 
-        self.doc2id = {**doc2id_train, **doc2id_val}
+        n_test = len(self.test_docs)
+        print("Test docs = ", n_test)
+        doc2id_test, node_type_test = self.doc_node_info(self.test_docs, offset=n_train + n_val)
+
+        doc2id = {**doc2id_train, **doc2id_val, **doc2id_test}
 
         # only for Python 3.9+
         # self.doc2id = doc2id_train | doc2id_val
+
+        assert len(set(doc2id.values())) == len(doc2id), "Doc2ID contains duplicate IDs!!"
+        assert len(doc2id) == (n_val + n_train + n_test), "Doc2id does not contain all documents!"
+        print("New doc2id len including test docs = ", len(doc2id))
+        save_json_file(doc2id, self.data_complete_path(DOC_2_ID_FILE_NAME % self.top_k))
+        self.doc2id = doc2id
 
         splits = load_json_file(self.data_complete_path(USER_SPLITS_FILE_NAME))
         train_users, val_users, test_users = splits['train_users'], splits['val_users'], splits['test_users']
@@ -331,6 +341,8 @@ class GraphPreprocessor(GraphIO):
             user2id[str(user)] = count + len(self.doc2id)
             node_type_user.append(2)
 
+        assert len(set(user2id.values())) == len(user2id), "User2ID contains duplicate IDs!!"
+
         print("\nUser2id size = ", len(user2id))
         user2id_train_file = self.data_complete_path(USER_2_ID_FILE_NAME % self.top_k)
         print("Saving user2id_train in : ", user2id_train_file)
@@ -347,18 +359,13 @@ class GraphPreprocessor(GraphIO):
         print(f"Saving node type in : {node_type_file}")
         np.save(node_type_file, node_type, allow_pickle=True)
 
-        print("\nAdding test docs..")
-        n_test = len(self.test_docs)
-        print("Test docs = ", n_test)
-        orig_doc2id_len = len(self.doc2id)
+        # print("\nAdding test docs..")
+        # n_test = len(self.test_docs)
+        # print("Test docs = ", n_test)
+        # orig_doc2id_len = len(self.doc2id)
 
-        for test_count, doc in enumerate(self.test_docs):
-            # n_test + len(self.user2id) + orig_doc2id_len
-            self.doc2id[doc] = test_count + len(self.user2id) + orig_doc2id_len
-
-        assert len(self.doc2id) == (n_val + n_train + n_test), "Doc2id does not contain all documents!"
-        print("New doc2id len including test docs = ", len(self.doc2id))
-        save_json_file(self.doc2id, self.data_complete_path(DOC_2_ID_FILE_NAME % self.top_k))
+        # for test_count, doc in enumerate(self.test_docs):
+        #     self.doc2id[doc] = test_count + len(self.user2id) + orig_doc2id_len
 
         node2id = self.doc2id.copy()
         node2id.update(self.user2id)
@@ -372,11 +379,11 @@ class GraphPreprocessor(GraphIO):
 
         print("\nDone ! All files written.")
 
-    def doc_node_info(self, docs):
+    def doc_node_info(self, docs, offset=None):
         doc2id, node_type = {}, []
 
         for doc_count, doc_name in enumerate(docs):
-            doc2id[doc_name] = doc_count
+            doc2id[doc_name] = doc_count if offset is None else doc_count + offset
             node_type.append(1)
 
         assert len(docs) == len(doc2id) == len(node_type), \
@@ -571,133 +578,148 @@ class GraphPreprocessor(GraphIO):
         print("saving edge_type list format in :  ", edge_type_file)
         np.save(edge_type_file, edge_index, allow_pickle=True)
 
-    def create_fea_matrix(self, file_contents):
-        self.print_step("Creating feature matrix")
+    def create_feature_matrix(self):
 
         self.maybe_load_id_mappings()
 
-        # TODO: filter file contents / only use file contents for files that we actually use in the splits!
-        # TODO: also create vocab only based on these...
+        self.print_step("Creating feature matrix")
 
-        vocab = self.build_vocab(file_contents)
+        max_vocab = 10000
+        glove = GloVe(name='twitter.27B', dim=200)
+
+        # load all texts for test, train and val documents
+        split_path = self.data_tsv_path('splits')
+
+        all_texts = []
+        for split in ['test', 'train', 'val']:
+            split_file_path = os.path.join(split_path, f'{split}.tsv')
+            reader = csv.DictReader(open(split_file_path, encoding='utf-8'), delimiter='\t')
+            for row in reader:
+                # split_texts = list(reader)
+                all_texts.append(row['text'])
+
+        assert len(all_texts) == len(self.doc2id), "Nr of texts from doc splits does not equal to doc2id!"
 
         print(f"\nNr of docs = {len(self.doc2id)}")
         print(f"Nr of users = {len(self.user2id)}")
-        print(f"Size of vocab = {len(vocab)}")
 
-        feat_matrix = lil_matrix((self.n_total, len(vocab)))
-        print(f"\nSize of feature matrix = {feat_matrix.shape}")
-        print("\nCreating feat_matrix entries for docs nodes...")
-
+        print("\nCreating features for docs nodes...")
         start = time.time()
-        split_docs = self.train_docs + self.val_docs
-        stop_words = set(stopwords.words('english'))
 
-        for count, (doc_name, content_file) in enumerate(file_contents.items()):
-            print_iter = int(len(file_contents) / 5)
+        features_docs = []
+        for text in all_texts:
+            tokens = set(nltk.word_tokenize(text))
+            inds = torch.tensor([glove.stoi[token] for token in tokens if token in glove.stoi])
 
-            if doc_name not in split_docs:
-                continue
-
-            if doc_name in self.doc2id and doc_name not in self.test_docs:
-                # feat_matrix[doc2id[str(doc_name)], :] = np.random.random(len(vocab)) > 0.99
-
-                with open(content_file, 'r') as f:
-                    text = nltk.word_tokenize(sanitize_text(json.load(f)['text'], 1500))
-                    text_filtered = [w for w in text if w not in stop_words]
-
-                    vector = np.zeros(len(vocab))
-                    for token in text_filtered:
-                        if token in vocab.keys():
-                            vector[vocab[token]] = 1
-                    feat_matrix[self.doc2id[doc_name], :] = vector
-
-            if count % print_iter == 0:
-                print("{} / {} done..".format(count + 1, len(file_contents)))
+            # Use only 10k most common tokens
+            inds = inds[inds < max_vocab]
+            doc_feat = torch.zeros(max_vocab)
+            if len(inds) > 0:
+                doc_feat[inds] = 1
+            features_docs.append(doc_feat)
+        doc_features = torch.stack(features_docs)  # .to(self._device)
 
         hrs, mins, secs = calc_elapsed_time(start, time.time())
-        print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
+        print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs")
 
-        # feat_matrix_sum = np.array(feat_matrix.sum(axis=1)).squeeze(1)
-
-        print("\nCreating feat_matrix entries for users nodes...")
+        print("\nCreating features for users nodes...")
         start = time.time()
 
         feature_id_mapping = defaultdict(lambda: [])
-        src_dir = self.data_complete_path('engagements')
-        for root, _, files in os.walk(src_dir):
+        engagements_files = self.data_complete_path('engagements', '*.json')
 
-            for count, file in enumerate(files):
-                src_file = load_json_file(os.path.join(root, file))
-                doc_key = file.split(".")[0]
+        for count, file in enumerate(glob.glob(engagements_files)):
+            doc_users = load_json_file(file)
+            doc_key = self.get_doc_key(file, name_type='filepath')
 
-                # Each user of this doc has its features as the features of the doc
-                if doc_key in split_docs and doc_key in self.doc2id:
-                    for user in src_file['users']:
-                        user_key = str(user)
-                        if user_key not in self.user2id:
-                            continue
+            # Each user of this doc has its features as the features of the doc
+            if doc_key not in self.doc2id:
+                continue
 
-                        # TODO: optimize this, memorize which doc_id the features for every user come from
-                        feature_id_mapping[self.user2id[user_key]].append(self.doc2id[str(doc_key)])
-                        # feat_matrix[self.user2id[user_id], :] += feat_matrix[self.doc2id[str(doc_key)], :]
+            for user in doc_users['users']:
+                user_key = str(user)
+                if user_key not in self.user2id:
+                    continue
+                feature_id_mapping[self.user2id[user_key]].append(self.doc2id[str(doc_key)])
 
-        # actually copying the features
-        # COMPUTATIONALLY HEAVY
-        print_iter = int(len(feature_id_mapping) / 10)
-        for count, (user_id, doc_ids) in enumerate(feature_id_mapping.items()):
-            for doc_id in doc_ids:
-                feat_matrix[user_id, :] += feat_matrix[doc_id, :]
-
-            if count % print_iter == 0:
-                print(" {} / {} done..".format(count + 1, len(feature_id_mapping)))
+        feature_id_mapping = dict(sorted(feature_id_mapping.items(), key=lambda it: it[0]))
+        features_users = []
+        for user_id, doc_ids in feature_id_mapping.items():
+            features_users.append(doc_features[doc_ids].sum(axis=0))
+        user_features = torch.stack(features_users)  # .to(self._device)
 
         hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
 
-        feat_matrix = feat_matrix >= 1
-        feat_matrix = feat_matrix.astype(int)
+        print(f"\nCreating feature matrix and storing doc and user features...")
+        start = time.time()
+        feature_matrix = lil_matrix((self.n_total, max_vocab))
+        print(f"Size of feature matrix = {feature_matrix.shape}")
+
+        feature_matrix[:len(doc_features)] = doc_features
+        feature_matrix[len(doc_features):] = user_features
+
+        hrs, mins, secs = calc_elapsed_time(start, time.time())
+        print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
+
+        # TODO: do we need this?
+        feature_matrix = feature_matrix >= 1
+        feature_matrix = feature_matrix.astype(int)
 
         # Sanity Checks
         # feat_matrix_sum = np.array(feat_matrix.sum(axis=1)).squeeze(1)
 
         filename = self.data_complete_path(FEAT_MATRIX_FILE_NAME % self.top_k)
-        print("Matrix construction done! Saving in: {}".format(filename))
-        save_npz(filename, feat_matrix.tocsr())
+        print(f"\nMatrix construction done! Saving in: {filename}")
+        save_npz(filename, feature_matrix.tocsr())
 
-    def build_vocab(self, content_files):
-
-        vocab_file = self.data_complete_path('vocab.json')
-        if os.path.isfile(vocab_file):
-            print("\nReading vocabulary from:  ", vocab_file)
-            return load_json_file(vocab_file)
-
-        print("\nBuilding vocabulary...")
-        vocab = {}
-        stop_words = set(stopwords.words('english'))
-        start = time.time()
-
-        for doc_id, content_file in content_files.items():
-            if doc_id in self.train_docs and doc_id in self.doc2id:
-                with open(content_file, 'r') as f:
-                    file_content = json.load(f)
-                    text = file_content['text'].lower()[:500]
-                    text = re.sub(r'#[\w-]+', 'hashtag', text)
-                    text = re.sub(r'https?://\S+', 'url', text)
-                    # text = re.sub(r"[^A-Za-z(),!?\'`]", " ", text)
-                    text = nltk.word_tokenize(text)
-                    text = [w for w in text if not w in stop_words]
-                    for token in text:
-                        if token not in vocab.keys():
-                            vocab[token] = len(vocab)
-
-        hrs, mins, secs = calc_elapsed_time(start, time.time())
-        print("Done. Took {}hrs and {}mins and {}secs\n".format(hrs, mins, secs))
-        print("Size of vocab =  ", len(vocab))
-        print(f"Saving vocab for {self.dataset} at: {vocab_file}")
-        save_json_file(vocab, vocab_file)
-
-        return vocab
+    # def build_vocab(self, all_texts):
+    #
+    #     vocab_file = self.data_complete_path('vocab.json')
+    #     if os.path.isfile(vocab_file):
+    #         print("\nReading vocabulary from:  ", vocab_file)
+    #         return load_json_file(vocab_file)
+    #
+    #     print("\nBuilding vocabulary...")
+    #     word_frequency = defaultdict(lambda: 0)
+    #     start = time.time()
+    #
+    #     for text in all_texts:
+    #         tokens = set(nltk.word_tokenize(text))
+    #         for token in tokens:
+    #             word_frequency[token] += 1
+    #
+    #     word_frequency = [(f, w) for (w, f) in word_frequency.items()]
+    #     word_frequency.sort(reverse=True)
+    #
+    #     upper_threshold, lower_threshold = -1, 10
+    #     max_vocab = 50000
+    #     token_counts = []
+    #
+    #     for (count, token) in word_frequency:
+    #         if upper_threshold != -1 and count > upper_threshold:
+    #             continue
+    #         if count < lower_threshold:
+    #             continue
+    #         token_counts.append((count, token))
+    #
+    #     token_counts.sort(reverse=True)
+    #     if max_vocab != -1:
+    #         token_counts = token_counts[:max_vocab]
+    #
+    #     # NIV: not in vocab token, i.e., out of vocab
+    #     token_counts.append((0, 'NIV'))
+    #
+    #     vocab = {}
+    #     for (i, (count, token)) in enumerate(token_counts):
+    #         vocab[token] = i + 1
+    #
+    #     hrs, mins, secs = calc_elapsed_time(start, time.time())
+    #     print("Done. Took {}hrs and {}mins and {}secs\n".format(hrs, mins, secs))
+    #     print(f"Saving vocab for {self.dataset} at: {vocab_file}")
+    #     save_json_file(vocab, vocab_file)
+    #
+    #     return vocab
 
     @abc.abstractmethod
     def create_labels(self):
@@ -710,41 +732,31 @@ class GraphPreprocessor(GraphIO):
         self.maybe_load_id_mappings()
 
         train_mask, val_mask, test_mask = np.zeros(self.n_total), np.zeros(self.n_total), np.zeros(self.n_total)
-        representation_mask = np.ones(self.n_total)
 
-        not_in_train_or_val = 0
         for doc, doc_id in self.doc2id.items():
             doc_n = str(doc)
             if doc_n in self.train_docs:
                 train_mask[doc_id] = 1
             elif doc_n in self.val_docs:
                 val_mask[doc_id] = 1
-                representation_mask[doc_id] = 0
             elif doc_n in self.test_docs:
-                # TODO: there are many more items in the doc2dict than length of masks -->
-                #  Why? --> because adjacency matrix only contains length for val and train docs
-                if doc_id < test_mask.shape[0]:
-                    test_mask[doc_id] = 1
-            else:
-                not_in_train_or_val += 1
+                test_mask[doc_id] = 1
 
-        print("\nNot in train or val = ", not_in_train_or_val)
         print("train_mask sum = ", int(sum(train_mask)))
         print("val_mask sum = ", int(sum(val_mask)))
         print("test_mask sum = ", int(sum(test_mask)))
 
-        mask_dict = {'train_mask': list(train_mask), 'val_mask': list(val_mask), 'test_mask': list(test_mask),
-                     'repr_mask': list(representation_mask)}
-        split_mask_file = self.data_complete_path(SPLIT_MASK_FILE_NAME % self.top_k)
+        mask_dict = {'train_mask': list(train_mask), 'val_mask': list(val_mask), 'test_mask': list(test_mask)}
+        split_mask_file = self.data_complete_path(SPLIT_MASK_FILE_NAME)
         print("\nWriting split mask file in : ", split_mask_file)
         save_json_file(mask_dict, split_mask_file)
 
 
 class DataPreprocessor(GraphIO):
 
-    def preprocess(self, min_len=6, max_len=5000):
+    def preprocess(self, min_len=6):
         """
-        Applies some preprocessing to the data, e.g. replacing special characters, filters non-requiured articles out.
+        Applies some preprocessing to the data, e.g. replacing special characters, filters non-required articles out.
         :param min_len: Minimum required length for articles.
         :param max_len: Maximum required length for articles.
         :return: Numpy arrays for article tests (x_data), article labels (y_data), and article names (doc_names).
@@ -758,7 +770,7 @@ class DataPreprocessor(GraphIO):
             reader = csv.DictReader(data, delimiter='\t')
             for row in reader:
                 if isinstance(row['text'], str) and len(row['text']) >= min_len:
-                    text = sanitize_text(row['text'], max_len)
+                    text = sanitize_text(row['text'])
                     x_data.append(text)
                     x_lengths.append(len(text))
                     y_data.append(int(row['label']))
@@ -797,7 +809,6 @@ class DataPreprocessor(GraphIO):
                 if d_text in texts:
                     duplicates[d_text]['counts'] += 1
                     duplicates[d_text]['d_names'][LABELS[data[1][i]]].append(data[2][i])
-                    # duplicates[d_text]['classes'].add(LABELS[data[1][i]])
                 else:
                     texts.append(d_text)
 
@@ -834,11 +845,11 @@ class DataPreprocessor(GraphIO):
             split_file_path = os.path.join(split_path, f'{split}.tsv')
             print(f"{split} file in : {split_file_path}")
 
-            with open(split_file_path, 'a', encoding='utf-8', newline='') as csv_file:
+            with open(split_file_path, 'w', encoding='utf-8', newline='') as csv_file:
                 csv_writer = csv.writer(csv_file, delimiter='\t')
-                # csv_writer.writerow(['text', 'label'])
+                csv_writer.writerow(['id', 'text', 'label'])
                 for i in range(len(x)):
-                    csv_writer.writerow([x[i], y[i], name_list[i]])
+                    csv_writer.writerow([name_list[i], x[i], y[i]])
 
         doc_splits_file = self.data_tsv_path(DOC_SPLITS_FILE_NAME)
         print("Writing doc_splits in : ", doc_splits_file)
@@ -859,7 +870,7 @@ class DataPreprocessor(GraphIO):
         """
 
         print(f"Total docs : {len(doc2labels)}")
-        doc2labels_file = self.data_tsv_path('doc2labels.json')
+        doc2labels_file = self.data_complete_path(DOC_2_LABELS_FILE_NAME)
 
         print(f"Writing doc2labels JSON in :  {doc2labels_file}")
         save_json_file(doc2labels, doc2labels_file, converter=self.np_converter)
@@ -873,20 +884,10 @@ class DataPreprocessor(GraphIO):
         print("\nCreating the data corpus file for: ", self.dataset)
 
         content_dest_file = self.data_tsv_path(CONTENT_INFO_FILE_NAME)
-        # TODO: should this be append or just always be overwritten?
-        if os.path.isfile(content_dest_file):
-            print(f"\nTarget data file '{content_dest_file}' already exists, overwriting it.")
-            open_mode = 'w'
-        else:
-            open_mode = 'a'
-
-        with open(content_dest_file, open_mode, encoding='utf-8', newline='') as csv_file:
+        with open(content_dest_file, 'w', encoding='utf-8', newline='') as csv_file:
             csv_writer = csv.writer(csv_file, delimiter='\t')
             csv_writer.writerow(['id', 'title', 'text', 'label'])
             for file_content in contents:
                 csv_writer.writerow(file_content)
 
         print("Final file written in :  ", content_dest_file)
-
-    def print_step(self, step_title):
-        print(f'\n{"-" * 50}\n \t\t {step_title} for {self.dataset} dataset.\n{"-" * 50}')
