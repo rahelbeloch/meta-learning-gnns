@@ -1,10 +1,6 @@
 import argparse
 import glob
 
-import nltk
-
-nltk.download('stopwords')
-
 from graph_io import *
 from data_preprocess_utils import load_json_file, save_json_file
 
