@@ -67,6 +67,8 @@ class GraphIO:
             return float(obj)
         elif isinstance(obj, np.ndarray):
             return obj.tolist()
+        elif isinstance(obj, set):
+            return list(obj)
         elif isinstance(obj, datetime.datetime):
             return obj.__str__()
 
@@ -76,7 +78,7 @@ class GraphPreprocessor(GraphIO):
     def __init__(self, config):
         super().__init__(config['data_set'], config['data_raw_dir'], config['data_tsv_dir'],
                          config['data_complete_dir'])
-        self.exclude_frequent_users = config['exclude_frequent']
+        self.only_valid_users = config['valid_users']
         self.top_k = config['top_k']
         self.user_doc_threshold = config['user_doc_threshold']
 
@@ -230,15 +232,15 @@ class GraphPreprocessor(GraphIO):
 
     def create_user_splits(self):
         """
+        Walks through all users that interacted with documents and, divides them on train/val/test splits.
 
-        :return:
         """
 
-        self.print_step("Creating doc and user splits")
+        self.print_step("Creating user splits")
 
         self.maybe_load_valid_users()
 
-        print("\nCreating users in splits file..")
+        print("\nCollecting users for splits file..")
 
         train_users, val_users, test_users = set(), set(), set()
 
@@ -256,17 +258,20 @@ class GraphPreprocessor(GraphIO):
                 doc_key = self.get_doc_key(file, name_type='file')
                 users = src_file['users']
 
-                users = [u for u in users if isinstance(u, int) and u in self.valid_users]
+                users = [u for u in users if not self.only_valid_users or u in self.valid_users]
 
-                if str(doc_key) in self.train_docs:
+                if doc_key in self.train_docs:
                     train_users.update(users)
-                if str(doc_key) in self.val_docs:
+                if doc_key in self.val_docs:
                     val_users.update(users)
-                if str(doc_key) in self.test_docs:
+                if doc_key in self.test_docs:
                     test_users.update(users)
 
-        assert (len(train_users) + len(val_users) + len(test_users)) == self.top_k * 1000, \
-            f"Total nr of users for all splits does not equal top K {self.top_k}!"
+        if self.only_valid_users:
+            all_users = set.union(*[train_users, val_users, test_users])
+            print(f'All users: {all_users}')
+            assert len(all_users) <= self.top_k * 1000, \
+                f"Total nr of users for all splits is greater than top K {self.top_k}!"
 
         user_splits_file = self.data_complete_path(USER_SPLITS_FILE_NAME)
         print("User splits stored in : ", user_splits_file)
@@ -277,9 +282,6 @@ class GraphPreprocessor(GraphIO):
         """
         Creates and saves doc2id and node2id dictionaries based on the document and user splits created by
         `create_doc_user_splits` function.
-
-        # TODO: remove this
-        Also puts constraints on the users which are used (e.g. only top k active users).
         """
 
         self.print_step("Creating doc2id and user2id dicts")
@@ -296,31 +298,6 @@ class GraphPreprocessor(GraphIO):
 
         splits = load_json_file(self.data_complete_path(USER_SPLITS_FILE_NAME))
         train_users, val_users, test_users = splits['train_users'], splits['val_users'], splits['test_users']
-
-        if self.exclude_frequent_users:
-            print("\nRestricting users ... ")
-
-            # Exclude most frequent users
-            restricted_users_file = self.data_complete_path(RESTRICTED_USERS % self.user_doc_threshold)
-            valid_users_file = self.data_tsv_path(VALID_USERS % self.top_k)
-
-            restricted_users, valid_users = [], []
-            try:
-                restricted_users = json.load(open(restricted_users_file, 'r'))['restricted_users']
-                valid_users = json.load(open(valid_users_file, 'r'))['valid_users']
-            except FileNotFoundError:
-                print("\nDid not find file for restricted and valid users although they should be excluded!\n")
-
-            # find restricted users (shared more than 30% of articles in either class)
-
-            # for each
-            # walk through doc-user engagements
-
-            train_users = [u for u in train_users if str(u) not in restricted_users and str(u) in valid_users]
-            val_users = [u for u in val_users if str(u) not in restricted_users and str(u) in valid_users]
-            test_users = [u for u in test_users if str(u) not in restricted_users and str(u) in valid_users]
-            # train_users = list(set(train_users)-set(done_users['done_users'])-set(restricted_users['restricted_users']))
-
         all_users = list(set(train_users + val_users + test_users))
 
         print('\nTrain users = ', len(train_users))
@@ -328,21 +305,21 @@ class GraphPreprocessor(GraphIO):
         print("Val users = ", len(val_users))
         print("All users = ", len(all_users))
 
-        a = set(train_users + val_users)
-        b = set(test_users)
-        print("\nUsers common between train/val and test = ", len(a.intersection(b)))
+        common_users = len(set(train_users + val_users).intersection(set(test_users)))
+        print("\nUsers common between train/val and test = ", common_users)
 
         node_type_user = []
-        self.user2id = {}
+        user2id = {}
 
         for count, user in enumerate(all_users):
-            self.user2id[str(user)] = count + len(self.doc2id)
+            user2id[str(user)] = count + len(self.doc2id)
             node_type_user.append(2)
 
-        print("\nUser2id size = ", len(self.user2id))
+        print("\nUser2id size = ", len(user2id))
         user2id_train_file = self.data_complete_path(USER_2_ID_FILE_NAME % self.top_k)
         print("Saving user2id_train in : ", user2id_train_file)
-        save_json_file(self.user2id, user2id_train_file)
+        save_json_file(user2id, user2id_train_file)
+        self.user2id = user2id
 
         # node type should contain train and val docs and train, val and test users
         node_type = node_type_train + node_type_val + node_type_user
@@ -781,13 +758,14 @@ class DataPreprocessor(GraphIO):
         if duplicate_stats:
             # counting duplicates in test set
             texts = []
-            duplicates = defaultdict(lambda: {'counts': 1, 'd_names': []})
+            duplicates = defaultdict(lambda: {'counts': 1, 'd_names': {'real': [], 'fake': []}, 'classes': set()})
 
             for i in range(len(data[0])):
                 d_text = data[0][i]
                 if d_text in texts:
                     duplicates[d_text]['counts'] += 1
-                    duplicates[d_text]['d_names'].append(data[2][i])
+                    duplicates[d_text]['d_names'][LABELS[data[1][i]]].append(data[2][i])
+                    # duplicates[d_text]['classes'].add(LABELS[data[1][i]])
                 else:
                     texts.append(d_text)
 

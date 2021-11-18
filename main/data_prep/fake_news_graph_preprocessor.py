@@ -21,7 +21,10 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
         self.load_doc_splits()
 
         # self.aggregate_user_contexts()
-        # self.filter_valid_users()
+
+        # if self.only_valid_users:
+        #     self.filter_valid_users()
+
         self.create_user_splits()
         # self.create_doc_id_dicts()
         # self.filter_contexts()
@@ -172,7 +175,8 @@ if __name__ == '__main__':
                                                                               'of any class users may max have shared '
                                                                               'to be included in the graph.')
 
-    parser.add_argument('--exclude_frequent', type=bool, default=False, help='TODO')
+    parser.add_argument('--valid_users', type=bool, default=True, help='Flag if only top K and users not sharing '
+                                                                       'more than X% of any class should be used.')
 
     args, unparsed = parser.parse_known_args()
 
