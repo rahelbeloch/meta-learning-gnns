@@ -18,17 +18,17 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         self.load_doc_splits()
 
-        # self.aggregate_user_contexts()
+        self.aggregate_user_contexts()
 
-        # if self.only_valid_users:
-        #    self.filter_valid_users()
+        if self.only_valid_users:
+            self.filter_valid_users()
 
-        # self.create_user_splits()
-        # self.create_doc_id_dicts()
-        # self.filter_contexts()
-        # self.create_adj_matrix()
-        # self.create_feature_matrix()
-        # self.create_labels()
+        self.create_user_splits()
+        self.create_doc_id_dicts()
+        self.filter_contexts()
+        self.create_adj_matrix()
+        self.create_feature_matrix()
+        self.create_labels()
         self.create_split_masks()
 
     def get_doc_key(self, name, name_type='dir'):

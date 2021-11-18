@@ -56,4 +56,4 @@ if __name__ == '__main__':
     data = 'gossipcop'
     preprocessor = TSVPreprocessor(data)
     preprocessor.corpus_to_tsv()
-    # preprocessor.create_data_splits(duplicate_stats=True)
+    preprocessor.create_data_splits(duplicate_stats=True)
