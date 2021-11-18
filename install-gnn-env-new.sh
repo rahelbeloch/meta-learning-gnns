@@ -4,14 +4,14 @@ module purge
 module load 2021
 module load Python/3.9.5-GCCcore-10.3.0;
 
-conda env remove -y -n gnn-env
+conda env remove -y -n gnn-env-new
 
 # maybe try to install the other env and then install these things in that env
 #conda env create -f env.yaml
 
-conda create -y -n gnn-env python==3.7.5 pytorch-lightning==1.5.0 nltk==3.6.5 pytorch==1.8.1 torchtext==0.11.0
+conda create -y -n gnn-env-new python==3.9.5 pytorch-lightning==1.5.0 nltk==3.6.5 pytorch==1.8.1
 
-source activate gnn-env
+source activate gnn-env-new
 
 # TODO: also install GPU version of DGL?
 conda install -c dglteam dgl-cuda10.2
@@ -28,3 +28,5 @@ pip3 install --no-cache-dir torch-sparse -f https://pytorch-geometric.com/whl/to
 pip3 install --no-cache-dir torch-geometric
 
 #pip3 install -r requirements.txt
+
+pip install torchtext

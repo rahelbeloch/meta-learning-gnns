@@ -2,8 +2,9 @@ import glob
 import json
 import os
 
+from data_prep.config import RAW_DIR
 from data_preprocess_utils import load_json_file
-from graph_io import DataPreprocessor
+from data_preprocessor import DataPreprocessor
 
 DATASETS = ['HealthRelease', 'HealthStory']
 
@@ -17,8 +18,11 @@ class TSVPreprocessor(DataPreprocessor):
         - TSV files for HealthStory or HealthRelease.
     """
 
-    def __init__(self, dataset):
-        super().__init__(dataset)
+    def __init__(self, dataset, raw_dir):
+        super().__init__(dataset, raw_dir=raw_dir)
+
+    def labels(self):
+        return None
 
     def corpus_to_tsv(self):
         """
@@ -28,7 +32,7 @@ class TSVPreprocessor(DataPreprocessor):
 
         self.print_step("Preparing Data Corpus")
 
-        print("\nCreating doc2labels for:  ", self.dataset)
+        print("\nCreating doc2labels...")
         doc_labels_src_dir = os.path.join(self.data_raw_dir, 'reviews', f'{self.dataset}.json')
         doc2labels = {}
 
@@ -38,6 +42,7 @@ class TSVPreprocessor(DataPreprocessor):
 
         self.store_doc2labels(doc2labels)
 
+        print("\nCollecting doc contents...")
         contents = []
         content_file_paths = os.path.join(self.data_raw_dir, 'content', self.dataset + "/*.json")
         for file in glob.glob(content_file_paths):
@@ -50,7 +55,7 @@ class TSVPreprocessor(DataPreprocessor):
 
 
 if __name__ == '__main__':
-    data = 'HealthStory'
-    preprocessor = TSVPreprocessor(data)
+    data = 'FakeHealth'
+    preprocessor = TSVPreprocessor(data, RAW_DIR)
     preprocessor.corpus_to_tsv()
     preprocessor.create_data_splits()

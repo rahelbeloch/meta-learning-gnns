@@ -1,7 +1,10 @@
 import glob
+import json
 import os.path
 
-from graph_io import *
+from data_preprocessor import DataPreprocessor
+
+LABELS = {0: 'fake', 1: 'real'}
 
 
 class TSVPreprocessor(DataPreprocessor):
@@ -10,11 +13,14 @@ class TSVPreprocessor(DataPreprocessor):
     GraphPreprocessor can do its work.
 
     This includes creating and storing the following components:
-        - TSV files for gossipcop or politifact.
+        - TSV files for gossipcop.
     """
 
     def __init__(self, dataset):
         super().__init__(dataset)
+
+    def labels(self):
+        return LABELS
 
     def corpus_to_tsv(self):
         """
@@ -24,7 +30,7 @@ class TSVPreprocessor(DataPreprocessor):
 
         self.print_step("Preparing Data Corpus")
 
-        print("\nCreating doc2labels for:  ", self.dataset)
+        print("\nCreating doc2labels and collecting doc contents...")
         doc2labels = {}
         contents = []
         no_content = 0
@@ -56,4 +62,4 @@ if __name__ == '__main__':
     data = 'gossipcop'
     preprocessor = TSVPreprocessor(data)
     preprocessor.corpus_to_tsv()
-    preprocessor.create_data_splits(duplicate_stats=True)
+    preprocessor.create_data_splits(duplicate_stats=False)

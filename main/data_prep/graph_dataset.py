@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 
 from data_prep.fake_health_graph_preprocessor import *
 from data_prep.graph_io import GraphIO
-from data_preprocess_utils import load_json_file
+from data_prep.data_preprocess_utils import load_json_file
 
 
 # from torch_geometric.data import Data

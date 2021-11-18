@@ -1,6 +1,13 @@
 import argparse
+import os
+from collections import defaultdict
 
-from data_prep.graph_io import *
+import numpy as np
+from scipy.sparse import load_npz
+
+from data_prep.config import *
+from data_prep.data_preprocess_utils import load_json_file, save_json_file
+from data_prep.graph_preprocessor import GraphPreprocessor
 
 
 class FakeHealthGraphPreprocessor(GraphPreprocessor):
@@ -68,8 +75,7 @@ class FakeHealthGraphPreprocessor(GraphPreprocessor):
 
         self.maybe_load_id_mappings()
 
-        src_dir = self.data_raw_path('reviews', self.dataset + '.json')
-        doc_labels = json.load(open(src_dir, 'r'))
+        doc_labels = load_json_file(self.data_raw_path('reviews', self.dataset + '.json'))
 
         if self.n_total is None:
             adj_matrix = load_npz(self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k))

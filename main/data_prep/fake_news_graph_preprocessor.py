@@ -8,7 +8,7 @@ import pandas as pd
 
 from config import *
 from data_preprocess_utils import save_json_file, load_json_file
-from graph_io import GraphPreprocessor
+from graph_preprocessor import GraphPreprocessor
 
 
 class FakeNewsGraphPreprocessor(GraphPreprocessor):
@@ -31,7 +31,8 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
         self.create_labels()
         self.create_split_masks()
 
-    def get_doc_key(self, name, name_type='dir'):
+    @staticmethod
+    def get_doc_key(name, name_type='dir'):
         if name_type == 'dir':
             return name.split('gossipcop-')[1].split('/')[-1]
         elif name_type == 'file':
