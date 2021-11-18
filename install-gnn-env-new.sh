@@ -9,13 +9,15 @@ conda env remove -y -n gnn-env-new
 # maybe try to install the other env and then install these things in that env
 #conda env create -f env.yaml
 
-conda create -y -n gnn-env-new python==3.9.5 pytorch-lightning==1.5.0 nltk==3.6.5 pytorch==1.8.1
+conda create -y -n gnn-env-new python==3.9.5 pytorch-lightning==1.5.0 nltk==3.6.5
 
 source activate gnn-env-new
 
 # TODO: also install GPU version of DGL?
 conda install -c dglteam dgl-cuda10.2
 conda install pandas
+
+pip install torchtext==0.9
 
 # install the correct pytorch version (for cuda and not for cpu!); Pytorch Cuda 10.2 and torch 1.8.1 work well together
 conda install pytorch cudatoolkit=10.2 -c pytorch
@@ -28,5 +30,3 @@ pip3 install --no-cache-dir torch-sparse -f https://pytorch-geometric.com/whl/to
 pip3 install --no-cache-dir torch-geometric
 
 #pip3 install -r requirements.txt
-
-pip install torchtext==0.9
