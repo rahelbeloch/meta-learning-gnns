@@ -29,4 +29,4 @@ pip3 install --no-cache-dir torch-geometric
 
 #pip3 install -r requirements.txt
 
-pip install torchtext
+pip install torchtext==0.9
