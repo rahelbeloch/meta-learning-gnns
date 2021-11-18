@@ -1,13 +1,12 @@
 import argparse
 import glob
-from collections import defaultdict
 
 import nltk
 
 nltk.download('stopwords')
 
 from data_prep.graph_io import *
-from data_preprocess_utils import load_json_file
+from data_preprocess_utils import load_json_file, save_json_file
 
 
 class FakeHealthGraphPreprocessor(GraphPreprocessor):
@@ -33,12 +32,13 @@ class FakeHealthGraphPreprocessor(GraphPreprocessor):
 
         # self.aggregate_user_contexts()
         # self.create_user_splits()
+        # self.filter_valid_users()
         # self.create_doc_id_dicts()
         # self.filter_contexts('ids')
         # self.create_adj_matrix()
         # self.create_feature_matrix()
         # self.create_labels()
-        self.create_split_masks()
+        # self.create_split_masks()
 
     def aggregate_user_contexts(self):
         self.print_step("Aggregating follower/ing relations")
@@ -85,7 +85,7 @@ class FakeHealthGraphPreprocessor(GraphPreprocessor):
             self.n_total = adj_matrix.shape[0]
             del adj_matrix
 
-        self.maybe_load_doc_splits()
+        self.load_doc_splits()
         split_docs = self.train_docs + self.val_docs
 
         print("\nCreating doc2labels dictionary...")
@@ -107,8 +107,7 @@ class FakeHealthGraphPreprocessor(GraphPreprocessor):
 
         doc2labels_file = self.data_complete_path(DOC_2_LABELS_FILE_NAME % self.top_k)
         print(f"Saving doc2labels for {self.dataset} at: {doc2labels_file}")
-        with open(doc2labels_file, 'w+') as v:
-            json.dump(doc2labels, v)
+        save_json_file(doc2labels, doc2labels_file)
 
         labels_list = np.zeros(self.n_total, dtype=int)
         for key, value in doc2labels.items():
@@ -122,8 +121,7 @@ class FakeHealthGraphPreprocessor(GraphPreprocessor):
 
         labels_file = self.data_complete_path(LABELS_FILE_NAME % self.top_k)
         print(f"\nLabels list construction done! Saving in : {labels_file}")
-        with open(labels_file, 'w+') as v:
-            json.dump({'labels_list': list(labels_list)}, v, default=self.np_converter)
+        save_json_file({'labels_list': list(labels_list)}, labels_file, converter=self.np_converter)
 
         # Create the all_labels file
         all_labels = np.zeros(self.n_total, dtype=int)
@@ -135,8 +133,7 @@ class FakeHealthGraphPreprocessor(GraphPreprocessor):
         print("Len of labels = ", len(all_labels))
 
         print(f"\nall_labels list construction done! Saving in : {all_labels_file}")
-        with open(all_labels_file, 'w+') as j:
-            json.dump({'all_labels': list(all_labels)}, j, default=self.np_converter)
+        save_json_file({'all_labels': list(all_labels)}, all_labels_file, converter=self.np_converter)
 
 
 if __name__ == '__main__':
@@ -155,6 +152,10 @@ if __name__ == '__main__':
                         help='The name of the dataset we want to process.')
 
     parser.add_argument('--top_k', type=int, default=50, help='Number of top users.')
+
+    parser.add_argument('--user_doc_threshold', type=float, default=0.3, help='Threshold defining how many articles '
+                                                                              'of any class users may max have shared '
+                                                                              'to be included in the graph.')
 
     parser.add_argument('--exclude_frequent', type=bool, default=True, help='TODO')
 

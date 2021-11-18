@@ -13,7 +13,7 @@ NODE_2_ID_FILE_NAME = 'node2id_lr_top%s_train.json'
 NODE_TYPE_FILE_NAME = 'node_type_lr_top%s_train.npy'
 
 VALID_USERS = 'valid_users_top%s.json'
-RESTRICTED_USERS = 'restricted_users_5.json'
+RESTRICTED_USERS = 'restricted_users_%s.json'
 
 ADJACENCY_MATRIX_FILE = 'adj_matrix_lr_top%s_train'
 ADJACENCY_MATRIX_FILE_NAME = f'{ADJACENCY_MATRIX_FILE}.npz'

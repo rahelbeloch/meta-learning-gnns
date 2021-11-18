@@ -10,6 +10,7 @@ from scipy.sparse import load_npz
 
 from data_prep.config import *
 from data_prep.graph_io import GraphPreprocessor, LABELS
+from data_preprocess_utils import save_json_file
 
 
 class FakeNewsGraphPreprocessor(GraphPreprocessor):
@@ -17,11 +18,11 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
     def __init__(self, config):
         super().__init__(config)
 
-        self.maybe_load_doc_splits()
+        self.load_doc_splits()
 
-        self.aggregate_user_contexts()
-        self.filter_restricted_users()
-        # self.create_user_splits()
+        # self.aggregate_user_contexts()
+        # self.filter_valid_users()
+        self.create_user_splits()
         # self.create_doc_id_dicts()
         # self.filter_contexts()
         # self.create_adj_matrix()
@@ -135,8 +136,7 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         labels_file = self.data_complete_path(LABELS_FILE_NAME % self.top_k)
         print(f"\nLabels list construction done! Saving in : {labels_file}")
-        with open(labels_file, 'w+') as v:
-            json.dump({'labels_list': list(labels_list)}, v, default=self.np_converter)
+        save_json_file({'labels_list': list(labels_list)}, labels_file, converter=self.np_converter)
 
         # Create the all_labels file
         all_labels = np.zeros(self.n_total, dtype=int)
@@ -148,8 +148,7 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
         print("Len of labels = ", len(all_labels))
 
         print(f"\nall_labels list construction done! Saving in : {all_labels_file}")
-        with open(all_labels_file, 'w+') as j:
-            json.dump({'all_labels': list(all_labels)}, j, default=self.np_converter)
+        save_json_file({'all_labels': list(all_labels)}, all_labels_file, converter=self.np_converter)
 
 
 if __name__ == '__main__':
@@ -167,7 +166,11 @@ if __name__ == '__main__':
     parser.add_argument('--data_set', type=str, default='gossipcop',
                         help='The name of the dataset we want to process.')
 
-    parser.add_argument('--top_k', type=int, default=50, help='Number of top users.')
+    parser.add_argument('--top_k', type=int, default=30, help='Number (in K) of top users.')
+
+    parser.add_argument('--user_doc_threshold', type=float, default=0.3, help='Threshold defining how many articles '
+                                                                              'of any class users may max have shared '
+                                                                              'to be included in the graph.')
 
     parser.add_argument('--exclude_frequent', type=bool, default=False, help='TODO')
 

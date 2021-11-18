@@ -39,6 +39,10 @@ def load_json_file(file_name):
     return json.load(open(file_name, 'r'))
 
 
+def save_json_file(data, file_name, mode='w+', converter=None):
+    json.dump(data, open(file_name, mode), default=converter)
+
+
 def calc_elapsed_time(start, end):
     hours, rem = divmod(end - start, 3600)
     time_hours, time_rem = divmod(end, 3600)

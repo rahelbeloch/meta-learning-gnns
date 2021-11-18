@@ -1,8 +1,10 @@
 import abc
+import copy
 import csv
 import datetime
 import os
 import time
+from collections import OrderedDict
 from collections import defaultdict
 from json import JSONDecodeError
 
@@ -76,32 +78,40 @@ class GraphPreprocessor(GraphIO):
                          config['data_complete_dir'])
         self.exclude_frequent_users = config['exclude_frequent']
         self.top_k = config['top_k']
+        self.user_doc_threshold = config['user_doc_threshold']
 
         # temporary attributes for data which has been loaded and will be reused
         self.doc2id, self.user2id = None, None
         self.n_total = None
         self.train_docs, self.test_docs, self.val_docs = None, None, None
+        self.valid_users = None
 
     def doc_used(self, doc_id):
         return doc_id in self.train_docs or doc_id in self.test_docs or doc_id in self.val_docs
 
-    def maybe_load_doc_splits(self):
+    def load_doc_splits(self):
         doc_splits = load_json_file(self.data_tsv_path(DOC_SPLITS_FILE_NAME))
         self.train_docs = doc_splits['train_docs']
         self.test_docs = doc_splits['test_docs']
         self.val_docs = doc_splits['val_docs']
 
+    def maybe_load_valid_users(self):
+        if self.valid_users is None:
+            self.valid_users = self.load_if_exists(VALID_USERS % self.top_k)
+
     def maybe_load_id_mappings(self):
         if self.user2id is None:
-            user2id_file = self.data_complete_path(USER_2_ID_FILE_NAME % self.top_k)
-            if os.path.exists(user2id_file):
-                self.user2id = json.load(open(user2id_file, 'r'))
+            self.user2id = self.load_if_exists(USER_2_ID_FILE_NAME % self.top_k)
         if self.doc2id is None:
-            doc2id_file = self.data_complete_path(DOC_2_ID_FILE_NAME % self.top_k)
-            if os.path.exists(doc2id_file):
-                self.doc2id = json.load(open(doc2id_file, 'r'))
-
+            self.doc2id = self.load_if_exists(DOC_2_ID_FILE_NAME % self.top_k)
         self.n_total = len(self.user2id) + len(self.doc2id)
+
+    def load_if_exists(self, file_name):
+        file = self.data_complete_path(file_name)
+        if os.path.exists(file):
+            return json.load(open(file, 'r'))
+        else:
+            raise ValueError(f"Wanting to load file with name {file_name}, but this file does not exist!!")
 
     def save_user_doc_engagements(self, docs_users):
 
@@ -114,9 +124,7 @@ class GraphPreprocessor(GraphIO):
 
         for doc, user_list in docs_users.items():
             document_user_file = os.path.join(dest_dir, f'{str(doc)}.json')
-            with open(document_user_file, 'w+') as j:
-                temp_dict = {'users': list(user_list)}
-                json.dump(temp_dict, j)
+            save_json_file({'users': list(user_list)}, document_user_file)
 
         print("\nDONE..!!")
 
@@ -133,7 +141,16 @@ class GraphPreprocessor(GraphIO):
         """
         raise NotImplementedError
 
-    def filter_restricted_users(self):
+    def filter_valid_users(self):
+        """
+        From the user engagements folder, loads all document files (containing user IDs who interacted with
+        the respective document), counts how many document each user interacted with and identifies users
+        that shared at least X% of the articles of any class. Also picks the top K active users.
+        """
+
+        self.print_step("Applying restrictions on users")
+
+        print(f"Filtering users who in any class shared articles more than : {self.user_doc_threshold * 100}%")
 
         doc2labels = load_json_file(self.data_tsv_path('doc2labels.json'))
         user_stats = defaultdict(lambda: {'fake': 0, 'real': 0})
@@ -172,19 +189,44 @@ class GraphPreprocessor(GraphIO):
         assert n_docs == restriction_docs, "Total nr of documents used does not equal the number of docs for " \
                                            "which we restrict users!"
 
-        user_stats_avg = user_stats.copy()
+        user_stats_avg = copy.deepcopy(user_stats)
         for user, stat in user_stats_avg.items():
             for label in LABELS.values():
                 stat[label] = stat[label] / n_docs
 
         # filter for 30% in either one of the classes
         restricted_users = []
-        for user, stat in user_stats_avg.items():
-            restricted = stat['fake'] >= 0.3 or stat['real'] >= 0.3
+        for user_id, stat in user_stats_avg.items():
+            restricted = stat['fake'] >= self.user_doc_threshold or stat['real'] >= self.user_doc_threshold
             if restricted:
-                restricted_users.append(user)
+                # print(f'User with ID {user_id} shared {stat["fake"]} of fake and {stat["real"]} of real.')
+                restricted_users.append(user_id)
 
-        print('Restricted users done.')
+        restricted_users_file = self.data_complete_path(RESTRICTED_USERS % self.user_doc_threshold)
+        save_json_file(restricted_users, restricted_users_file)
+
+        print(f'Nr. of restricted users : {len(restricted_users)}')
+        print(f"Restricted users stored in : {restricted_users_file}")
+
+        print(f"\nCollecting top K users as valid users : {self.top_k * 1000}")
+
+        # dict with user_ids and total shared/interacted docs
+        users_shared_sorted = dict(sorted(user_stats.items(), key=lambda it: sum(it[1].values()), reverse=True))
+
+        # remove users that we have already restricted before
+        users_total_shared = OrderedDict()
+        for key, value in users_shared_sorted.items():
+            if key not in restricted_users:
+                users_total_shared[key] = value
+
+        # select the top k
+        valid_users = list(users_total_shared.keys())[:self.top_k * 1000]
+
+        valid_users_file = self.data_complete_path(VALID_USERS % self.top_k)
+        save_json_file(valid_users, valid_users_file)
+        print(f"Valid/top k users stored in : {valid_users_file}\n")
+
+        self.valid_users = valid_users
 
     def create_user_splits(self):
         """
@@ -193,6 +235,8 @@ class GraphPreprocessor(GraphIO):
         """
 
         self.print_step("Creating doc and user splits")
+
+        self.maybe_load_valid_users()
 
         print("\nCreating users in splits file..")
 
@@ -212,7 +256,7 @@ class GraphPreprocessor(GraphIO):
                 doc_key = self.get_doc_key(file, name_type='file')
                 users = src_file['users']
 
-                users = [int(s) for s in users if isinstance(s, int)]
+                users = [u for u in users if isinstance(u, int) and u in self.valid_users]
 
                 if str(doc_key) in self.train_docs:
                     train_users.update(users)
@@ -221,18 +265,21 @@ class GraphPreprocessor(GraphIO):
                 if str(doc_key) in self.test_docs:
                     test_users.update(users)
 
+        assert (len(train_users) + len(val_users) + len(test_users)) == self.top_k * 1000, \
+            f"Total nr of users for all splits does not equal top K {self.top_k}!"
+
         user_splits_file = self.data_complete_path(USER_SPLITS_FILE_NAME)
         print("User splits stored in : ", user_splits_file)
-
         temp_dict = {'train_users': list(train_users), 'val_users': list(val_users), 'test_users': list(test_users)}
-        with open(user_splits_file, 'w+') as j:
-            json.dump(temp_dict, j)
+        save_json_file(temp_dict, user_splits_file)
 
     def create_doc_id_dicts(self):
         """
         Creates and saves doc2id and node2id dictionaries based on the document and user splits created by
-        `create_doc_user_splits` function. Also puts constraints on the users which are used
-        (e.g. only top k active users).
+        `create_doc_user_splits` function.
+
+        # TODO: remove this
+        Also puts constraints on the users which are used (e.g. only top k active users).
         """
 
         self.print_step("Creating doc2id and user2id dicts")
@@ -254,7 +301,7 @@ class GraphPreprocessor(GraphIO):
             print("\nRestricting users ... ")
 
             # Exclude most frequent users
-            restricted_users_file = self.data_tsv_path(RESTRICTED_USERS)
+            restricted_users_file = self.data_complete_path(RESTRICTED_USERS % self.user_doc_threshold)
             valid_users_file = self.data_tsv_path(VALID_USERS % self.top_k)
 
             restricted_users, valid_users = [], []
@@ -295,8 +342,7 @@ class GraphPreprocessor(GraphIO):
         print("\nUser2id size = ", len(self.user2id))
         user2id_train_file = self.data_complete_path(USER_2_ID_FILE_NAME % self.top_k)
         print("Saving user2id_train in : ", user2id_train_file)
-        with open(user2id_train_file, 'w+') as j:
-            json.dump(self.user2id, j)
+        save_json_file(self.user2id, user2id_train_file)
 
         # node type should contain train and val docs and train, val and test users
         node_type = node_type_train + node_type_val + node_type_user
@@ -319,8 +365,7 @@ class GraphPreprocessor(GraphIO):
 
         assert len(self.doc2id) == (n_val + n_train + n_test), "Doc2id does not contain all documents!"
         print("New doc2id len including test docs = ", len(self.doc2id))
-        with open(self.data_complete_path(DOC_2_ID_FILE_NAME % self.top_k), 'w+') as j:
-            json.dump(self.doc2id, j)
+        save_json_file(self.doc2id, self.data_complete_path(DOC_2_ID_FILE_NAME % self.top_k))
 
         node2id = self.doc2id.copy()
         node2id.update(self.user2id)
@@ -330,8 +375,7 @@ class GraphPreprocessor(GraphIO):
         print("\nNode2id size = ", len(node2id))
         node2id_file = self.data_complete_path(NODE_2_ID_FILE_NAME % self.top_k)
         print("Saving node2id_lr in : ", node2id_file)
-        with open(node2id_file, 'w+') as json_file:
-            json.dump(node2id, json_file)
+        save_json_file(node2id, node2id_file)
 
         print("\nDone ! All files written.")
 
@@ -402,9 +446,8 @@ class GraphPreprocessor(GraphIO):
                     temp = set()
                     for follower in followers:
                         temp.update([follower])
-                    temp_dict = {'user_id': user_id, follower_dest_key: list(temp)}
-                    with open(dest_file_path, 'w+') as v:
-                        json.dump(temp_dict, v)
+
+                    save_json_file({'user_id': user_id, follower_dest_key: list(temp)}, dest_file_path)
 
                     if count % print_iter == 0:
                         print(f"{count + 1} done..")
@@ -510,8 +553,7 @@ class GraphPreprocessor(GraphIO):
 
         edge_list_file = self.data_complete_path(EDGE_LIST_FILE_NAME % self.top_k)
         print("Saving edge list in :", edge_list_file)
-        with open(edge_list_file, 'w+') as j:
-            json.dump(edge_list, j)
+        save_json_file(edge_list, edge_list_file)
 
         hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
@@ -644,8 +686,7 @@ class GraphPreprocessor(GraphIO):
         print("Done. Took {}hrs and {}mins and {}secs\n".format(hrs, mins, secs))
         print("Size of vocab =  ", len(vocab))
         print(f"Saving vocab for {self.dataset} at: {vocab_file}")
-        with open(vocab_file, 'w+') as v:
-            json.dump(vocab, v)
+        save_json_file(vocab, vocab_file)
 
         return vocab
 
@@ -687,8 +728,7 @@ class GraphPreprocessor(GraphIO):
                      'repr_mask': list(representation_mask)}
         split_mask_file = self.data_complete_path(SPLIT_MASK_FILE_NAME % self.top_k)
         print("\nWriting split mask file in : ", split_mask_file)
-        with open(split_mask_file, 'w+') as j:
-            json.dump(mask_dict, j)
+        save_json_file(mask_dict, split_mask_file)
 
 
 class DataPreprocessor(GraphIO):
@@ -752,7 +792,7 @@ class DataPreprocessor(GraphIO):
                     texts.append(d_text)
 
             duplicates_file = self.data_tsv_path('duplicates_info.json')
-            json.dump(duplicates, open(duplicates_file, 'w+'), default=self.np_converter)
+            save_json_file(duplicates, duplicates_file, converter=self.np_converter)
 
         # Creating train-val-test split with same/similar label distribution in each split
 
@@ -799,7 +839,7 @@ class DataPreprocessor(GraphIO):
         print("Total val = ", len(doc_names_val))
 
         split_dict = {'test_docs': doc_names_test, 'train_docs': doc_names_train, 'val_docs': doc_names_val}
-        json.dump(split_dict, open(doc_splits_file, 'w+'), default=self.np_converter)
+        save_json_file(split_dict, doc_splits_file, converter=self.np_converter)
 
     def store_doc2labels(self, doc2labels):
         """
@@ -812,7 +852,7 @@ class DataPreprocessor(GraphIO):
         doc2labels_file = self.data_tsv_path('doc2labels.json')
 
         print(f"Writing doc2labels JSON in :  {doc2labels_file}")
-        json.dump(doc2labels, open(doc2labels_file, 'w+'))
+        save_json_file(doc2labels, doc2labels_file, converter=self.np_converter)
 
     def store_doc_contents(self, contents):
         """
