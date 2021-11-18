@@ -11,6 +11,7 @@ from json import JSONDecodeError
 import nltk
 
 nltk.download('stopwords')
+nltk.download('punkt')
 
 from nltk.corpus import stopwords
 
@@ -579,8 +580,13 @@ class GraphPreprocessor(GraphIO):
         # TODO: also create vocab only based on these...
 
         vocab = self.build_vocab(file_contents)
+
+        print(f"\nNr of docs = {len(self.doc2id)}")
+        print(f"Nr of users = {len(self.user2id)}")
+        print(f"Size of vocab = {len(vocab)}")
+
         feat_matrix = lil_matrix((self.n_total, len(vocab)))
-        print("\nSize of feature matrix = ", feat_matrix.shape)
+        print(f"\nSize of feature matrix = {feat_matrix.shape}")
         print("\nCreating feat_matrix entries for docs nodes...")
 
         start = time.time()
@@ -620,7 +626,6 @@ class GraphPreprocessor(GraphIO):
         feature_id_mapping = defaultdict(lambda: [])
         src_dir = self.data_complete_path('engagements')
         for root, _, files in os.walk(src_dir):
-            print_iter = int(len(files) / 1000)
 
             for count, file in enumerate(files):
                 src_file = load_json_file(os.path.join(root, file))
@@ -634,17 +639,18 @@ class GraphPreprocessor(GraphIO):
                             continue
 
                         # TODO: optimize this, memorize which doc_id the features for every user come from
-
                         feature_id_mapping[self.user2id[user_key]].append(self.doc2id[str(doc_key)])
                         # feat_matrix[self.user2id[user_id], :] += feat_matrix[self.doc2id[str(doc_key)], :]
 
-                if count % print_iter == 0:
-                    print(" {} / {} done..".format(count + 1, len(files)))
-
         # actually copying the features
-        for user_id, doc_ids in feature_id_mapping.items():
+        # COMPUTATIONALLY HEAVY
+        print_iter = int(len(feature_id_mapping) / 10)
+        for count, (user_id, doc_ids) in enumerate(feature_id_mapping.items()):
             for doc_id in doc_ids:
                 feat_matrix[user_id, :] += feat_matrix[doc_id, :]
+
+            if count % print_iter == 0:
+                print(" {} / {} done..".format(count + 1, len(feature_id_mapping)))
 
         hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
