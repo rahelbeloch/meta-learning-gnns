@@ -1,8 +1,11 @@
 #!/bin/bash
 
 module purge
-module load 2021
-module load Python/3.9.5-GCCcore-10.3.0;
+#module load 2021
+#module load Python/3.9.5-GCCcore-10.3.0;
+
+module load 2019
+module load CUDA/10.1.243
 
 conda env remove -y -n gnn-env-foo
 
