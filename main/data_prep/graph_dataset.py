@@ -278,7 +278,7 @@ def as_dataloader(sub_graph, shuffle=False):
     :return:
     """
     # num_workers = 0  # if gpu else 24; somehow no multiprocessing on GPU
-    num_workers = 24
+    num_workers = 6
     # TODO: shuffle should be True?
 
     return DataLoader(sub_graph, batch_size=sub_graph.batch_size, shuffle=shuffle, num_workers=num_workers,
