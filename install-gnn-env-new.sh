@@ -17,12 +17,10 @@ source activate gnn-env-new
 conda install -c dglteam dgl-cuda11.3
 conda install pandas
 
-pip install torchtext==0.9
-
 # install the correct pytorch version (for cuda and not for cpu!); Pytorch Cuda 10.2 and torch 1.8.1 work well together
 conda install pytorch cudatoolkit=11.3 -c pytorch
 
-pip3 install --no-cache-dir torch==1.8.1+cu11.3 -f https://download.pytorch.org/whl/torch_stable.html
+pip3 install --no-cache-dir torch==1.8.1+cu113 -f https://download.pytorch.org/whl/torch_stable.html
 pip3 install --no-cache-dir torch-scatter -f https://pytorch-geometric.com/whl/torch-1.8.1+cu113.html
 pip3 install --no-cache-dir torch-sparse -f https://pytorch-geometric.com/whl/torch-1.8.1+cu113.html
 #pip3 install --no-cache-dir torch-cluster -f https://pytorch-geometric.com/whl/torch-1.8.1+cu113.html
