@@ -2,6 +2,7 @@ import argparse
 import os
 import time
 
+import pytorch_lightning
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as cb
 import torch
