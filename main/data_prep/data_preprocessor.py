@@ -4,9 +4,9 @@ import os
 
 import numpy as np
 from collections import defaultdict
-from config import *
-from data_preprocess_utils import save_json_file, sanitize_text, print_label_distribution, split_data
-from graph_io import GraphIO
+from data_prep.config import *
+from data_prep.data_preprocess_utils import save_json_file, sanitize_text, print_label_distribution, split_data
+from data_prep.graph_io import GraphIO
 
 
 class DataPreprocessor(GraphIO):

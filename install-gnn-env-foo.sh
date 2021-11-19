@@ -18,7 +18,7 @@ conda install -c dglteam dgl-cuda10.2
 conda install pandas
 
 # install the correct pytorch version (for cuda and not for cpu!); Pytorch Cuda 10.2 and torch 1.8.1 work well together
-#conda install pytorch cudatoolkit=10.2 -c pytorch
+conda install -c anaconda cudatoolkit=10.2
 
 pip3 install --no-cache-dir torch==1.8.1+cu102 -f https://download.pytorch.org/whl/torch_stable.html
 pip3 install --no-cache-dir torch-scatter -f https://pytorch-geometric.com/whl/torch-1.8.1+cu102.html
