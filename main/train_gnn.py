@@ -168,7 +168,7 @@ if __name__ == "__main__":
     parser.add_argument('--patience', dest='patience', type=int, default=10)
     parser.add_argument('--batch-size', dest='batch_size', type=int, default=2)
     parser.add_argument('--hop-size', dest='hop_size', type=int, default=2)
-    parser.add_argument('--top-k', dest='top_k', type=int, default=50)
+    parser.add_argument('--top-k', dest='top_k', type=int, default=30)
     parser.add_argument('--lr-enc', dest='l_rate_enc', type=float, default=0.01, help="Encoder learning rate.")
     parser.add_argument('--lr-cl', dest='l_rate_cl', type=float, default=-1, help="Classifier learning rate.")
     parser.add_argument("--w-decay-enc", dest='w_decay_enc', type=float, default=2e-3,
