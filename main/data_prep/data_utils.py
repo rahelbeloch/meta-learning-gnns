@@ -38,8 +38,7 @@ def get_data(data_name, model, data_dir, batch_size, hop_size, top_k):
         graph_data = DglGraphDataset(data_name, top_k, data_dir)
         train_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'train_mask', b_size=batch_size, h_size=hop_size))
         val_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'val_mask', b_size=batch_size, h_size=hop_size))
-        # test_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'test_mask', b_size=batch_size, h_size=hop_size))
-        test_sub_graphs = None
+        test_sub_graphs = as_dataloader(DGLSubGraphs(graph_data, 'test_mask', b_size=batch_size, h_size=hop_size))
 
         return train_sub_graphs, val_sub_graphs, test_sub_graphs, graph_data.num_features
 
