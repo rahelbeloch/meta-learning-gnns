@@ -1,6 +1,6 @@
-RAW_DIR = '../../data/raw/'
-TSV_DIR = '../../data/tsv/'
-COMPLETE_DIR = '../../data/complete/'
+RAW_DIR = '../data/raw/'
+TSV_DIR = '../data/tsv/'
+COMPLETE_DIR = '../data/complete/'
 
 CONTENT_INFO_FILE_NAME = 'docsContentInformation.tsv'
 
