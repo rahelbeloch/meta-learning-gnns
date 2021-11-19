@@ -144,8 +144,9 @@ class DglGraphDataset(GraphIO, DGLDataset):
     """
 
     def __init__(self, corpus, top_k, complete_dir=COMPLETE_DIR):
-        super().__init__(dataset=corpus, top_k=top_k, complete_dir=complete_dir)
+        super().__init__(dataset=corpus, complete_dir=complete_dir)
 
+        self.top_k = top_k
         self.num_features = None
 
         self.initialize_graph()
