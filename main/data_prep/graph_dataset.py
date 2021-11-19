@@ -194,7 +194,7 @@ class DglGraphDataset(GraphIO, DGLDataset):
 
         g.ndata['train_mask'] = torch.tensor(split_masks['train_mask'])
         g.ndata['val_mask'] = torch.tensor(split_masks['val_mask'])
-        # g.ndata['test_mask'] = torch.tensor(split_masks['test_mask'])
+        g.ndata['test_mask'] = torch.tensor(split_masks['test_mask'])
 
         # we do not have edge weights / features
         # g.edata['weight'] = edge_features
