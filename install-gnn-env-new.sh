@@ -9,7 +9,7 @@ conda env remove -y -n gnn-env-new
 # maybe try to install the other env and then install these things in that env
 #conda env create -f env.yaml
 
-conda create -y -n gnn-env-new python==3.9.5 pytorch-lightning==1.7.0 nltk==3.6.5
+conda create -y -n gnn-env-new python==3.9.5 pytorch-lightning==1.5.0 nltk==3.6.5
 
 source activate gnn-env-new
 
