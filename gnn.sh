@@ -13,13 +13,14 @@ conda create -y -n meta-env python=3.7.5 pytorch==1.7.1
 
 source activate meta-env
 
+conda install -c anaconda cudatoolkit=10.1
 conda install -c dglteam dgl-cuda10.1
 
 pip3 install torch==1.7.1+cu101 -f https://download.pytorch.org/whl/torch_stable.html
 pip3 install torch-scatter -f https://pytorch-geometric.com/whl/torch-1.7.0+cu101.html
 pip3 install torch-sparse -f https://pytorch-geometric.com/whl/torch-1.7.0+cu101.html
-pip3 install torch-cluster -f https://pytorch-geometric.com/whl/torch-1.7.0+cu101.html
-pip3 install torch-spline-conv -f https://pytorch-geometric.com/whl/torch-1.7.0+cu101.html
+#pip3 install torch-cluster -f https://pytorch-geometric.com/whl/torch-1.7.0+cu101.html
+#pip3 install torch-spline-conv -f https://pytorch-geometric.com/whl/torch-1.7.0+cu101.html
 pip3 install torch-geometric
 
 pip3 install -r requirements.txt
