@@ -89,7 +89,6 @@ class DocumentClassifier(pl.LightningModule):
         return (labels == predictions.argmax(dim=-1)).float().mean()
 
     def training_step(self, batch, _):
-        # , mode='train'
         sub_graphs, labels = batch
 
         out, node_mask = self.model(sub_graphs)
@@ -138,9 +137,13 @@ class DocumentClassifier(pl.LightningModule):
 
     def test_step(self, batch, _):
         # By default logs it per epoch (weighted average over batches)
-        out, labels = self.model(batch)
-        # predictions = self.classifier(out)
-        self.log('test_accuracy', self.accuracy(out, labels))
+        sub_graphs, labels = batch
+
+        out, node_mask = self.model(sub_graphs)
+        out = out[sub_graphs.ndata['classification_mask']]
+        predictions = self.classifier(out)
+
+        self.log('test_accuracy', self.accuracy(predictions, labels))
 
 
 # class GATEncoder(nn.Module):
