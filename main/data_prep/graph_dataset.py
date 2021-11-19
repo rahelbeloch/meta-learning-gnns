@@ -6,9 +6,9 @@ import torch
 from dgl.data import DGLDataset
 from torch.utils.data import DataLoader
 
+from data_prep.data_preprocess_utils import load_json_file
 from data_prep.fake_health_graph_preprocessor import *
 from data_prep.graph_io import GraphIO
-from data_prep.data_preprocess_utils import load_json_file
 
 
 # from torch_geometric.data import Data
@@ -235,6 +235,8 @@ class SubGraphs:
         # sub graphs are created on the flight during training
         self.batch_node_ids = self.create_batch()
 
+        print(f'\nNode IDs used for {mask.split("_")[0]}: {self.batch_node_ids}\n')
+
     def __len__(self):
         """
         This dataloader is of size batch size as we initially sampled batch_size number of node IDs.
@@ -275,40 +277,17 @@ def as_dataloader(sub_graph, shuffle=False):
     :param shuffle:
     :return:
     """
-    num_workers = 0  # if gpu else 24; somehow no multiprocessing on GPU
+    # num_workers = 0  # if gpu else 24; somehow no multiprocessing on GPU
+    num_workers = 24
     # TODO: shuffle should be True?
 
     return DataLoader(sub_graph, batch_size=sub_graph.batch_size, shuffle=shuffle, num_workers=num_workers,
                       pin_memory=True, collate_fn=collate_fn)
 
 
-# NOT USED
-# def get_collate_fn(sub_graph):
-#     """
-#     Function (collate_fn) to be used to preprocess a batch in the Dataloader.
-#     We need to create sub graphs here from the node IDs in the current batch.
-#     """
-#
-#     def collate_fn(batch_node_indices):
-#         """
-#         Receives a batch of node IDs for which sub graphs need to be generated on the flight.
-#         """
-#         batch_sub_graphs = [sub_graph.generate_subgraph(node_id) for node_id in batch_node_indices]
-#
-#         # for node_idx in batch_node_indices:
-#
-#         # for each subgraph, create node mask and label mask (we want to classify only 1 node per subgraph)
-#
-#         # labels = torch.LongTensor(support_y_relative)
-#         # assert len(batch_sub_graphs) == len(labels)
-#         return dgl.batch(batch_sub_graphs)
-#
-#     return collate_fn
-
-
 def collate_fn(batch_samples):
     """
-    Receives a batch of node IDs for which sub graphs need to be generated on the flight.
+    Receives a batch of samples (subgraphs and labels) node IDs for which sub graphs need to be generated on the flight.
     :param batch_samples: List of pairs where each pair is: (graph, label)
     """
     graphs, labels = list(map(list, zip(*batch_samples)))
