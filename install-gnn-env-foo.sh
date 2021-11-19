@@ -6,6 +6,7 @@ module purge
 
 module load 2019
 module load CUDA/10.1.243
+module load Python
 
 conda env remove -y -n gnn-env-foo
 
