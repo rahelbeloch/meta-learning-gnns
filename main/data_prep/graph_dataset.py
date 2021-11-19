@@ -292,7 +292,7 @@ def collate_fn(batch_samples):
     node_ids, graphs, labels = list(map(list, zip(*batch_samples)))
 
     for i in range(len(node_ids)):
-        print(f"Node ID {node_ids[i]}, edges {graphs[i].num_edges}, nodes {graphs[i].num_nodes}")
+        print(f"Node ID {node_ids[i]}, edges {graphs[i].num_edges()}, nodes {graphs[i].num_nodes()}")
 
     return dgl.batch(graphs), torch.LongTensor(labels),  # center, node_idx, graph_idx
 
