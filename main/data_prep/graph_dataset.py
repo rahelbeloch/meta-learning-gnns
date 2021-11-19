@@ -289,7 +289,11 @@ def collate_fn(batch_samples):
     Receives a batch of samples (subgraphs and labels) node IDs for which sub graphs need to be generated on the flight.
     :param batch_samples: List of pairs where each pair is: (graph, label)
     """
-    graphs, labels = list(map(list, zip(*batch_samples)))
+    node_ids, graphs, labels = list(map(list, zip(*batch_samples)))
+
+    for i in range(len(node_ids)):
+        print(f"Node ID {node_ids[i]}, edges {graphs[i].num_edges}, nodes {graphs[i].num_nodes}")
+
     return dgl.batch(graphs), torch.LongTensor(labels),  # center, node_idx, graph_idx
 
 
@@ -301,23 +305,15 @@ class DGLSubGraphs(SubGraphs):
     def __init__(self, full_graph, mode, b_size, h_size):
         super().__init__(full_graph, mode, b_size, h_size)
 
-        self.subgraph_statistics = None
-
     def generate_subgraph(self, node_id):
         """
         Generate sub graphs on the flight using DGL graphs.
         """
 
-        # check if we have already generated a subgraph for this node
         if node_id not in self.sub_graphs.keys():
-            # Takes super long; try to find alternative
-            # subgraph = dgl.transform.khop_graph(self.graph.graph, 1, copy_ndata=False)
-
             # instead of calculating shortest distance, we find the following ways to get sub graphs are quicker
-
             h_hop_neighbors = self.get_hop_neighbors(node_id)
 
-            # sub_graph = self.graph.graph.subgraph(h_hop_neighbors)
             sub_graph = dgl.node_subgraph(self.graph.graph, h_hop_neighbors, store_ids=True)
 
             # create mask for the classification; which node we want to classify
@@ -326,18 +322,7 @@ class DGLSubGraphs(SubGraphs):
             classification_mask[torch.where(sub_graph.ndata[dgl.NID] == node_id)[0]] = 1
             sub_graph.ndata['classification_mask'] = classification_mask.bool()  # mask tensors must be bool
 
-            # h_c = list(sub_graph.parent_nid.numpy())
-            # dict_ = dict(zip(h_c, list(range(len(h_c)))))
-
-            # self.subgraphs[node_id] = (sub_graph, dict_[node_id], h_c)
             self.sub_graphs[node_id] = sub_graph
-
-        if self.subgraph_statistics is None:
-            self.subgraph_statistics = {}
-            for node_id, subgraph in self.sub_graphs.items():
-                self.subgraph_statistics[node_id] = {'num_nodes': subgraph.num_nodes, 'num_edges': subgraph.num_edges}
-
-            print(f"Subgraph statistics: {str(self.subgraph_statistics)}")
 
         return self.sub_graphs[node_id]
 
@@ -385,10 +370,11 @@ class DGLSubGraphs(SubGraphs):
         :param node_id_idx: Index for node ID from self.node_ids defining the node ID for which a subgraph should be created.
         :return:
         """
+        print(f"Getting subgraph for node with ID: {node_id_idx}")
         node_id = self.batch_node_ids[node_id_idx]
         subgraph = self.generate_subgraph(node_id)
         label = self.graph.graph.ndata['label'][node_id]
-        return subgraph, label
+        return node_id, subgraph, label
 
     # return batched_graph_spt, torch.LongTensor(support_y_relative), batched_graph_qry, torch.LongTensor(
     #     query_y_relative), torch.LongTensor(support_center), torch.LongTensor(
