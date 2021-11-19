@@ -29,6 +29,7 @@ def get_data(data_name, model, data_dir, batch_size, hop_size, top_k):
 
     if model == 'gat':
         # load the whole graph once (it internally has the train/val/test masks)
+
         # graph_data = TorchGeomGraphDataset(data_name)
         # loader, vocab_size, data = graph_data.initialize_graph_data()
         # train_sub_graphs = TorchGeomSubGraphs(graph_data, 'train', b_size=128, h_size=2)

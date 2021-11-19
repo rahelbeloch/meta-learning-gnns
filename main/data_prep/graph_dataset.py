@@ -6,7 +6,6 @@ import torch
 from dgl.data import DGLDataset
 from torch.utils.data import DataLoader
 
-from data_prep.data_preprocess_utils import load_json_file
 from data_prep.fake_health_graph_preprocessor import *
 from data_prep.graph_io import GraphIO
 
@@ -302,6 +301,8 @@ class DGLSubGraphs(SubGraphs):
     def __init__(self, full_graph, mode, b_size, h_size):
         super().__init__(full_graph, mode, b_size, h_size)
 
+        self.subgraph_statistics = None
+
     def generate_subgraph(self, node_id):
         """
         Generate sub graphs on the flight using DGL graphs.
@@ -330,6 +331,13 @@ class DGLSubGraphs(SubGraphs):
 
             # self.subgraphs[node_id] = (sub_graph, dict_[node_id], h_c)
             self.sub_graphs[node_id] = sub_graph
+
+        if self.subgraph_statistics is None:
+            self.subgraph_statistics = {}
+            for node_id, subgraph in self.sub_graphs.items():
+                self.subgraph_statistics[node_id] = {'num_nodes': subgraph.num_nodes, 'num_edges': subgraph.num_edges}
+
+            print(f"Subgraph statistics: {str(self.subgraph_statistics)}")
 
         return self.sub_graphs[node_id]
 

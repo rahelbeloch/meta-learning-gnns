@@ -37,7 +37,6 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, l_rate_enc,
     torch.backends.cudnn.benchmark = False
 
     # the data preprocessing
-
     train_loader, val_loader, test_loader, num_features = get_data(data_name, model_name, data_dir, b_size, h_size,
                                                                    top_k)
 
@@ -172,7 +171,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--epochs', dest='epochs', type=int, default=50)
     parser.add_argument('--patience', dest='patience', type=int, default=10)
-    parser.add_argument('--batch-size', dest='batch_size', type=int, default=20)
+    parser.add_argument('--batch-size', dest='batch_size', type=int, default=15)
     parser.add_argument('--hop-size', dest='hop_size', type=int, default=2)
     parser.add_argument('--top-k', dest='top_k', type=int, default=30)
     parser.add_argument('--lr-enc', dest='l_rate_enc', type=float, default=0.01, help="Encoder learning rate.")
