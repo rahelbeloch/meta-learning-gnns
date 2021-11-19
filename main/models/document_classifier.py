@@ -138,7 +138,7 @@ class DocumentClassifier(pl.LightningModule):
 
     def test_step(self, batch, _):
         # By default logs it per epoch (weighted average over batches)
-        out, labels = self.model(batch, mode=self.test_val_mode)
+        out, labels = self.model(batch)
         # predictions = self.classifier(out)
         self.log('test_accuracy', self.accuracy(out, labels))
 

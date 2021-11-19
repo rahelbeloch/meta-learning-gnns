@@ -140,14 +140,11 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
 
     test_start = time.time()
 
-    model.test_val_mode = 'test'
     test_result = trainer.test(model, test_dataloaders=test_dataloader, verbose=False)[0]
     test_accuracy = test_result["test_accuracy"]
 
-    model.test_val_mode = 'val'
     val_result = trainer.test(model, test_dataloaders=val_dataloader, verbose=False)[0]
     val_accuracy = val_result["test_accuracy"] if "val_accuracy" not in val_result else val_result["val_accuracy"]
-    model.test_val_mode = 'test'
 
     test_end = time.time()
     test_elapsed = test_end - test_start
