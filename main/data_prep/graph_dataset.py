@@ -370,7 +370,6 @@ class DGLSubGraphs(SubGraphs):
         :param node_id_idx: Index for node ID from self.node_ids defining the node ID for which a subgraph should be created.
         :return:
         """
-        print(f"Getting subgraph for node with ID: {node_id_idx}")
         node_id = self.batch_node_ids[node_id_idx]
         subgraph = self.generate_subgraph(node_id)
         label = self.graph.graph.ndata['label'][node_id]
