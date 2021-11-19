@@ -112,7 +112,7 @@ def initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, weig
                          checkpoint_callback=True,
                          gpus=1 if torch.cuda.is_available() else 0,
                          max_epochs=epochs,
-                         callbacks=[early_stop_callback, model_checkpoint],
+                         callbacks=[model_checkpoint],
                          progress_bar_refresh_rate=1,
                          num_sanity_val_steps=0)
 
