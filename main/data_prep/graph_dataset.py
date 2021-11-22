@@ -180,6 +180,19 @@ class DglGraphDataset(GraphIO, DGLDataset):
         g = dgl.graph((src, dst), num_nodes=n_nodes)
         g = dgl.add_reverse_edges(g)
 
+        adjacency_matrix_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k)
+        adj_matrix = torch.from_numpy(load_npz(adjacency_matrix_file).toarray())
+
+        coo = g.adj(scipy_fmt='coo')
+        values = coo.data
+        indices = np.vstack((coo.row, coo.col))
+
+        i = torch.LongTensor(indices)
+        v = torch.FloatTensor(values)
+        shape = coo.shape
+
+        torch_tensor = torch.sparse.FloatTensor(i, v, torch.Size(shape)).to_dense()
+
         g.ndata['feat'] = feat_matrix
 
         y_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME)
@@ -248,17 +261,11 @@ class SubGraphs:
         Create the entire set of batches (node IDs, sub graphs are generated on the flight).
         """
 
-        sampled_node_ids = []
-
-        # sample a node IDs for sample in the batch
-        for x in range(self.batch_size):
-            # select 1 node from the respective split
-            selected_node = np.random.choice(self.node_ids, 1, False)[0]  # no duplicate
-            # np.random.shuffle(selected_nodes)
-
-            sampled_node_ids.append(selected_node)
-
-        return sampled_node_ids
+        # TODO: sample only from doc nodes!!
+        # sample batch size node IDs
+        selected_nodes = np.random.choice(self.node_ids, self.batch_size, False)  # no duplicate
+        # np.random.shuffle(selected_nodes)
+        return selected_nodes
 
     @abc.abstractmethod
     def generate_subgraph(self, node_id):

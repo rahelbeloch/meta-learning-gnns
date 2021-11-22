@@ -1,8 +1,22 @@
 import abc
+import copy
+import csv
+import glob
+import time
+from collections import defaultdict, OrderedDict
+from json import JSONDecodeError
+
+import nltk
+import torch
+from scipy.sparse import lil_matrix, save_npz
+from torchtext.vocab import GloVe
 
 from data_prep.config import *
 from data_prep.data_preprocess_utils import *
 from data_prep.graph_io import GraphIO
+
+USER_CONTEXTS = ['user_followers', 'user_following']
+USER_CONTEXTS_FILTERED = ['user_followers_filtered', 'user_following_filtered']
 
 
 class GraphPreprocessor(GraphIO):
@@ -18,6 +32,10 @@ class GraphPreprocessor(GraphIO):
         self.doc2id, self.user2id = None, None
         self.train_docs, self.test_docs, self.val_docs, self.n_total = None, None, None, None
         self.valid_users = None
+
+        # variables which will contain the user and document keys which have no interactions with users/docs
+        self.zero_interaction_docs = None
+        self.zero_interaction_users = None
 
     def doc_used(self, doc_id):
         return doc_id in self.train_docs or doc_id in self.test_docs or doc_id in self.val_docs
@@ -46,32 +64,9 @@ class GraphPreprocessor(GraphIO):
         else:
             raise ValueError(f"Wanting to load file with name {file_name}, but this file does not exist!!")
 
-    def save_user_doc_engagements(self, docs_users):
-
-        dest_dir = self.data_complete_path('engagements')
-        if not os.path.exists(dest_dir):
-            print(f"Creating destination dir:  {dest_dir}\n")
-            os.makedirs(dest_dir)
-
-        print(f"\nWriting engagement info in the dir: {dest_dir}")
-
-        for doc, user_list in docs_users.items():
-            document_user_file = os.path.join(dest_dir, f'{str(doc)}.json')
-            save_json_file({'users': list(user_list)}, document_user_file)
-
-        print("\nDONE..!!")
-
     @staticmethod
     @abc.abstractmethod
     def get_doc_key(name, name_type):
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def aggregate_user_contexts(self):
-        """
-        Aggregates only user IDs from different folders of tweets/retweets to a single place. Creates a folder which
-        has files named after document Ids. Each file contains all the users that interacted with it.
-        """
         raise NotImplementedError
 
     def filter_valid_users(self):
@@ -85,11 +80,11 @@ class GraphPreprocessor(GraphIO):
 
         print(f"Filtering users who in any class shared articles more than : {self.user_doc_threshold * 100}%")
 
-        doc2labels = load_json_file(self.data_complete_dir(DOC_2_LABELS_FILE_NAME))
+        doc2labels = load_json_file(self.data_complete_path(DOC_2_LABELS_FILE_NAME))
         user_stats = defaultdict(lambda: {'fake': 0, 'real': 0})
 
         restriction_docs = 0
-        for root, dirs, files in os.walk(self.data_complete_path('engagements')):
+        for root, dirs, files in os.walk(self.data_tsv_path('engagements')):
             for count, file in enumerate(files):
 
                 # only restrict users interacting with this document ID if we actually use this doc in our splits
@@ -114,7 +109,7 @@ class GraphPreprocessor(GraphIO):
 
                 for u in users:
                     if doc_key in doc2labels:
-                        user_stats[u][LABELS[doc2labels[doc_key]]] += 1
+                        user_stats[u][self.labels()[doc2labels[doc_key]]] += 1
 
         # based on user stats, exclude some
         n_docs = len(self.train_docs) + len(self.test_docs) + len(self.val_docs)
@@ -124,7 +119,7 @@ class GraphPreprocessor(GraphIO):
 
         user_stats_avg = copy.deepcopy(user_stats)
         for user, stat in user_stats_avg.items():
-            for label in LABELS.values():
+            for label in self.labels().values():
                 stat[label] = stat[label] / n_docs
 
         # filter for 30% in either one of the classes
@@ -176,7 +171,7 @@ class GraphPreprocessor(GraphIO):
         train_users, val_users, test_users = set(), set(), set()
 
         # walk through user-doc engagement files created before
-        for root, _, files in os.walk(self.data_complete_path('engagements')):
+        for root, _, files in os.walk(self.data_tsv_path('engagements')):
             print_iter = int(len(files) / 20)
 
             for count, file in enumerate(files):
@@ -193,15 +188,8 @@ class GraphPreprocessor(GraphIO):
                 doc_key = self.get_doc_key(file, name_type='file')
                 users = src_file['users']
 
-                # TODO: fix the runtime here, this is suuuper slow
-                users_filtered = [u for u in users if not self.only_valid_users or u in self.valid_users]
-                # users_filtered = []
-                # for u in users:
-                #     if not self.only_valid_users:
-                #         users_filtered.append(u)
-                #     else:
-                #         if u in self.valid_users:
-                #             users_filtered.append(u)
+                # TODO: fix the runtime here, this is super slow
+                users_filtered = [u for u in users if self.valid_user(u)]
 
                 if doc_key in self.train_docs:
                     train_users.update(users_filtered)
@@ -220,6 +208,9 @@ class GraphPreprocessor(GraphIO):
         print("User splits stored in : ", user_splits_file)
         temp_dict = {'train_users': list(train_users), 'val_users': list(val_users), 'test_users': list(test_users)}
         save_json_file(temp_dict, user_splits_file)
+
+    def valid_user(self, user):
+        return user not in self.zero_interaction_users and (not self.only_valid_users or user in self.valid_users)
 
     def create_doc_id_dicts(self):
         """
@@ -309,7 +300,8 @@ class GraphPreprocessor(GraphIO):
 
         print("\nDone ! All files written.")
 
-    def doc_node_info(self, docs, offset=None):
+    @staticmethod
+    def doc_node_info(docs, offset=None):
         doc2id, node_type = {}, []
 
         for doc_count, doc_name in enumerate(docs):
@@ -381,6 +373,7 @@ class GraphPreprocessor(GraphIO):
         self.print_step(f"Processing {self.dataset} dataset for adj_matrix")
 
         self.maybe_load_id_mappings()
+        self.load_doc_splits()
 
         # this assumes users and documents are unique in all data sets!
         n_users, n_docs = len(self.user2id), len(self.doc2id)
@@ -405,7 +398,8 @@ class GraphPreprocessor(GraphIO):
         print("\nPreparing entries for doc-user pairs...")
         edge_list = []
         not_found = 0
-        for root, dirs, files in os.walk(self.data_complete_path('engagements')):
+
+        for root, dirs, files in os.walk(self.data_tsv_path('engagements')):
             for count, file_name in enumerate(files):
                 doc_key = str(file_name.split(".")[0])
                 if doc_key == '':
@@ -437,6 +431,8 @@ class GraphPreprocessor(GraphIO):
         print(f"Not Found users = {not_found}")
         print(f"Non-zero entries = {adj_matrix.getnnz()}")
         print(f"Non-zero entries edge_type = {edge_type.getnnz()}")
+
+        single_self_connection = np.argwhere(adj_matrix.sum(axis=0) > 1)[:, 1]
 
         start = time.time()
         key_errors, not_found, overlaps = 0, 0, 0

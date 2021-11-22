@@ -1,3 +1,4 @@
+import abc
 import datetime
 
 import nltk
@@ -7,9 +8,6 @@ nltk.download('punkt')
 from data_prep.data_preprocess_utils import *
 
 from data_prep.config import *
-
-USER_CONTEXTS = ['user_followers', 'user_following']
-USER_CONTEXTS_FILTERED = ['user_followers_filtered', 'user_following_filtered']
 
 
 class GraphIO:
@@ -25,6 +23,8 @@ class GraphIO:
         self.data_raw_dir = raw_dir
         self.data_tsv_dir = self.create_dir(tsv_dir)
         self.data_complete_dir = self.create_dir(complete_dir)
+
+        self.valid_docs = None
 
     def print_step(self, step_title):
         print(f'\n{"-" * 100}\n \t\t\t {step_title} for {self.dataset} dataset.\n{"-" * 100}')
@@ -59,3 +59,7 @@ class GraphIO:
             return list(obj)
         elif isinstance(obj, datetime.datetime):
             return obj.__str__()
+
+    @abc.abstractmethod
+    def labels(self):
+        raise NotImplementedError

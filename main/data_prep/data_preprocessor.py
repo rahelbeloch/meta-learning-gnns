@@ -1,15 +1,93 @@
 import abc
 import csv
+import json
 import os
+from collections import defaultdict
 
 import numpy as np
-from collections import defaultdict
+import pandas as pd
+
 from data_prep.config import *
 from data_prep.data_preprocess_utils import save_json_file, sanitize_text, print_label_distribution, split_data
 from data_prep.graph_io import GraphIO
 
 
 class DataPreprocessor(GraphIO):
+
+    def aggregate_user_contexts(self):
+        """
+        Aggregates only user IDs from different folders of tweets/retweets to a single place. Creates a folder which
+        has files named after document Ids. Each file contains all the users that interacted with it.
+        """
+
+        self.print_step("Aggregating follower/ing relations")
+
+        docs_users = defaultdict(set)
+
+        count = 0
+        for user_context in ['tweets', 'retweets']:
+            print("\nIterating over : ", user_context)
+
+            src_dir = self.data_raw_path(self.dataset, user_context)
+            if not os.path.exists(src_dir):
+                raise ValueError(f'Source directory {src_dir} does not exist!')
+
+            for root, _, files in os.walk(src_dir):
+                for count, file in enumerate(files):
+                    file_path = os.path.join(root, file)
+
+                    # need to differentiate between how to read them because retweets are stored as JSONs in CSV!
+                    if user_context == 'tweets':
+                        user_ids = pd.read_csv(file_path)['user_id']
+                    elif user_context == 'retweets':
+                        user_ids = []
+                        with open(file_path, encoding='utf-8', newline='') as csv_file:
+                            lines = csv_file.readlines()
+                            for line in lines:
+                                json_str = json.loads(line)
+                                user_ids.append(json_str['user']['id'])
+                    else:
+                        raise ValueError(f'Unknown user context {user_context}!')
+
+                    user_ids = list(set([s for s in user_ids if isinstance(s, int)]))
+
+                    doc_id = file.split('.')[0]
+
+                    # only include this document ID in doc_users if we actually use it in our splits
+                    # if not self.doc_used(doc_id):
+                    #     continue
+
+                    docs_users[doc_id].update(user_ids)
+                    if count == 0:
+                        print(doc_id, docs_users[doc_id])
+                    if count % 2000 == 0:
+                        print(f"{count} done")
+
+        print(f"\nTotal tweets/re-tweets in the data set = {count}")
+
+        # filter out documents which do not have any interaction with any user
+        self.valid_docs = set(dict(filter(lambda f: f[1] > 0,
+                                          dict(zip(docs_users, map(lambda x: len(x[1]),
+                                                                   docs_users.items()))).items())).keys())
+        docs_users = {k: v for k, v in docs_users.items() if k in self.valid_docs}
+
+        self.save_user_doc_engagements(docs_users)
+
+    def save_user_doc_engagements(self, docs_users):
+
+        dest_dir = self.data_tsv_path('engagements')
+        if not os.path.exists(dest_dir):
+            print(f"Creating destination dir:  {dest_dir}\n")
+            os.makedirs(dest_dir)
+
+        print(f"\nSaving engagement info for nr of docs: {len(docs_users)}")
+        print(f"Writing in the dir: {dest_dir}")
+
+        for doc, user_list in docs_users.items():
+            document_user_file = os.path.join(dest_dir, f'{str(doc)}.json')
+            save_json_file({'users': list(user_list)}, document_user_file)
+
+        print("\nDONE..!!")
 
     def preprocess(self, min_len=6):
         """
@@ -148,7 +226,3 @@ class DataPreprocessor(GraphIO):
                 csv_writer.writerow(file_content)
 
         print("Final file written in :  ", content_dest_file)
-
-    @abc.abstractmethod
-    def labels(self):
-        raise NotImplementedError

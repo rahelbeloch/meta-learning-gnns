@@ -1,13 +1,10 @@
 import argparse
-import json
-import os
-from collections import defaultdict
 
 import numpy as np
-import pandas as pd
 
 from config import *
 from data_preprocess_utils import save_json_file, load_json_file
+from fake_news_tsv_processor import LABELS
 from graph_preprocessor import GraphPreprocessor
 
 
@@ -18,11 +15,8 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         self.load_doc_splits()
 
-        self.aggregate_user_contexts()
-
         if self.only_valid_users:
             self.filter_valid_users()
-
         self.create_user_splits()
         self.create_doc_id_dicts()
         self.filter_contexts()
@@ -30,6 +24,9 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
         self.create_feature_matrix()
         self.create_labels()
         self.create_split_masks()
+
+    def labels(self):
+        return LABELS
 
     @staticmethod
     def get_doc_key(name, name_type='dir'):
@@ -41,52 +38,6 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
             return name.split('/')[-1].split('.')[0]
         else:
             raise ValueError("Name type to get ID from is neither file, nor dir!")
-
-    def aggregate_user_contexts(self):
-        self.print_step("Aggregating follower/ing relations")
-
-        docs_users = defaultdict(set)
-        count = 0
-        for user_context in ['tweets', 'retweets']:
-            print("\nIterating over : ", user_context)
-
-            src_dir = self.data_raw_path(self.dataset, user_context)
-            if not os.path.exists(src_dir):
-                raise ValueError(f'Source directory {src_dir} does not exist!')
-
-            for root, _, files in os.walk(src_dir):
-                for count, file in enumerate(files):
-                    file_path = os.path.join(root, file)
-
-                    # need to differentiate between how to read them because retweets are stored as JSONs in CSV!
-                    if user_context == 'tweets':
-                        user_ids = pd.read_csv(file_path)['user_id']
-                    elif user_context == 'retweets':
-                        user_ids = []
-                        with open(file_path, encoding='utf-8', newline='') as csv_file:
-                            lines = csv_file.readlines()
-                            for line in lines:
-                                json_str = json.loads(line)
-                                user_ids.append(json_str['user']['id'])
-                    else:
-                        raise ValueError(f'Unknown user context {user_context}!')
-
-                    user_ids = list(set([s for s in user_ids if isinstance(s, int)]))
-
-                    doc_id = file.split('.')[0]
-
-                    # only include this document ID in doc_users if we actually use it in our splits
-                    if not self.doc_used(doc_id):
-                        continue
-
-                    docs_users[doc_id].update(user_ids)
-                    if count == 1:
-                        print(doc_id, docs_users[doc_id])
-                    if count % 2000 == 0:
-                        print(f"{count} done")
-
-        print(f"\nTotal tweets/re-tweets in the data set = {count}")
-        self.save_user_doc_engagements(docs_users)
 
     def create_labels(self):
 
@@ -130,13 +81,13 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--data_raw_dir', type=str, default=RAW_DIR,
+    parser.add_argument('--data_raw_dir', type=str, default='../' + RAW_DIR,
                         help='Dataset folder path that contains the folders to the raw data.')
 
-    parser.add_argument('--data_complete_dir', type=str, default=COMPLETE_DIR,
+    parser.add_argument('--data_complete_dir', type=str, default='../' + COMPLETE_DIR,
                         help='Dataset folder path that contains the folders to the complete data.')
 
-    parser.add_argument('--data_tsv_dir', type=str, default=TSV_DIR,
+    parser.add_argument('--data_tsv_dir', type=str, default='../' + TSV_DIR,
                         help='Dataset folder path that contains the folders to the intermediate data.')
 
     parser.add_argument('--data_set', type=str, default='gossipcop',

@@ -5,7 +5,6 @@ import time
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as cb
 import torch
-from pytorch_lightning.callbacks import ProgressBar
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 
@@ -106,8 +105,9 @@ def initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, weig
         verbose=False,
         mode='max'
     )
-    # bar = MeterlessProgressBar()
-    trainer = pl.Trainer(logger=logger,
+
+    trainer = pl.Trainer(log_every_n_steps=1,
+                         logger=logger,
                          enable_checkpointing=True,
                          gpus=1 if torch.cuda.is_available() else 0,
                          max_epochs=epochs,
@@ -119,14 +119,6 @@ def initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, weig
     trainer.logger._default_hp_metric = None
 
     return trainer
-
-
-class MeterlessProgressBar(ProgressBar):
-    def init_train_tqdm(self):
-        bar = super().init_train_tqdm()
-        bar.dynamic_ncols = False
-        bar.ncols = 0
-        return bar
 
 
 def evaluate(trainer, model, test_dataloader, val_dataloader):
