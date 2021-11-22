@@ -1,4 +1,5 @@
 import pytorch_lightning as pl
+import sklearn
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -88,6 +89,10 @@ class DocumentClassifier(pl.LightningModule):
         # noinspection PyUnresolvedReferences
         return (labels == predictions.argmax(dim=-1)).float().mean()
 
+    @staticmethod
+    def f1(predictions, labels):
+        return sklearn.metrics.f1_score(labels, predictions)  # , average="samples"
+
     def training_step(self, batch, _):
         sub_graphs, labels = batch
 
@@ -99,6 +104,7 @@ class DocumentClassifier(pl.LightningModule):
         loss = self.loss_module(predictions, labels)
 
         self.log('train_accuracy', self.accuracy(predictions, labels).item(), on_step=False, on_epoch=True)
+        self.log('train_f1', self.f1(predictions, labels).item(), on_step=False, on_epoch=True)
         self.log('train_loss', loss)
 
         # TODO: add scheduler
