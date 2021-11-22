@@ -33,10 +33,6 @@ class GraphPreprocessor(GraphIO):
         self.train_docs, self.test_docs, self.val_docs, self.n_total = None, None, None, None
         self.valid_users = None
 
-        # variables which will contain the user and document keys which have no interactions with users/docs
-        self.zero_interaction_docs = None
-        self.zero_interaction_users = None
-
     def doc_used(self, doc_id):
         return doc_id in self.train_docs or doc_id in self.test_docs or doc_id in self.val_docs
 
@@ -210,7 +206,7 @@ class GraphPreprocessor(GraphIO):
         save_json_file(temp_dict, user_splits_file)
 
     def valid_user(self, user):
-        return user not in self.zero_interaction_users and (not self.only_valid_users or user in self.valid_users)
+        return not self.only_valid_users or user in self.valid_users
 
     def create_doc_id_dicts(self):
         """
@@ -398,7 +394,7 @@ class GraphPreprocessor(GraphIO):
         print("\nPreparing entries for doc-user pairs...")
         edge_list = []
         not_found = 0
-
+        no_connections_added_doc_ids = set()
         for root, dirs, files in os.walk(self.data_tsv_path('engagements')):
             for count, file_name in enumerate(files):
                 doc_key = str(file_name.split(".")[0])
@@ -409,9 +405,10 @@ class GraphPreprocessor(GraphIO):
                 for user in users:
                     if doc_key in self.test_docs:
                         # no connections between users and test documents!
+                        no_connections_added_doc_ids.add(self.doc2id[doc_key])
                         continue
 
-                    if doc_key in self.doc2id and user in self.user2id and doc_key:
+                    if doc_key in self.doc2id and user in self.user2id:
                         doc_id = self.doc2id[doc_key]
                         user_id = self.user2id[user]
 
@@ -431,8 +428,6 @@ class GraphPreprocessor(GraphIO):
         print(f"Not Found users = {not_found}")
         print(f"Non-zero entries = {adj_matrix.getnnz()}")
         print(f"Non-zero entries edge_type = {edge_type.getnnz()}")
-
-        single_self_connection = np.argwhere(adj_matrix.sum(axis=0) > 1)[:, 1]
 
         start = time.time()
         key_errors, not_found, overlaps = 0, 0, 0
@@ -472,8 +467,14 @@ class GraphPreprocessor(GraphIO):
                         not_found += 1
 
         edge_list_file = self.data_complete_path(EDGE_LIST_FILE_NAME % self.top_k)
-        print("Saving edge list in :", edge_list_file)
+        print("\nSaving edge list in :", edge_list_file)
         save_json_file(edge_list, edge_list_file)
+
+        # TODO: because of filtered out users we now here have a grad which still has around 282 nodes that
+        # are not test nodes but do not have connections to any users --> filter them out
+        # single_self_connection = np.argwhere(adj_matrix.sum(axis=0) > 1)[:, 1]
+
+        # there may only be len(test_docs) number of nodes with no connections to training nodes!
 
         hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
@@ -552,9 +553,7 @@ class GraphPreprocessor(GraphIO):
         start = time.time()
 
         feature_id_mapping = defaultdict(lambda: [])
-        engagements_files = self.data_complete_path('engagements', '*.json')
-
-        for count, file in enumerate(glob.glob(engagements_files)):
+        for count, file in enumerate(glob.glob(self.data_tsv_path('engagements', '*.json'))):
             doc_users = load_json_file(file)
             doc_key = self.get_doc_key(file, name_type='filepath')
 
@@ -599,59 +598,14 @@ class GraphPreprocessor(GraphIO):
         print(f"\nMatrix construction done! Saving in: {filename}")
         save_npz(filename, feature_matrix.tocsr())
 
-    # def build_vocab(self, all_texts):
-    #
-    #     vocab_file = self.data_complete_path('vocab.json')
-    #     if os.path.isfile(vocab_file):
-    #         print("\nReading vocabulary from:  ", vocab_file)
-    #         return load_json_file(vocab_file)
-    #
-    #     print("\nBuilding vocabulary...")
-    #     word_frequency = defaultdict(lambda: 0)
-    #     start = time.time()
-    #
-    #     for text in all_texts:
-    #         tokens = set(nltk.word_tokenize(text))
-    #         for token in tokens:
-    #             word_frequency[token] += 1
-    #
-    #     word_frequency = [(f, w) for (w, f) in word_frequency.items()]
-    #     word_frequency.sort(reverse=True)
-    #
-    #     upper_threshold, lower_threshold = -1, 10
-    #     max_vocab = 50000
-    #     token_counts = []
-    #
-    #     for (count, token) in word_frequency:
-    #         if upper_threshold != -1 and count > upper_threshold:
-    #             continue
-    #         if count < lower_threshold:
-    #             continue
-    #         token_counts.append((count, token))
-    #
-    #     token_counts.sort(reverse=True)
-    #     if max_vocab != -1:
-    #         token_counts = token_counts[:max_vocab]
-    #
-    #     # NIV: not in vocab token, i.e., out of vocab
-    #     token_counts.append((0, 'NIV'))
-    #
-    #     vocab = {}
-    #     for (i, (count, token)) in enumerate(token_counts):
-    #         vocab[token] = i + 1
-    #
-    #     hrs, mins, secs = calc_elapsed_time(start, time.time())
-    #     print("Done. Took {}hrs and {}mins and {}secs\n".format(hrs, mins, secs))
-    #     print(f"Saving vocab for {self.dataset} at: {vocab_file}")
-    #     save_json_file(vocab, vocab_file)
-    #
-    #     return vocab
-
     @abc.abstractmethod
     def create_labels(self):
         raise NotImplementedError
 
     def create_split_masks(self):
+        """
+        Creates split masks over all the document nodes for train/test/val set.
+        """
 
         self.print_step("Creating split masks")
 

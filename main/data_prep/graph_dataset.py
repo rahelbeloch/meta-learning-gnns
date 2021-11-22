@@ -239,7 +239,7 @@ class SubGraphs:
         self.hop_size = h_size
 
         # we need all node IDs for this split
-        self.node_ids = torch.where(full_graph.graph.ndata[mask].bool())[0]
+        self.document_node_ids = torch.where(full_graph.graph.ndata[mask].bool())[0]
 
         self.sub_graphs = {}
 
@@ -261,9 +261,8 @@ class SubGraphs:
         Create the entire set of batches (node IDs, sub graphs are generated on the flight).
         """
 
-        # TODO: sample only from doc nodes!!
-        # sample batch size node IDs
-        selected_nodes = np.random.choice(self.node_ids, self.batch_size, False)  # no duplicate
+        # sample batch size document node IDs
+        selected_nodes = np.random.choice(self.document_node_ids, self.batch_size, False)  # no duplicate
         # np.random.shuffle(selected_nodes)
         return selected_nodes
 
