@@ -188,7 +188,7 @@ if __name__ == "__main__":
                         help='Select the dataset you want to use.')
     parser.add_argument('--data-dir', dest='data_dir', default='../data/complete',
                         help='Select the dataset you want to use.')
-    parser.add_argument('--model', dest='model', default='prototypical', choices=SUPPORTED_MODELS,
+    parser.add_argument('--model', dest='model', default='gat', choices=SUPPORTED_MODELS,
                         help='Select the model you want to use.')
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--cf-hidden-dim', dest='cf_hidden_dim', type=int, default=512)
