@@ -26,7 +26,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
     print(f'\nConfiguration:\n mode: {"TEST" if eval else "TRAIN"}\n model_name: {model_name}\n data_name: {data_name}'
           f'\n k_shot: {k_shot} \n seed: {seed}\n batch_size: {b_size}\n checkpoint: {checkpoint}\n '
           f'max epochs: {epochs}\n patience:{patience}\n l_rate_enc: {l_rate_enc}\n '
-          f'l_rate_cl: {l_rate_cl}\n \n cf_hidden_dim: {cf_hidden_dim}\n h_search: {h_search}\n')
+          f'l_rate_cl: {l_rate_cl}\n cf_hidden_dim: {cf_hidden_dim}\n h_search: {h_search}\n')
 
     # reproducible results
     pl.seed_everything(seed)
@@ -34,7 +34,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
     torch.backends.cudnn.benchmark = False
 
     # the data preprocessing
-    print('Loading data ..........\n')
+    print('\nLoading data ..........')
     train_loader, val_loader, test_loader, num_features = get_data(data_name, model_name, data_dir, b_size, h_size,
                                                                    top_k, k_shot)
 
@@ -53,7 +53,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
         'proto_dim': proto_dim
     }
 
-    print('Initializing trainer ..........\n')
+    print('\nInitializing trainer ..........')
     trainer = initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, data_name, checkpoint)
 
     if model_name == 'gat':

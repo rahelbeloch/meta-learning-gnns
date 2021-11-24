@@ -90,8 +90,10 @@ class DocumentClassifier(pl.LightningModule):
         return (labels == predictions.argmax(dim=-1)).float().mean()
 
     @staticmethod
-    def f1(predictions, labels):
-        return sklearn.metrics.f1_score(labels, predictions)  # , average="samples"
+    def f1(predictions, labels, average='binary'):
+        predictions_cpu = predictions.argmax(dim=-1).detach().cpu()
+        targets_cpu = labels.detach().cpu()
+        return sklearn.metrics.f1_score(targets_cpu, predictions_cpu, average=average)
 
     def training_step(self, batch, _):
 
@@ -105,19 +107,11 @@ class DocumentClassifier(pl.LightningModule):
 
         self.log('train_accuracy', self.accuracy(predictions, targets).item(), on_step=False, on_epoch=True)
 
-        predictions_cpu = predictions.argmax(dim=-1).detach().cpu()
-        targets_cpu = targets.detach().cpu()
+        # f1_macro = self.f1(predictions, targets, average='macro').item()
+        # self.log('train_f1_macro', f1_macro, on_step=False, on_epoch=True)
+        # f1_micro = self.f1(predictions, targets, average='micro').item()
+        # self.log('train_f1_micro', f1_micro, on_step=False, on_epoch=True)
 
-        # print(f"Pred shape: {str(predictions_cpu.shape)}")
-        # print(f"Pred type: {str(predictions_cpu.type)}")
-        # print(f"Pred content: {str(predictions_cpu[0])}")
-        #
-        # print(f"Targets shape: {str(targets_cpu.shape)}")
-        # print(f"Targets type: {str(targets_cpu.type)}")
-        # print(f"Targets content: {str(targets_cpu[0])}")
-
-        f1 = self.f1(predictions_cpu, targets_cpu).item()
-        self.log('train_f1', f1, on_step=False, on_epoch=True)
         self.log('train_loss', loss)
 
         # TODO: add scheduler

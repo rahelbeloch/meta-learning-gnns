@@ -156,7 +156,7 @@ class DglGraphDataset(GraphIO, DGLDataset):
         :return:
         """
 
-        self.print_step("Initializing DGL graph")
+        print('Initializing DGL graph ..........\n')
 
         # check if a DGL graph exists already for this dataset
         graph_file = self.data_complete_path(DGL_GRAPH_FILE % self.dataset)
