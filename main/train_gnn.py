@@ -53,7 +53,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
         'proto_dim': proto_dim
     }
 
-    print('\nInitializing trainer ..........')
+    print('\nInitializing trainer ..........\n')
     trainer = initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, data_name, checkpoint)
 
     if model_name == 'gat':
@@ -65,7 +65,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
 
     if not eval:
         # Training
-        print('Fitting model ..........\n')
+        print('\nFitting model ..........\n')
         start = time.time()
         trainer.fit(model, train_loader, val_loader)
 
