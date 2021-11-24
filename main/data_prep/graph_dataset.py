@@ -286,15 +286,13 @@ class SubGraphs(Dataset):
 
 
 # outside of the subgraph class because the collate function can not be pickled
-def as_dataloader(sub_graph, shuffle=False):
+def as_dataloader(sub_graph, num_workers, shuffle=False):
     """
 
     :param sub_graph:
     :param shuffle:
     :return:
     """
-    # num_workers = 0  # if gpu else 24; somehow no multiprocessing on GPU
-    num_workers = 6
     # TODO: shuffle should be True?
 
     return DataLoader(sub_graph, batch_size=sub_graph.batch_size, shuffle=shuffle, num_workers=num_workers,

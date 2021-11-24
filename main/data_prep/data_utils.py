@@ -1,3 +1,4 @@
+import torch.cuda
 from torch.utils.data import DataLoader
 
 from data_prep.graph_dataset import DGLSubGraphs, DglGraphDataset, as_dataloader, collate_fn_proto
@@ -31,6 +32,8 @@ def get_data(data_name, model, data_dir, batch_size, hop_size, top_k, k_shot):
     val_graphs = DGLSubGraphs(graph_data, 'val_mask', b_size=batch_size, h_size=hop_size)
     test_graphs = DGLSubGraphs(graph_data, 'test_mask', b_size=batch_size, h_size=hop_size)
 
+    num_workers = 6 if torch.cuda.is_available() else 1     # mac has 8 CPUs
+
     if model == 'gat':
         # load the whole graph once (it internally has the train/val/test masks)
 
@@ -39,20 +42,23 @@ def get_data(data_name, model, data_dir, batch_size, hop_size, top_k, k_shot):
         # val_sub_graphs = TorchGeomSubGraphs(graph_data, 'val', b_size=128, h_size=2)
         # test_sub_graphs = TorchGeomSubGraphs(graph_data, 'test', b_size=128, h_size=2)
 
-        train_loader = as_dataloader(train_graphs)
-        val_loader = as_dataloader(val_graphs)
-        test_loader = as_dataloader(test_graphs)
+        train_loader = as_dataloader(train_graphs, num_workers)
+        val_loader = as_dataloader(val_graphs, num_workers)
+        test_loader = as_dataloader(test_graphs, num_workers)
 
     elif model == 'prototypical' or model == 'gmeta':
 
         train_sampler = FewShotSubgraphSampler(train_graphs, include_query=True, k_shot=int(k_shot / 2))
-        train_loader = DataLoader(train_graphs, batch_sampler=train_sampler, num_workers=4, collate_fn=collate_fn_proto)
+        train_loader = DataLoader(train_graphs, batch_sampler=train_sampler, num_workers=num_workers,
+                                  collate_fn=collate_fn_proto)
 
         val_sampler = FewShotSubgraphSampler(val_graphs, include_query=True, k_shot=int(k_shot / 2))
-        val_loader = DataLoader(val_graphs, batch_sampler=val_sampler, num_workers=4, collate_fn=collate_fn_proto)
+        val_loader = DataLoader(val_graphs, batch_sampler=val_sampler, num_workers=num_workers,
+                                collate_fn=collate_fn_proto)
 
         test_sampler = FewShotSubgraphSampler(test_graphs, include_query=True, k_shot=int(k_shot / 2))
-        test_loader = DataLoader(test_graphs, batch_sampler=test_sampler, num_workers=4, collate_fn=collate_fn_proto)
+        test_loader = DataLoader(test_graphs, batch_sampler=test_sampler, num_workers=num_workers,
+                                 collate_fn=collate_fn_proto)
     else:
         raise ValueError("Don't know model name '%s'." % model)
 
