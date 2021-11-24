@@ -230,7 +230,7 @@ class SubGraphs(Dataset):
     Sub graphs class for a smaller graph constructed through the k-hop neighbors of one centroid node.
     """
 
-    def __init__(self, full_graph, mask_name, b_size, h_size, meta=False):
+    def __init__(self, full_graph, mask_name, b_size, h_size):
         super().__init__()
 
         self.graph = full_graph
@@ -247,7 +247,7 @@ class SubGraphs(Dataset):
 
         # from the node_ids which are available in this graph, create a batch (batch_size node IDs)
         # sub graphs are created on the flight during training
-        # self.batch_node_ids = self.create_batch()
+        self.batch_node_ids = self.create_batch()
 
         # print(f'\nNode IDs used for {mask_name.split("_")[0]}: {self.batch_node_ids}\n')
 
@@ -262,20 +262,15 @@ class SubGraphs(Dataset):
         """
         return self.batch_size
 
-    # def create_batch(self, meta=False):
-    #     """
-    #     Create the entire set of batches (node IDs, sub graphs are generated on the flight).
-    #     """
-    #
-    #     if not meta:
-    #         # sample batch size document node IDs
-    #         selected_nodes = np.random.choice(self.document_node_ids, self.batch_size, False)  # no duplicate
-    #         # np.random.shuffle(selected_nodes)
-    #         return selected_nodes
-    #
-    #     else:
-    #         # episodic learning; create collection of few-shot tasks (query and support set)
-    #         pass
+    def create_batch(self):
+        """
+        Create the entire set of batches (node IDs, sub graphs are generated on the flight).
+        """
+
+        # sample batch size document node IDs
+        selected_nodes = np.random.choice(self.document_node_ids, self.batch_size, False)  # no duplicate
+        # np.random.shuffle(selected_nodes)
+        return selected_nodes
 
     @abc.abstractmethod
     def generate_subgraph(self, node_id):
@@ -338,7 +333,9 @@ class DGLSubGraphs(SubGraphs):
     """
 
     def __init__(self, full_graph, mask_name, b_size, h_size, meta=False):
-        super().__init__(full_graph, mask_name, b_size, h_size, meta=meta)
+        super().__init__(full_graph, mask_name, b_size, h_size)
+
+        self.meta = meta
 
     def generate_subgraph(self, node_id):
         """
@@ -405,8 +402,10 @@ class DGLSubGraphs(SubGraphs):
         :param node_id: Index for node ID from self.node_ids defining the node ID for which a subgraph should be created.
         :return:
         """
-        # print(f"Got item from DGL Subgraphs. Node ID: {node_id}")
-        # node_id = self.batch_node_ids[node_id_idx]
+
+        if not self.meta:
+            node_id = self.batch_node_ids[node_id]
+
         subgraph = self.generate_subgraph(node_id)
         label = self.graph.graph.ndata['label'][node_id]
         return node_id, subgraph, label
