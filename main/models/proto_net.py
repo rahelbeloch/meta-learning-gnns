@@ -84,15 +84,15 @@ class ProtoNet(pl.LightningModule):
         print(f'Support features dim: {support_feats.shape}')
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
-        query_feats = self.model(support_graphs)
+        query_feats = self.model(query_graphs)
         predictions, labels, acc = ProtoNet.classify_features(prototypes, classes, query_feats, query_targets)
 
-        loss = F.cross_entropy(predictions, labels)
+        meta_loss = F.cross_entropy(predictions, labels)
 
-        self.log(f"{mode}_loss", loss)
+        self.log(f"{mode}_loss", meta_loss)
         self.log(f"{mode}_acc", acc)
 
-        return loss
+        return meta_loss
 
     def training_step(self, batch, batch_idx):
         return self.calculate_loss(batch, mode="train")

@@ -20,10 +20,10 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
         # self.create_user_splits()
         # self.create_doc_id_dicts()
         # self.filter_contexts()
-        self.create_adj_matrix()
+        # self.create_adj_matrix()
         self.create_feature_matrix()
-        self.create_labels()
-        self.create_split_masks()
+        # self.create_labels()
+        # self.create_split_masks()
 
     def labels(self):
         return LABELS

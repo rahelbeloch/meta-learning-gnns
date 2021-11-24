@@ -1,7 +1,7 @@
 import torch.cuda
 from torch.utils.data import DataLoader
 
-from data_prep.graph_dataset import DGLSubGraphs, DglGraphDataset, as_dataloader, collate_fn_proto
+from data_prep.graph_dataset import DGLSubGraphs, DglGraphDataset, collate_fn_proto
 from models.batch_sampler import FewShotSubgraphSampler
 
 SUPPORTED_DATASETS = ['HealthStory', 'gossipcop']
@@ -32,21 +32,21 @@ def get_data(data_name, model, data_dir, batch_size, hop_size, top_k, k_shot):
     val_graphs = DGLSubGraphs(graph_data, 'val_mask', b_size=batch_size, h_size=hop_size, meta=model != 'gat')
     test_graphs = DGLSubGraphs(graph_data, 'test_mask', b_size=batch_size, h_size=hop_size, meta=model != 'gat')
 
-    num_workers = 6 if torch.cuda.is_available() else 1     # mac has 8 CPUs
+    num_workers = 6 if torch.cuda.is_available() else 1  # mac has 8 CPUs
 
-    if model == 'gat':
-        # load the whole graph once (it internally has the train/val/test masks)
+    # if model == 'gat':
+    #     # load the whole graph once (it internally has the train/val/test masks)
+    #
+    #     # loader, vocab_size, data = graph_data.initialize_graph_data()
+    #     # train_sub_graphs = TorchGeomSubGraphs(graph_data, 'train', b_size=128, h_size=2)
+    #     # val_sub_graphs = TorchGeomSubGraphs(graph_data, 'val', b_size=128, h_size=2)
+    #     # test_sub_graphs = TorchGeomSubGraphs(graph_data, 'test', b_size=128, h_size=2)
+    #
+    #     train_loader = as_dataloader(train_graphs, num_workers)
+    #     val_loader = as_dataloader(val_graphs, num_workers)
+    #     test_loader = as_dataloader(test_graphs, num_workers)
 
-        # loader, vocab_size, data = graph_data.initialize_graph_data()
-        # train_sub_graphs = TorchGeomSubGraphs(graph_data, 'train', b_size=128, h_size=2)
-        # val_sub_graphs = TorchGeomSubGraphs(graph_data, 'val', b_size=128, h_size=2)
-        # test_sub_graphs = TorchGeomSubGraphs(graph_data, 'test', b_size=128, h_size=2)
-
-        train_loader = as_dataloader(train_graphs, num_workers)
-        val_loader = as_dataloader(val_graphs, num_workers)
-        test_loader = as_dataloader(test_graphs, num_workers)
-
-    elif model == 'prototypical' or model == 'gmeta':
+    if model == 'prototypical' or model == 'gmeta' or model == 'gat':
 
         train_sampler = FewShotSubgraphSampler(train_graphs, include_query=True, k_shot=int(k_shot / 2))
         train_loader = DataLoader(train_graphs, batch_sampler=train_sampler, num_workers=num_workers,
