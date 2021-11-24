@@ -104,7 +104,7 @@ class DocumentClassifier(pl.LightningModule):
         loss = self.loss_module(predictions, targets)
 
         self.log('train_accuracy', self.accuracy(predictions, targets).item(), on_step=False, on_epoch=True)
-        self.log('train_f1', self.f1(predictions, targets).item(), on_step=False, on_epoch=True)
+        self.log('train_f1', self.f1(predictions.cpu(), targets.cpu()).item(), on_step=False, on_epoch=True)
         self.log('train_loss', loss)
 
         # TODO: add scheduler
