@@ -34,6 +34,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
     torch.backends.cudnn.benchmark = False
 
     # the data preprocessing
+    print('Loading data ..........\n')
     train_loader, val_loader, test_loader, num_features = get_data(data_name, model_name, data_dir, b_size, h_size,
                                                                    top_k, k_shot)
 
@@ -52,6 +53,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
         'proto_dim': proto_dim
     }
 
+    print('Initializing trainer ..........\n')
     trainer = initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, data_name, checkpoint)
 
     if model_name == 'gat':
@@ -217,5 +219,5 @@ if __name__ == "__main__":
         data_name=params["dataset"],
         data_dir=params["data_dir"],
         checkpoint=params["checkpoint"],
-        h_search=params["h_search"],
+        h_search=params["h_search"]
     )
