@@ -114,7 +114,7 @@ def initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed
                          gpus=1 if torch.cuda.is_available() else 0,
                          max_epochs=epochs,
                          callbacks=[model_checkpoint],
-                         enable_progress_bar=False,
+                         enable_progress_bar=True,
                          num_sanity_val_steps=0)
 
     # Optional logging argument that we don't need
@@ -163,7 +163,7 @@ if __name__ == "__main__":
 
     # TRAINING PARAMETERS
 
-    parser.add_argument('--epochs', dest='epochs', type=int, default=50)
+    parser.add_argument('--epochs', dest='epochs', type=int, default=30)
     parser.add_argument('--patience', dest='patience', type=int, default=10)
     parser.add_argument('--batch-size', dest='batch_size', type=int, default=8)
     parser.add_argument('--hop-size', dest='hop_size', type=int, default=2)
