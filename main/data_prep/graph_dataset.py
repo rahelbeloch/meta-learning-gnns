@@ -247,7 +247,7 @@ class SubGraphs(Dataset):
 
         # from the node_ids which are available in this graph, create a batch (batch_size node IDs)
         # sub graphs are created on the flight during training
-        self.batch_node_ids = self.create_batch()
+        # self.batch_node_ids = self.create_batch()
 
         # print(f'\nNode IDs used for {mask_name.split("_")[0]}: {self.batch_node_ids}\n')
 
@@ -403,8 +403,8 @@ class DGLSubGraphs(SubGraphs):
         :return:
         """
 
-        if not self.meta:
-            node_id = self.batch_node_ids[node_id]
+        # if not self.meta:
+        #     node_id = self.batch_node_ids[node_id]
 
         subgraph = self.generate_subgraph(node_id)
         label = self.graph.graph.ndata['label'][node_id]
