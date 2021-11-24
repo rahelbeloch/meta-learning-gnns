@@ -5,30 +5,28 @@ import time
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as cb
 import torch
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from data_prep.data_utils import SUPPORTED_DATASETS
 from data_prep.data_utils import get_data
 from models.document_classifier import DocumentClassifier
+from models.proto_net import ProtoNet
 
-SUPPORTED_MODELS = ['gat']
+SUPPORTED_MODELS = ['gat', 'prototypical', 'gmeta']
 LOG_PATH = "../logs/"
 
 
-def train(model_name, seed, epochs, patience, b_size, h_size, top_k, l_rate_enc, l_rate_cl, w_decay_enc, w_decay_cl,
-          warmup, max_iters,
-          cf_hidden_dim, data_name, data_dir, checkpoint, transfer, h_search, eval=False):
+def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr, l_rate_enc, l_rate_cl, cf_hidden_dim,
+          proto_dim, data_name, data_dir, checkpoint, h_search, eval=False):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     if model_name not in SUPPORTED_MODELS:
         raise ValueError("Model type '%s' is not supported." % model_name)
 
     print(f'\nConfiguration:\n mode: {"TEST" if eval else "TRAIN"}\n model_name: {model_name}\n data_name: {data_name}'
-          f'\n seed: {seed}\n batch_size: {b_size}\n checkpoint: {checkpoint}\n max epochs: {epochs}\n '
-          f'patience:{patience}\n l_rate_enc: {l_rate_enc}\n '
-          f'l_rate_cl: {l_rate_cl}\n warmup: {warmup}\n weight_decay_enc: {w_decay_enc}\n weight_decay_cl: {w_decay_cl}'
-          f' \n cf_hidden_dim: {cf_hidden_dim}\n h_search: {h_search}\n')
+          f'\n k_shot: {k_shot} \n seed: {seed}\n batch_size: {b_size}\n checkpoint: {checkpoint}\n '
+          f'max epochs: {epochs}\n patience:{patience}\n l_rate_enc: {l_rate_enc}\n '
+          f'l_rate_cl: {l_rate_cl}\n \n cf_hidden_dim: {cf_hidden_dim}\n h_search: {h_search}\n')
 
     # reproducible results
     pl.seed_everything(seed)
@@ -37,14 +35,12 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, l_rate_enc,
 
     # the data preprocessing
     train_loader, val_loader, test_loader, num_features = get_data(data_name, model_name, data_dir, b_size, h_size,
-                                                                   top_k)
+                                                                   top_k, k_shot)
 
     optimizer_hparams = {"lr_enc": l_rate_enc,
                          "lr_cl": l_rate_cl,
-                         "weight_decay_enc": w_decay_enc,
-                         "weight_decay_cl": w_decay_cl,
-                         "warmup": warmup,
-                         "max_iters": len(train_loader) * epochs} if max_iters < 0 else max_iters
+                         "lr": lr
+                         }
 
     num_classes = 2
 
@@ -52,13 +48,18 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, l_rate_enc,
         'model': model_name,
         'cf_hid_dim': cf_hidden_dim,
         'input_dim': num_features,
-        'output_dim': num_classes
+        'output_dim': num_classes,
+        'proto_dim': proto_dim
     }
 
-    trainer = initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, w_decay_enc, w_decay_cl, warmup,
-                                 seed, data_name, transfer, checkpoint)
+    trainer = initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, data_name, checkpoint)
 
-    model = DocumentClassifier(model_params, optimizer_hparams, checkpoint, transfer, h_search)
+    if model_name == 'gat':
+        model = DocumentClassifier(model_params, optimizer_hparams, checkpoint, h_search)
+    elif model_name == 'prototypical':
+        model = ProtoNet(model_params['input_dim'], model_params['cf_hid_dim'], optimizer_hparams['lr'])
+    else:
+        raise ValueError(f'Model name {model_name} unknown!')
 
     if not eval:
         # Training
@@ -80,8 +81,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, l_rate_enc,
     test_acc, val_acc = evaluate(trainer, model, test_loader, val_loader)
 
 
-def initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, weight_decay_enc, weight_decay_cl, warmup,
-                       seed, dataset, transfer, checkpoint):
+def initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, dataset, checkpoint):
     """
     Initializes a Lightning Trainer for respective parameters as given in the function header. Creates a proper
     folder name for the respective model files, initializes logging and early stopping.
@@ -89,22 +89,22 @@ def initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, weig
 
     model_checkpoint = cb.ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_accuracy")
 
-    if transfer:
-        from_dname = checkpoint.split('_seed')[0].split('dname=')[1]
-        model_name = f'{model_name}-transfer-from-{from_dname}'
-
-    version_str = f'dname={dataset}_seed={seed}_lr-enc={l_rate_enc}_lr-cl={l_rate_cl}_wdec-enc={weight_decay_enc}' \
-                  f'_wdec-cl={weight_decay_cl}_wsteps={warmup}'
+    if model_name == 'gat':
+        version_str = f'dname={dataset}_seed={seed}_lr-enc={l_rate_enc}_lr-cl={l_rate_cl}'
+    elif model_name == 'prototypical':
+        version_str = f'dname={dataset}_seed={seed}_lr={l_rate_enc}'
+    else:
+        raise ValueError(f'Model name {model_name} unknown!')
 
     logger = TensorBoardLogger(LOG_PATH, name=model_name, version=version_str)
 
-    early_stop_callback = EarlyStopping(
-        monitor='val_accuracy',
-        min_delta=0.00,
-        patience=patience,  # validation happens per default after each training epoch
-        verbose=False,
-        mode='max'
-    )
+    # early_stop_callback = EarlyStopping(
+    #     monitor='val_accuracy',
+    #     min_delta=0.00,
+    #     patience=patience,  # validation happens per default after each training epoch
+    #     verbose=False,
+    #     mode='max'
+    # )
 
     trainer = pl.Trainer(log_every_n_steps=1,
                          logger=logger,
@@ -166,17 +166,19 @@ if __name__ == "__main__":
     parser.add_argument('--batch-size', dest='batch_size', type=int, default=8)
     parser.add_argument('--hop-size', dest='hop_size', type=int, default=2)
     parser.add_argument('--top-k', dest='top_k', type=int, default=30)
+    parser.add_argument('--k-shot', dest='k_shot', type=int, default=40, help="Number of examples per task/batch.")
+
     parser.add_argument('--lr-enc', dest='l_rate_enc', type=float, default=0.01, help="Encoder learning rate.")
     parser.add_argument('--lr-cl', dest='l_rate_cl', type=float, default=-1, help="Classifier learning rate.")
-    parser.add_argument("--w-decay-enc", dest='w_decay_enc', type=float, default=2e-3,
-                        help="Encoder weight decay for L2 regularization of optimizer AdamW")
-    parser.add_argument("--w-decay-cl", dest='w_decay_cl', type=float, default=-1,
-                        help="Classifier weight decay for L2 regularization of optimizer AdamW")
-    parser.add_argument("--warmup", dest='warmup', type=int, default=500,
-                        help="Number of steps for which we do learning rate warmup.")
-    parser.add_argument("--max-iters", dest='max_iters', type=int, default=-1,
-                        help='Number of iterations until the learning rate decay after warmup should last. '
-                             'If not given then it is computed from the given epochs.')
+
+    # META setup
+
+    parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
+    parser.add_argument('--inner-lr', dest='inner_lr', type=float, default=0.0001, help="Inner learning rate.")
+    parser.add_argument('--n_updates', dest='n_updates', type=int, default=5,
+                        help="Inner gradient updates during meta learning.")
+    parser.add_argument('--n_shots', dest='n_shots', type=int, default=40,
+                        help="Inner gradient updates during meta learning.")
 
     # CONFIGURATION
 
@@ -188,6 +190,7 @@ if __name__ == "__main__":
                         help='Select the model you want to use.')
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--cf-hidden-dim', dest='cf_hidden_dim', type=int, default=512)
+    parser.add_argument('--proto-dim', dest='proto_dim', type=int, default=64)
     parser.add_argument('--checkpoint', default=None, type=str, metavar='PATH',
                         help='Path to latest checkpoint (default: None)')
     parser.add_argument('--transfer', dest='transfer', action='store_true', help='Transfer the model to new dataset.')
@@ -205,16 +208,14 @@ if __name__ == "__main__":
         b_size=params["batch_size"],
         h_size=params["hop_size"],
         top_k=params["top_k"],
+        k_shot=params["k_shot"],
+        lr=params["l_rate_enc"],
         l_rate_enc=params["l_rate_enc"],
         l_rate_cl=params["l_rate_cl"],
-        w_decay_enc=params["w_decay_enc"],
-        w_decay_cl=params["w_decay_cl"],
-        warmup=params["warmup"],
-        max_iters=params["max_iters"],
         cf_hidden_dim=params["cf_hidden_dim"],
+        proto_dim=params["proto_dim"],
         data_name=params["dataset"],
         data_dir=params["data_dir"],
         checkpoint=params["checkpoint"],
-        transfer=params["transfer"],
         h_search=params["h_search"],
     )

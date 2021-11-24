@@ -4,7 +4,7 @@ import itertools
 import dgl
 import torch
 from dgl.data import DGLDataset
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 from data_prep.fake_health_graph_preprocessor import *
 from data_prep.graph_io import GraphIO
@@ -225,12 +225,12 @@ class DglGraphDataset(GraphIO, DGLDataset):
         return 1
 
 
-class SubGraphs:
+class SubGraphs(Dataset):
     """
     Sub graphs class for a smaller graph constructed through the k-hop neighbors of one centroid node.
     """
 
-    def __init__(self, full_graph, mask, b_size, h_size):
+    def __init__(self, full_graph, mask_name, b_size, h_size, meta=False):
         super().__init__()
 
         self.graph = full_graph
@@ -238,16 +238,22 @@ class SubGraphs:
         self.batch_size = b_size
         self.hop_size = h_size
 
+        self.mask_name = mask_name
+
         # we need all node IDs for this split
-        self.document_node_ids = torch.where(full_graph.graph.ndata[mask].bool())[0]
+        self.document_node_ids = torch.where(self.mask)[0]
 
         self.sub_graphs = {}
 
         # from the node_ids which are available in this graph, create a batch (batch_size node IDs)
         # sub graphs are created on the flight during training
-        self.batch_node_ids = self.create_batch()
+        # self.batch_node_ids = self.create_batch()
 
-        print(f'\nNode IDs used for {mask.split("_")[0]}: {self.batch_node_ids}\n')
+        # print(f'\nNode IDs used for {mask_name.split("_")[0]}: {self.batch_node_ids}\n')
+
+    @property
+    def mask(self):
+        return self.graph.graph.ndata[self.mask_name].bool()
 
     def __len__(self):
         """
@@ -256,15 +262,20 @@ class SubGraphs:
         """
         return self.batch_size
 
-    def create_batch(self):
-        """
-        Create the entire set of batches (node IDs, sub graphs are generated on the flight).
-        """
-
-        # sample batch size document node IDs
-        selected_nodes = np.random.choice(self.document_node_ids, self.batch_size, False)  # no duplicate
-        # np.random.shuffle(selected_nodes)
-        return selected_nodes
+    # def create_batch(self, meta=False):
+    #     """
+    #     Create the entire set of batches (node IDs, sub graphs are generated on the flight).
+    #     """
+    #
+    #     if not meta:
+    #         # sample batch size document node IDs
+    #         selected_nodes = np.random.choice(self.document_node_ids, self.batch_size, False)  # no duplicate
+    #         # np.random.shuffle(selected_nodes)
+    #         return selected_nodes
+    #
+    #     else:
+    #         # episodic learning; create collection of few-shot tasks (query and support set)
+    #         pass
 
     @abc.abstractmethod
     def generate_subgraph(self, node_id):
@@ -287,20 +298,40 @@ def as_dataloader(sub_graph, shuffle=False):
     # TODO: shuffle should be True?
 
     return DataLoader(sub_graph, batch_size=sub_graph.batch_size, shuffle=shuffle, num_workers=num_workers,
-                      pin_memory=True, collate_fn=collate_fn)
+                      pin_memory=True, collate_fn=collate_fn_baseline)
 
 
-def collate_fn(batch_samples):
+def collate_fn_baseline(batch_samples):
+    """
+    Receives a batch of samples (subgraphs and labels) node IDs for which sub graphs need to be generated on the flight.
+    :param batch_samples: List of pairs where each pair is: (graph, label)
+    """
+    node_ids, graphs, labels = list(map(list, zip(*batch_samples)))
+    return dgl.batch(graphs), torch.LongTensor(labels)
+
+
+def collate_fn_proto(batch_samples):
     """
     Receives a batch of samples (subgraphs and labels) node IDs for which sub graphs need to be generated on the flight.
     :param batch_samples: List of pairs where each pair is: (graph, label)
     """
     node_ids, graphs, labels = list(map(list, zip(*batch_samples)))
 
-    for i in range(len(node_ids)):
-        print(f"Node ID {node_ids[i]}, edges {graphs[i].num_edges()}, nodes {graphs[i].num_nodes()}")
+    # for i in range(len(node_ids)):
+    #     print(f"Node ID {node_ids[i]}, edges {graphs[i].num_edges()}, nodes {graphs[i].num_nodes()}")
 
-    return dgl.batch(graphs), torch.LongTensor(labels),  # center, node_idx, graph_idx
+    # as we have support and query set combined, split them in half
+    # support_node_ids, query_node_ids = split_list(node_ids)
+    support_sub_graphs, query_sub_graphs = split_list(graphs)
+    support_labels, query_labels = split_list(labels)
+
+    return dgl.batch(support_sub_graphs), dgl.batch(query_sub_graphs), \
+           torch.LongTensor(support_labels), torch.LongTensor(query_labels)  # center, node_idx, graph_idx
+
+
+def split_list(a_list):
+    half = len(a_list) // 2
+    return a_list[:half], a_list[half:]
 
 
 class DGLSubGraphs(SubGraphs):
@@ -308,8 +339,8 @@ class DGLSubGraphs(SubGraphs):
     Sub graphs class for a smaller graph constructed through the k-hop neighbors of one centroid node.
     """
 
-    def __init__(self, full_graph, mode, b_size, h_size):
-        super().__init__(full_graph, mode, b_size, h_size)
+    def __init__(self, full_graph, mask_name, b_size, h_size, meta=False):
+        super().__init__(full_graph, mask_name, b_size, h_size, meta=meta)
 
     def generate_subgraph(self, node_id):
         """
@@ -370,16 +401,21 @@ class DGLSubGraphs(SubGraphs):
         #     h_hops_neighbor = np.random.choice(h_hops_neighbor, self.sample_nodes, replace=False)
         #     h_hops_neighbor = np.unique(np.append(h_hops_neighbor, [i]))
 
-    def __getitem__(self, node_id_idx):
+    def __getitem__(self, node_id):
         """
         Loads and returns a sample (a subgraph) from the dataset at the given index.
-        :param node_id_idx: Index for node ID from self.node_ids defining the node ID for which a subgraph should be created.
+        :param node_id: Index for node ID from self.node_ids defining the node ID for which a subgraph should be created.
         :return:
         """
-        node_id = self.batch_node_ids[node_id_idx]
+        # print(f"Got item from DGL Subgraphs. Node ID: {node_id}")
+        # node_id = self.batch_node_ids[node_id_idx]
         subgraph = self.generate_subgraph(node_id)
         label = self.graph.graph.ndata['label'][node_id]
         return node_id, subgraph, label
+
+    @property
+    def targets(self):
+        return self.graph.graph.ndata['label']
 
     # return batched_graph_spt, torch.LongTensor(support_y_relative), batched_graph_qry, torch.LongTensor(
     #     query_y_relative), torch.LongTensor(support_center), torch.LongTensor(
