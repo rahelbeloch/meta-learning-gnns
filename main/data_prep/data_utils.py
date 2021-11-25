@@ -1,7 +1,7 @@
 import torch.cuda
 from torch.utils.data import DataLoader
 
-from data_prep.graph_dataset import DGLSubGraphs, DglGraphDataset, collate_fn_proto, collate_fn_base
+from graph_dataset import DGLSubGraphs, DglGraphDataset, collate_fn_proto, collate_fn_base
 from models.batch_sampler import FewShotSubgraphSampler
 
 SUPPORTED_DATASETS = ['HealthStory', 'gossipcop']
