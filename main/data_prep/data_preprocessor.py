@@ -7,9 +7,9 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 
-from data_prep.config import *
-from data_prep.data_preprocess_utils import save_json_file, sanitize_text, print_label_distribution, split_data
-from data_prep.graph_io import GraphIO
+from config import *
+from data_preprocess_utils import save_json_file, sanitize_text, print_label_distribution, split_data
+from graph_io import GraphIO
 
 
 class DataPreprocessor(GraphIO):
