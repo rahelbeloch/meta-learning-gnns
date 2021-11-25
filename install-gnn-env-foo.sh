@@ -23,9 +23,10 @@ pip3 install torchtext==0.8.0
 conda install -c anaconda cudatoolkit=10.1
 
 pip3 install torch==1.7.1+cu101 -f https://download.pytorch.org/whl/torch_stable.html
-#pip3 install torch-scatter -f https://pytorch-geometric.com/whl/torch-1.7.0+cu101.html
-pip3 install torch-sparse -f https://pytorch-geometric.com/whl/torch-1.7.0+cu101.html
+pip3 install --no-index --no-cache-dir torch-scatter -f https://pytorch-geometric.com/whl/torch-1.7.0+cu101.html
+pip3 install --no-index --no-cache-dir torch-sparse -f https://pytorch-geometric.com/whl/torch-1.7.0+cu101.html
 pip3 install torch-geometric
+
 
 #pip3 install --no-cache-dir torch==1.8.1+cu101 -f https://download.pytorch.org/whl/torch_stable.html
 #pip3 install --no-cache-dir torch-scatter -f https://pytorch-geometric.com/whl/torch-1.8.1+cu101.html
