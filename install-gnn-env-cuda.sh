@@ -16,6 +16,7 @@ source activate gnn-env-foo
 
 conda install -c dglteam dgl-cuda10.1
 conda install pandas
+conda install importlib_resources
 
 pip3 install torchtext==0.8.0
 

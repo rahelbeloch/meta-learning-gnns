@@ -2,7 +2,8 @@ import glob
 import json
 import os.path
 
-from data_prep.config import RAW_DIR, COMPLETE_small_DIR, TSV_small_DIR
+from importlib_resources import files
+
 from data_prep.data_preprocessor import DataPreprocessor
 
 LABELS = {0: 'fake', 1: 'real'}
@@ -17,8 +18,8 @@ class TSVPreprocessor(DataPreprocessor):
         - TSV files for gossipcop.
     """
 
-    def __init__(self, dataset, raw_dir, tsv_dir, complete_dir):
-        super().__init__(dataset, raw_dir=raw_dir, tsv_dir=tsv_dir, complete_dir=complete_dir)
+    def __init__(self, dataset, data_dir, tsv_dir, complete_dir):
+        super().__init__(dataset, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir)
 
     def labels(self):
         return LABELS
@@ -64,8 +65,8 @@ class TSVPreprocessor(DataPreprocessor):
 
 
 if __name__ == '__main__':
-    tsv_dir = TSV_small_DIR
-    complete_dir = COMPLETE_small_DIR
+    tsv_dir = "tsv-50"
+    complete_dir = "complete-50"
     max_doc_nodes = 50
 
     # tsv_dir = TSV_DIR
@@ -73,7 +74,7 @@ if __name__ == '__main__':
     # max_doc_nodes = None
 
     data = 'gossipcop'
-    preprocessor = TSVPreprocessor(data, "../" + RAW_DIR, tsv_dir, complete_dir)
-    # preprocessor.aggregate_user_contexts()
-    # preprocessor.corpus_to_tsv()
-    # preprocessor.create_data_splits(max_data_points=max_doc_nodes, duplicate_stats=False)
+    preprocessor = TSVPreprocessor(data, 'data', tsv_dir, complete_dir)
+    preprocessor.aggregate_user_contexts()
+    preprocessor.corpus_to_tsv()
+    preprocessor.create_data_splits(max_data_points=max_doc_nodes, duplicate_stats=False)

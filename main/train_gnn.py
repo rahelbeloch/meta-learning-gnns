@@ -5,6 +5,7 @@ import time
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as cb
 import torch
+from importlib_resources import files
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from data_prep.data_utils import SUPPORTED_DATASETS
@@ -17,7 +18,7 @@ LOG_PATH = "../logs/"
 
 
 def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr, l_rate_enc, l_rate_cl, cf_hidden_dim,
-          proto_dim, data_name, data_dir, checkpoint, h_search, eval=False):
+          proto_dim, data_name, dirs, checkpoint, h_search, eval=False):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     if model_name not in SUPPORTED_MODELS:
@@ -35,8 +36,8 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
 
     # the data preprocessing
     print('\nLoading data ..........')
-    train_loader, val_loader, test_loader, num_features = get_data(data_name, model_name, data_dir, b_size, h_size,
-                                                                   top_k, k_shot)
+    train_loader, val_loader, test_loader, num_features = get_data(data_name, model_name, b_size, h_size,
+                                                                   top_k, k_shot, dirs)
 
     optimizer_hparams = {"lr_enc": l_rate_enc,
                          "lr_cl": l_rate_cl,
@@ -193,7 +194,11 @@ if __name__ == "__main__":
 
     parser.add_argument('--dataset', dest='dataset', default='gossipcop', choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use.')
-    parser.add_argument('--data-dir', dest='data_dir', default='../data/complete-50',
+    parser.add_argument('--data-dir', dest='data_dir', default='data',
+                        help='Select the dataset you want to use.')
+    parser.add_argument('--tsv-dir', dest='tsv_dir', default='tsv-50',
+                        help='Select the dataset you want to use.')
+    parser.add_argument('--complete-dir', dest='complete_dir', default='complete-50',
                         help='Select the dataset you want to use.')
     parser.add_argument('--model', dest='model', default='prototypical', choices=SUPPORTED_MODELS,
                         help='Select the model you want to use.')
@@ -224,7 +229,7 @@ if __name__ == "__main__":
         cf_hidden_dim=params["cf_hidden_dim"],
         proto_dim=params["proto_dim"],
         data_name=params["dataset"],
-        data_dir=params["data_dir"],
+        dirs=(params["data_dir"], params["tsv_dir"], params["complete_dir"]),
         checkpoint=params["checkpoint"],
         h_search=params["h_search"]
     )

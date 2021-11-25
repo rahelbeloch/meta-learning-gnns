@@ -22,7 +22,7 @@ USER_CONTEXTS_FILTERED = ['user_followers_filtered', 'user_following_filtered']
 class GraphPreprocessor(GraphIO):
 
     def __init__(self, config):
-        super().__init__(config['data_set'], config['data_raw_dir'], config['data_tsv_dir'],
+        super().__init__(config['data_set'], config['data_dir'], config['data_tsv_dir'],
                          config['data_complete_dir'])
         self.only_valid_users = config['valid_users']
         self.top_k = config['top_k']

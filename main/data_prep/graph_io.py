@@ -2,6 +2,7 @@ import abc
 import datetime
 
 import nltk
+from importlib_resources import files
 
 nltk.download('punkt')
 
@@ -12,17 +13,18 @@ from data_prep.config import *
 
 class GraphIO:
 
-    def __init__(self, dataset, raw_dir=RAW_DIR, tsv_dir=TSV_DIR, complete_dir=COMPLETE_DIR):
+    def __init__(self, dataset, data_dir, tsv_dir=TSV_DIR, complete_dir=COMPLETE_DIR):
         self.dataset = dataset
 
-        full_raw_path = os.path.join(raw_dir, dataset)
-        if not os.path.exists(full_raw_path):
+        data_path = files(data_dir)
+        raw_path = data_path / RAW_DIR
+        if not (raw_path / dataset).exists():
             raise ValueError(f"Wanting to preprocess data for dataset '{dataset}', but raw data in path"
-                             f" with raw data '{full_raw_path}' does not exist!")
+                             f" with raw data '{raw_path / dataset}' does not exist!")
 
-        self.data_raw_dir = raw_dir
-        self.data_tsv_dir = self.create_dir(tsv_dir)
-        self.data_complete_dir = self.create_dir(complete_dir)
+        self.data_raw_dir = raw_path
+        self.data_tsv_dir = self.create_dir(data_path / tsv_dir)
+        self.data_complete_dir = self.create_dir(data_path / complete_dir)
 
         self.valid_docs = None
 
@@ -31,8 +33,8 @@ class GraphIO:
 
     @staticmethod
     def create_dir(dir_name):
-        if not os.path.exists(dir_name):
-            os.makedirs(dir_name)
+        if not dir_name.exists():
+            dir_name.mkdir()
         return dir_name
 
     def data_raw_path(self, *parts):

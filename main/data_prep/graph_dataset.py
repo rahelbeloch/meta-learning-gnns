@@ -142,8 +142,8 @@ class DglGraphDataset(GraphIO, DGLDataset):
     Parent class for graph datasets. It loads the graph from respective files.
     """
 
-    def __init__(self, corpus, top_k, complete_dir=COMPLETE_DIR):
-        super().__init__(dataset=corpus, complete_dir=complete_dir)
+    def __init__(self, corpus, top_k, data_dir, tsv_dir, complete_dir):
+        super().__init__(dataset=corpus, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir)
 
         self.top_k = top_k
         self.num_features = None
