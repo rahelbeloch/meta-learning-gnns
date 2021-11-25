@@ -6,8 +6,8 @@ import torch
 from dgl.data import DGLDataset
 from torch.utils.data import Dataset
 
-from fake_health_graph_preprocessor import *
-from graph_io import GraphIO
+from data_prep.fake_health_graph_preprocessor import *
+from data_prep.graph_io import GraphIO
 
 
 # from torch_geometric.data import Data

@@ -5,9 +5,9 @@ from collections import defaultdict
 import numpy as np
 from scipy.sparse import load_npz
 
-from config import *
-from data_preprocess_utils import load_json_file, save_json_file
-from graph_preprocessor import GraphPreprocessor
+from data_prep.config import *
+from data_prep.data_preprocess_utils import load_json_file, save_json_file
+from data_prep.graph_preprocessor import GraphPreprocessor
 
 
 class FakeHealthGraphPreprocessor(GraphPreprocessor):
