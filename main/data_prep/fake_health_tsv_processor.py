@@ -2,9 +2,9 @@ import glob
 import json
 import os
 
-from config import RAW_DIR
-from data_preprocess_utils import load_json_file
-from data_preprocessor import DataPreprocessor
+from data_prep.config import RAW_DIR
+from data_prep.data_preprocess_utils import load_json_file
+from data_prep.data_preprocessor import DataPreprocessor
 
 DATASETS = ['HealthRelease', 'HealthStory']
 

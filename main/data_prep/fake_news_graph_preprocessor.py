@@ -2,10 +2,10 @@ import argparse
 
 import numpy as np
 
-from config import *
-from data_preprocess_utils import save_json_file, load_json_file
-from fake_news_tsv_processor import LABELS
-from graph_preprocessor import GraphPreprocessor
+from data_prep.config import *
+from data_prep.data_preprocess_utils import save_json_file, load_json_file
+from data_prep.fake_news_tsv_processor import LABELS
+from data_prep.graph_preprocessor import GraphPreprocessor
 
 
 class FakeNewsGraphPreprocessor(GraphPreprocessor):
