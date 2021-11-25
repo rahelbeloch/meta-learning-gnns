@@ -129,7 +129,7 @@ dmypy.json
 .pyre/
 
 # Raw data
-/data/*
+/main/data
 /logs
 
 # Intellij project files
