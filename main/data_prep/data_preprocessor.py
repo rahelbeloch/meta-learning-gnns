@@ -223,6 +223,8 @@ class DataPreprocessor(GraphIO):
         :param doc2labels: Dictionary containing document names mapped to the label for that document.
         """
 
+        self.create_dir(self.data_complete_path())
+
         print(f"Total docs : {len(doc2labels)}")
         doc2labels_file = self.data_complete_path(DOC_2_LABELS_FILE_NAME)
 

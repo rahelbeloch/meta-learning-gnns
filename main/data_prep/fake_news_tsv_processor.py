@@ -2,7 +2,7 @@ import glob
 import json
 import os.path
 
-from config import RAW_DIR, TSV_small_DIR, COMPLETE_DIR, COMPLETE_small_DIR
+from config import RAW_DIR, TSV_small_DIR, COMPLETE_small_DIR
 from data_preprocessor import DataPreprocessor
 
 LABELS = {0: 'fake', 1: 'real'}
@@ -64,8 +64,16 @@ class TSVPreprocessor(DataPreprocessor):
 
 
 if __name__ == '__main__':
+    tsv_dir = TSV_small_DIR
+    complete_dir = COMPLETE_small_DIR
+    max_doc_nodes = 50
+
+    # tsv_dir = TSV_DIR
+    # complete_dir = COMPLETE_DIR
+    # max_doc_nodes = None
+
     data = 'gossipcop'
-    preprocessor = TSVPreprocessor(data, "../" + RAW_DIR, TSV_small_DIR, COMPLETE_small_DIR)
+    preprocessor = TSVPreprocessor(data, "../" + RAW_DIR, tsv_dir, complete_dir)
     preprocessor.aggregate_user_contexts()
     preprocessor.corpus_to_tsv()
-    preprocessor.create_data_splits(max_data_points=50, duplicate_stats=False)
+    preprocessor.create_data_splits(max_data_points=max_doc_nodes, duplicate_stats=False)
