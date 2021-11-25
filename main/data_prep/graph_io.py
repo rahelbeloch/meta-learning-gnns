@@ -17,6 +17,7 @@ class GraphIO:
         self.dataset = dataset
 
         data_path = files(data_dir)
+        print(f"data path {data_path}, exists: {(data_path / '').exists()}")
         raw_path = data_path / RAW_DIR
         if not (raw_path / dataset).exists():
             raise ValueError(f"Wanting to preprocess data for dataset '{dataset}', but raw data in path"
