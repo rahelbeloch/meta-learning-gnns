@@ -141,11 +141,18 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
 
     test_start = time.time()
 
-    test_result = trainer.test(model, test_dataloaders=test_dataloader, verbose=False)[0]
-    test_accuracy = test_result["test_accuracy"]
+    results = trainer.test(model, dataloaders=[test_dataloader, val_dataloader], verbose=False)
 
-    val_result = trainer.test(model, test_dataloaders=val_dataloader, verbose=False)[0]
-    val_accuracy = val_result["test_accuracy"] if "val_accuracy" not in val_result else val_result["val_accuracy"]
+    test_results = results[0]
+    val_results = results[1]
+
+    test_accuracy = test_results['test_accuracy/dataloader_idx_0']
+    test_f1_micro = test_results['test_f1_macro/dataloader_idx_0']
+    test_f1_micro = test_results['test_f1_micro/dataloader_idx_0']
+
+    val_accuracy = val_results['test_accuracy/dataloader_idx_1']
+    val_f1_micro = val_results['test_f1_macro/dataloader_idx_1']
+    Val_f1_micro = val_results['test_f1_micro/dataloader_idx_1']
 
     test_end = time.time()
     test_elapsed = test_end - test_start
@@ -168,7 +175,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch-size', dest='batch_size', type=int, default=8)
     parser.add_argument('--hop-size', dest='hop_size', type=int, default=2)
     parser.add_argument('--top-k', dest='top_k', type=int, default=30)
-    parser.add_argument('--k-shot', dest='k_shot', type=int, default=40, help="Number of examples per task/batch.")
+    parser.add_argument('--k-shot', dest='k_shot', type=int, default=2, help="Number of examples per task/batch.")
 
     parser.add_argument('--lr-enc', dest='l_rate_enc', type=float, default=0.01, help="Encoder learning rate.")
     parser.add_argument('--lr-cl', dest='l_rate_cl', type=float, default=-1, help="Classifier learning rate.")
@@ -186,9 +193,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--dataset', dest='dataset', default='gossipcop', choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use.')
-    parser.add_argument('--data-dir', dest='data_dir', default='../data/complete',
+    parser.add_argument('--data-dir', dest='data_dir', default='../data/complete-50',
                         help='Select the dataset you want to use.')
-    parser.add_argument('--model', dest='model', default='gat', choices=SUPPORTED_MODELS,
+    parser.add_argument('--model', dest='model', default='prototypical', choices=SUPPORTED_MODELS,
                         help='Select the model you want to use.')
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--cf-hidden-dim', dest='cf_hidden_dim', type=int, default=512)

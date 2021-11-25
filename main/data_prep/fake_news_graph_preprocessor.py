@@ -17,13 +17,13 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         # if self.only_valid_users:
         #     self.filter_valid_users()
-        # self.create_user_splits()
-        # self.create_doc_id_dicts()
-        # self.filter_contexts()
-        # self.create_adj_matrix()
+        self.create_user_splits(max_users=100)
+        self.create_doc_id_dicts()
+        self.filter_contexts()
+        self.create_adj_matrix()
         self.create_feature_matrix()
-        # self.create_labels()
-        # self.create_split_masks()
+        self.create_labels()
+        self.create_split_masks()
 
     def labels(self):
         return LABELS
@@ -84,10 +84,10 @@ if __name__ == '__main__':
     parser.add_argument('--data_raw_dir', type=str, default='../' + RAW_DIR,
                         help='Dataset folder path that contains the folders to the raw data.')
 
-    parser.add_argument('--data_complete_dir', type=str, default='../' + COMPLETE_DIR,
+    parser.add_argument('--data_complete_dir', type=str, default='../' + COMPLETE_small_DIR,
                         help='Dataset folder path that contains the folders to the complete data.')
 
-    parser.add_argument('--data_tsv_dir', type=str, default='../' + TSV_DIR,
+    parser.add_argument('--data_tsv_dir', type=str, default='../' + TSV_small_DIR,
                         help='Dataset folder path that contains the folders to the intermediate data.')
 
     parser.add_argument('--data_set', type=str, default='gossipcop',

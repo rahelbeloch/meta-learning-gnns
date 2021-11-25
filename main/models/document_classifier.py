@@ -84,18 +84,7 @@ class DocumentClassifier(pl.LightningModule):
 
         return [optimizer], []
 
-    @staticmethod
-    def accuracy(predictions, labels):
-        # noinspection PyUnresolvedReferences
-        return (labels == predictions.argmax(dim=-1)).float().mean()
-
-    @staticmethod
-    def f1(predictions, targets, average='binary'):
-        predictions_cpu = predictions.argmax(dim=-1).detach().cpu()
-        targets_cpu = targets.detach().cpu()
-        return sklearn.metrics.f1_score(targets_cpu, predictions_cpu, average=average)
-
-    def training_step(self, batch, _):
+    def training_step(self, batch, batch_idx):
 
         sub_graphs, targets = batch
         out, node_mask = self.model(sub_graphs)
@@ -105,9 +94,9 @@ class DocumentClassifier(pl.LightningModule):
         predictions = self.classifier(out)
         loss = self.loss_module(predictions, targets)
 
-        self.log('train_accuracy', self.accuracy(predictions, targets).item(), on_step=False, on_epoch=True)
-        self.log('train_f1_macro', self.f1(predictions, targets, average='macro').item(), on_step=False, on_epoch=True)
-        self.log('train_f1_micro', self.f1(predictions, targets, average='micro').item(), on_step=False, on_epoch=True)
+        self.log('train_accuracy', accuracy(predictions, targets), on_step=False, on_epoch=True)
+        self.log('train_f1_macro', f1(predictions, targets, average='macro'), on_step=False, on_epoch=True)
+        self.log('train_f1_micro', f1(predictions, targets, average='micro'), on_step=False, on_epoch=True)
         self.log('train_loss', loss)
 
         # TODO: add scheduler
@@ -115,41 +104,38 @@ class DocumentClassifier(pl.LightningModule):
         # self.log('lr_rate', self.lr_scheduler.get_lr()[0])
         return loss
 
-    # def training_step(self, batch, _):
-    #     logits = self.model(batch, mode='train')
-    #
-    #     unbatched = dgl.unbatch(batch)
-    #
-    #     classification_mask = batch.ndata['classification_mask']
-    #     labels = batch.ndata['label'][classification_mask]
-    #     predictions = logits[classification_mask]
-    #
-    #     # predictions = self.classifier(out)
-    #     loss = self.loss_module(predictions, labels)
-    #
-    #     self.log('train_accuracy', self.accuracy(predictions, labels).item(), on_step=False, on_epoch=True)
-    #     self.log('train_loss', loss)
-    #
-    #     # logging in optimizer step does not work, therefore here
-    #     # self.log('lr_rate', self.lr_scheduler.get_lr()[0])
-    #     return loss
+    def validation_step(self, batch, batch_idx):
 
-    def validation_step(self, subgraph_batch, _):
-        # By default logs it per epoch (weighted average over batches)
-        sub_graphs, labels = subgraph_batch
-
+        sub_graphs, targets = batch
         out, node_mask = self.model(sub_graphs)
+
+        # only predict for the center node
         out = out[sub_graphs.ndata['classification_mask']]
         predictions = self.classifier(out)
 
-        self.log('val_accuracy', self.accuracy(predictions, labels))
+        self.log('val_accuracy', accuracy(predictions, targets))
+        self.log('val_f1_macro', f1(predictions, targets, average='macro'))
+        self.log('val_f1_micro', f1(predictions, targets, average='micro'))
 
-    def test_step(self, batch, _):
+    def test_step(self, batch, batch_idx1, batch_idx2):
         # By default logs it per epoch (weighted average over batches)
-        sub_graphs, labels = batch
-
+        sub_graphs, targets = batch
         out, node_mask = self.model(sub_graphs)
+
         out = out[sub_graphs.ndata['classification_mask']]
         predictions = self.classifier(out)
 
-        self.log('test_accuracy', self.accuracy(predictions, labels))
+        self.log('test_accuracy', accuracy(predictions, targets))
+        self.log('test_f1_macro', f1(predictions, targets, average='macro'))
+        self.log('test_f1_micro', f1(predictions, targets, average='micro'))
+
+
+def accuracy(predictions, labels):
+    # noinspection PyUnresolvedReferences
+    return (labels == predictions.argmax(dim=-1)).float().mean().item()
+
+
+def f1(predictions, targets, average='binary'):
+    predictions_cpu = predictions.argmax(dim=-1).detach().cpu()
+    targets_cpu = targets.detach().cpu()
+    return sklearn.metrics.f1_score(targets_cpu, predictions_cpu, average=average).item()

@@ -65,7 +65,7 @@ class TSVPreprocessor(DataPreprocessor):
 
 if __name__ == '__main__':
     data = 'gossipcop'
-    preprocessor = TSVPreprocessor(data, "../" + RAW_DIR, "../" + TSV_DIR, "../" + COMPLETE_DIR)
-    preprocessor.aggregate_user_contexts()
-    preprocessor.corpus_to_tsv()
-    preprocessor.create_data_splits(duplicate_stats=False)
+    preprocessor = TSVPreprocessor(data, "../" + RAW_DIR, "../../data/tsv-50/", "../" + COMPLETE_DIR)
+    # preprocessor.aggregate_user_contexts()
+    # preprocessor.corpus_to_tsv()
+    preprocessor.create_data_splits(max_data_points=50, duplicate_stats=False)

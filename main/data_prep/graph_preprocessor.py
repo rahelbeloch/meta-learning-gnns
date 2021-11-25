@@ -152,7 +152,7 @@ class GraphPreprocessor(GraphIO):
 
         self.valid_users = valid_users
 
-    def create_user_splits(self):
+    def create_user_splits(self, max_users=None):
         """
         Walks through all users that interacted with documents and, divides them on train/val/test splits.
 
@@ -171,6 +171,10 @@ class GraphPreprocessor(GraphIO):
             print_iter = int(len(files) / 20)
 
             for count, file in enumerate(files):
+
+                if max_users is not None and (len(train_users) + len(test_users) + len(val_users)) >= max_users:
+                    break
+
                 try:
                     src_file = load_json_file(os.path.join(root, file))
                 except UnicodeDecodeError:

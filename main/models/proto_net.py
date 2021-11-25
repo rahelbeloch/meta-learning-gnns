@@ -3,6 +3,7 @@ import torch
 import torch.nn.functional as F
 from torch import optim
 
+from models.document_classifier import f1, accuracy
 from models.gat_encoder import GATEncoder
 
 
@@ -62,8 +63,7 @@ class ProtoNet(pl.LightningModule):
         dist = torch.pow(prototypes[None, :] - feats[:, None], 2).sum(dim=2)
         predictions = F.log_softmax(-dist, dim=1)
         labels = (classes[None, :] == targets[:, None]).long().argmax(dim=-1)
-        acc = (predictions.argmax(dim=1) == labels).float().mean()
-        return predictions, labels, acc
+        return predictions, labels, accuracy(predictions, labels)
 
     def calculate_loss(self, batch, mode):
         """
@@ -80,17 +80,21 @@ class ProtoNet(pl.LightningModule):
 
         support_graphs, query_graphs, support_targets, query_targets = batch
 
-        support_feats = self.model(support_graphs)
-        print(f'Support features dim: {support_feats.shape}')
+        support_feats, node_mask = self.model(support_graphs)
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
-        query_feats = self.model(query_graphs)
-        predictions, labels, acc = ProtoNet.classify_features(prototypes, classes, query_feats, query_targets)
+        query_feats, node_mask = self.model(query_graphs)
+        query_feats = query_feats[query_graphs.ndata['classification_mask']]
+        predictions, targets, acc = ProtoNet.classify_features(prototypes, classes, query_feats, query_targets)
 
-        meta_loss = F.cross_entropy(predictions, labels)
+        meta_loss = F.cross_entropy(predictions, targets)
 
-        self.log(f"{mode}_loss", meta_loss)
-        self.log(f"{mode}_acc", acc)
+        if mode == 'train':
+            self.log(f"{mode}_loss", meta_loss)
+
+        self.log(f"{mode}_accuracy", acc, on_step=False, on_epoch=True)
+        self.log(f"{mode}_f1_macro", f1(predictions, targets, average='macro'), on_step=False, on_epoch=True)
+        self.log(f"{mode}_f1_micro", f1(predictions, targets, average='micro'), on_step=False, on_epoch=True)
 
         return meta_loss
 
@@ -99,3 +103,6 @@ class ProtoNet(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         _ = self.calculate_loss(batch, mode="val")
+
+    def test_step(self, batch, batch_idx1, batch_idx2):
+        _ = self.calculate_loss(batch, mode="test")

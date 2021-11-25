@@ -41,7 +41,6 @@ class FewShotSubgraphSampler(Sampler):
         self.batches_per_class = {}
         self.indices_per_class = {}
 
-        # mask_indices = torch.where(self.mask)[0]
         for c in self.classes:
             self.indices_per_class[c] = torch.where((self.dataset_targets == c) & self.mask)[0]
             # number of examples we have per class // number of shots -> amount of batches we can create from this class
@@ -58,6 +57,9 @@ class FewShotSubgraphSampler(Sampler):
             sort_idxs = [i + p * self.num_classes for i, c in enumerate(self.classes) for p in
                          range(self.batches_per_class[c])]
             self.target_list = np.array(self.target_list)[np.argsort(sort_idxs)].tolist()
+
+        print(f"Length of few shot sampler: {len(self)}")
+        print(f"Num batches: {self.num_batches}")
 
     def shuffle_data(self):
         # Shuffle the examples per class

@@ -4,7 +4,7 @@ import itertools
 import dgl
 import torch
 from dgl.data import DGLDataset
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 
 from data_prep.fake_health_graph_preprocessor import *
 from data_prep.graph_io import GraphIO
@@ -240,16 +240,7 @@ class SubGraphs(Dataset):
 
         self.mask_name = mask_name
 
-        # we need all node IDs for this split
-        self.document_node_ids = torch.where(self.mask)[0]
-
         self.sub_graphs = {}
-
-        # from the node_ids which are available in this graph, create a batch (batch_size node IDs)
-        # sub graphs are created on the flight during training
-        # self.batch_node_ids = self.create_batch()
-
-        # print(f'\nNode IDs used for {mask_name.split("_")[0]}: {self.batch_node_ids}\n')
 
     @property
     def mask(self):
@@ -262,45 +253,12 @@ class SubGraphs(Dataset):
         """
         return self.batch_size
 
-    def create_batch(self):
-        """
-        Create the entire set of batches (node IDs, sub graphs are generated on the flight).
-        """
-
-        # sample batch size document node IDs
-        selected_nodes = np.random.choice(self.document_node_ids, self.batch_size, False)  # no duplicate
-        # np.random.shuffle(selected_nodes)
-        return selected_nodes
-
     @abc.abstractmethod
     def generate_subgraph(self, node_id):
         """
         Generate sub graphs on the flight.
         """
         raise NotImplementedError
-
-
-# outside of the subgraph class because the collate function can not be pickled
-def as_dataloader(sub_graph, num_workers, shuffle=False):
-    """
-
-    :param sub_graph:
-    :param shuffle:
-    :return:
-    """
-    # TODO: shuffle should be True?
-
-    return DataLoader(sub_graph, batch_size=sub_graph.batch_size, shuffle=shuffle, num_workers=num_workers,
-                      pin_memory=True, collate_fn=collate_fn_baseline)
-
-
-def collate_fn_baseline(batch_samples):
-    """
-    Receives a batch of samples (subgraphs and labels) node IDs for which sub graphs need to be generated on the flight.
-    :param batch_samples: List of pairs where each pair is: (graph, label)
-    """
-    node_ids, graphs, labels = list(map(list, zip(*batch_samples)))
-    return dgl.batch(graphs), torch.LongTensor(labels)
 
 
 def collate_fn_proto(batch_samples):
@@ -320,6 +278,16 @@ def collate_fn_proto(batch_samples):
 
     return dgl.batch(support_sub_graphs), dgl.batch(query_sub_graphs), \
            torch.LongTensor(support_labels), torch.LongTensor(query_labels)  # center, node_idx, graph_idx
+
+
+def collate_fn_base(batch_samples):
+    """
+    Receives a batch of samples (subgraphs and labels) node IDs for which sub graphs need to be generated on the flight.
+    :param batch_samples: List of pairs where each pair is: (graph, label)
+    """
+    node_ids, graphs, labels = list(map(list, zip(*batch_samples)))
+
+    return dgl.batch(graphs), torch.LongTensor(labels)  # center, node_idx, graph_idx
 
 
 def split_list(a_list):
@@ -362,39 +330,19 @@ class DGLSubGraphs(SubGraphs):
 
         # find all incoming edges and the respective nodes
 
-        # one_hop_neighbors = np.argwhere(self.graph.edge_index_data[:, node_id] == 1)
-        # one_hop_neighbors = [one_hop_neighbors]
-
-        one_hop_neighbors = [n.item() for n in self.graph.graph.in_edges(node_id)[0]]
-        # row_idx =  np.argwhere(self.graph.edge_index_data[node_id, :]==1)
+        one_hop_nodes = [n.item() for n in self.graph.graph.in_edges(node_id)[0]]
 
         if self.hop_size == 1:
-            return torch.tensor(list(set(one_hop_neighbors + [node_id]))).numpy()
+            return torch.tensor(list(set(one_hop_nodes + [node_id]))).numpy()
         elif self.hop_size == 2:
             # find one hops of the one hops
             two_hop_nodes = []
-            for node in one_hop_neighbors:
-                # one_hop_neighbors = np.argwhere(self.graph.edge_index_data[:, node] == 1)
-                one_hop_nodes = [n.item() for n in self.graph.graph.in_edges(node)[0]]
+            for node in one_hop_nodes:
+                one_hop_nodes = [n.item() for n in self.graph.graph.in_edges(node)[0] if n.item()]
                 two_hop_nodes.append(one_hop_nodes)
 
-            # f_hop = [n.item() for n in G.in_edges(i)[0]]     # list of edge IDs
-            # n_l = [[n.item() for n in G.in_edges(i)[0]] for i in f_hop]
-
-            two_hop_neighbors = torch.tensor(
-                list(set(list(itertools.chain(*two_hop_nodes)) + one_hop_neighbors + [node_id]))).numpy()
-            return two_hop_neighbors
-
-        # elif self.hop_size == 3:
-        # f_hop = [n.item() for n in G.in_edges(i)[0]]
-        # n_2 = [[n.item() for n in G.in_edges(i)[0]] for i in f_hop]
-        # n_3 = [[n.item() for n in G.in_edges(i)[0]] for i in list(itertools.chain(*n_2))]
-        # h_hops_neighbor = torch.tensor(
-        #     list(set(list(itertools.chain(*n_2)) + list(itertools.chain(*n_3)) + f_hop + [i]))).numpy()
-
-        # if h_hops_neighbor.reshape(-1, ).shape[0] > self.sample_nodes:
-        #     h_hops_neighbor = np.random.choice(h_hops_neighbor, self.sample_nodes, replace=False)
-        #     h_hops_neighbor = np.unique(np.append(h_hops_neighbor, [i]))
+            all_neighbors = torch.tensor(list(itertools.chain(*two_hop_nodes)) + one_hop_nodes + [node_id]).unique()
+            return all_neighbors
 
     def __getitem__(self, node_id):
         """
@@ -402,9 +350,6 @@ class DGLSubGraphs(SubGraphs):
         :param node_id: Index for node ID from self.node_ids defining the node ID for which a subgraph should be created.
         :return:
         """
-
-        # if not self.meta:
-        #     node_id = self.batch_node_ids[node_id]
 
         subgraph = self.generate_subgraph(node_id)
         label = self.graph.graph.ndata['label'][node_id]

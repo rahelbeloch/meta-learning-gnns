@@ -1,7 +1,7 @@
-import abc
 import csv
 import json
 import os
+import random
 from collections import defaultdict
 
 import numpy as np
@@ -89,7 +89,7 @@ class DataPreprocessor(GraphIO):
 
         print("\nDONE..!!")
 
-    def preprocess(self, min_len=6):
+    def preprocess(self, max_data_points, min_len=6):
         """
         Applies some preprocessing to the data, e.g. replacing special characters, filters non-required articles out.
         :param min_len: Minimum required length for articles.
@@ -103,6 +103,10 @@ class DataPreprocessor(GraphIO):
         with open(data_file, encoding='utf-8') as data:
             reader = csv.DictReader(data, delimiter='\t')
             for row in reader:
+
+                # if max_data_points is not None and len(x_data) > max_data_points:
+                #     break
+
                 if isinstance(row['text'], str) and len(row['text']) >= min_len:
                     text = sanitize_text(row['text'])
                     x_data.append(text)
@@ -117,9 +121,24 @@ class DataPreprocessor(GraphIO):
         print(f"Minimum Length = {min(x_lengths)}")
         print(f"Total data points invalid and therefore removed (length < {min_len}) = {len(invalid)}")
 
-        return np.array(x_data), np.array(y_data), np.array(doc_names)
+        x_data = np.array(x_data)
+        y_data = np.array(y_data)
+        doc_names = np.array(doc_names)
 
-    def create_data_splits(self, test_size=0.2, val_size=0.1, splits=1, duplicate_stats=False):
+        if max_data_points is None:
+            return x_data, y_data, doc_names
+
+        # select only as many as we want
+        per_class = int(max_data_points / 2)
+
+        sampled_indices = []
+        for c in [0, 1]:
+            sampled = random.sample(np.where(y_data == c)[0].tolist(), per_class)
+            sampled_indices += sampled
+
+        return x_data[sampled_indices], y_data[sampled_indices], doc_names[sampled_indices]
+
+    def create_data_splits(self, max_data_points=None, test_size=0.2, val_size=0.1, splits=1, duplicate_stats=False):
         """
         Creates train, val and test splits via random splitting of the dataset in a stratified fashion to ensure
         similar data distribution. Currently only supports splitting data in 1 split for each set.
@@ -132,7 +151,7 @@ class DataPreprocessor(GraphIO):
 
         self.print_step("Creating Data Splits")
 
-        data = self.preprocess()
+        data = self.preprocess(max_data_points)
 
         if duplicate_stats:
             # counting duplicates in test set
