@@ -2,7 +2,7 @@ import glob
 import json
 import os.path
 
-from data_prep.config import RAW_DIR, TSV_small_DIR, COMPLETE_small_DIR
+from data_prep.config import RAW_DIR, COMPLETE_small_DIR, TSV_small_DIR
 from data_prep.data_preprocessor import DataPreprocessor
 
 LABELS = {0: 'fake', 1: 'real'}
@@ -64,8 +64,8 @@ class TSVPreprocessor(DataPreprocessor):
 
 
 if __name__ == '__main__':
-    from config import RAW_DIR, TSV_small_DIR, COMPLETE_small_DIR
-    from data_preprocessor import DataPreprocessor
+    # from config import RAW_DIR, TSV_small_DIR, COMPLETE_small_DIR
+    # from data_preprocessor import DataPreprocessor
 
     tsv_dir = TSV_small_DIR
     complete_dir = COMPLETE_small_DIR
