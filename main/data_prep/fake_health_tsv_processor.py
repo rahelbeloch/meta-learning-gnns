@@ -2,7 +2,7 @@ import glob
 import json
 import os
 
-from data_prep.config import RAW_DIR
+from config import RAW_DIR
 from data_preprocess_utils import load_json_file
 from data_preprocessor import DataPreprocessor
 

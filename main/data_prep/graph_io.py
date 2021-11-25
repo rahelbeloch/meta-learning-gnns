@@ -5,9 +5,9 @@ import nltk
 
 nltk.download('punkt')
 
-from data_prep.data_preprocess_utils import *
+from data_preprocess_utils import *
 
-from data_prep.config import *
+from config import *
 
 
 class GraphIO:

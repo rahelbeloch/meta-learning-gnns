@@ -11,9 +11,9 @@ import torch
 from scipy.sparse import lil_matrix, save_npz
 from torchtext.vocab import GloVe
 
-from data_prep.config import *
-from data_prep.data_preprocess_utils import *
-from data_prep.graph_io import GraphIO
+from config import *
+from data_preprocess_utils import *
+from graph_io import GraphIO
 
 USER_CONTEXTS = ['user_followers', 'user_following']
 USER_CONTEXTS_FILTERED = ['user_followers_filtered', 'user_following_filtered']
