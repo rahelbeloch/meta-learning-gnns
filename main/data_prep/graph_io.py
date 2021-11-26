@@ -27,10 +27,17 @@ class GraphIO:
         self.data_tsv_dir = self.create_dir(data_path / tsv_dir)
         self.data_complete_dir = self.create_dir(data_path / complete_dir)
 
-        self.valid_docs = None
+        self.non_interaction_docs = None
 
     def print_step(self, step_title):
         print(f'\n{"-" * 100}\n \t\t\t {step_title} for {self.dataset} dataset.\n{"-" * 100}')
+
+    def load_if_exists(self, file_name):
+        file = self.data_complete_path(file_name)
+        if os.path.exists(file):
+            return load_json_file(file)
+        else:
+            raise ValueError(f"Wanting to load file with name {file_name}, but this file does not exist!!")
 
     @staticmethod
     def create_dir(dir_name):
@@ -39,13 +46,13 @@ class GraphIO:
         return dir_name
 
     def data_raw_path(self, *parts):
-        return os.path.join(self.data_raw_dir, *parts)
+        return self.data_raw_dir.joinpath(*parts)
 
     def data_tsv_path(self, *parts):
-        return os.path.join(self.data_tsv_dir, self.dataset, *parts)
+        return self.data_tsv_dir.joinpath(self.dataset, *parts)
 
     def data_complete_path(self, *parts):
-        return os.path.join(self.data_complete_dir, self.dataset, *parts)
+        return self.data_complete_dir.joinpath(self.dataset, *parts)
 
     @staticmethod
     def np_converter(obj):

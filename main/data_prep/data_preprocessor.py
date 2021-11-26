@@ -14,6 +14,10 @@ from data_prep.graph_io import GraphIO
 
 class DataPreprocessor(GraphIO):
 
+    def maybe_load_non_interaction_docs(self):
+        if self.non_interaction_docs is None:
+            self.non_interaction_docs = self.load_if_exists('nonInteractionDocs.json')
+
     def aggregate_user_contexts(self):
         """
         Aggregates only user IDs from different folders of tweets/retweets to a single place. Creates a folder which
@@ -66,10 +70,16 @@ class DataPreprocessor(GraphIO):
         print(f"\nTotal tweets/re-tweets in the data set = {count}")
 
         # filter out documents which do not have any interaction with any user
-        self.valid_docs = set(dict(filter(lambda f: f[1] > 0,
-                                          dict(zip(docs_users, map(lambda x: len(x[1]),
-                                                                   docs_users.items()))).items())).keys())
-        docs_users = {k: v for k, v in docs_users.items() if k in self.valid_docs}
+        self.non_interaction_docs = list(set(dict(filter(lambda f: f[1] > 0,
+                                                         dict(zip(docs_users, map(lambda x: len(x[1]),
+                                                                                  docs_users.items()))).items())).keys()))
+
+        non_interaction_docs_file = self.data_tsv_path('nonInteractionDocs.json')
+        print(f"\nNon-interaction documents: {len(self.non_interaction_docs)}")
+        print(f"Saving in the dir: {non_interaction_docs_file}")
+        save_json_file(self.non_interaction_docs, non_interaction_docs_file)
+
+        docs_users = {k: v for k, v in docs_users.items() if k in self.non_interaction_docs}
 
         self.save_user_doc_engagements(docs_users)
 

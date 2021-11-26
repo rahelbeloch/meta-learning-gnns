@@ -1,7 +1,6 @@
 import abc
 import copy
 import csv
-import glob
 import time
 from collections import defaultdict, OrderedDict
 from json import JSONDecodeError
@@ -52,13 +51,6 @@ class GraphPreprocessor(GraphIO):
         if self.doc2id is None:
             self.doc2id = self.load_if_exists(DOC_2_ID_FILE_NAME % self.top_k)
         self.n_total = len(self.user2id) + len(self.doc2id)
-
-    def load_if_exists(self, file_name):
-        file = self.data_complete_path(file_name)
-        if os.path.exists(file):
-            return load_json_file(file)
-        else:
-            raise ValueError(f"Wanting to load file with name {file_name}, but this file does not exist!!")
 
     @staticmethod
     @abc.abstractmethod
@@ -557,9 +549,10 @@ class GraphPreprocessor(GraphIO):
         start = time.time()
 
         feature_id_mapping = defaultdict(lambda: [])
-        for count, file in enumerate(glob.glob(self.data_tsv_path('engagements', '*.json'))):
-            doc_users = load_json_file(file)
-            doc_key = self.get_doc_key(file, name_type='filepath')
+        for count, file_path in enumerate(self.data_tsv_path('engagements').rglob('*.json')):
+            doc_users = load_json_file(file_path)
+            # doc_key = self.get_doc_key(file, name_type='filepath')
+            doc_key = file_path.stem
 
             # Each user of this doc has its features as the features of the doc
             if doc_key not in self.doc2id:

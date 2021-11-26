@@ -2,8 +2,6 @@ import glob
 import json
 import os.path
 
-from importlib_resources import files
-
 from data_prep.data_preprocessor import DataPreprocessor
 
 LABELS = {0: 'fake', 1: 'real'}
@@ -32,6 +30,8 @@ class TSVPreprocessor(DataPreprocessor):
 
         self.print_step("Preparing Data Corpus")
 
+        self.maybe_load_non_interaction_docs()
+
         print("\nCreating doc2labels and collecting doc contents...")
         doc2labels = {}
         contents = []
@@ -49,7 +49,7 @@ class TSVPreprocessor(DataPreprocessor):
 
                 doc_name = folder_name.split('/')[-1]
 
-                if doc_name not in self.valid_docs:
+                if doc_name not in self.non_interaction_docs:
                     continue
 
                 doc2labels[doc_name] = labels[label]
