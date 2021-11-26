@@ -10,6 +10,9 @@ class FewShotSubgraphSampler(Sampler):
 
     def __init__(self, dataset, n_way=2, k_shot=5, include_query=False, shuffle=True, shuffle_once=False):
         """
+        Support sets should contain n_way * k_shot examples. So, e.g. 2 * 5 = 10 sub graphs.
+        Query set is of same size ...
+
         Inputs:
             dataset - Class containing the DGL graph.
             n_way - Number of classes to sample per batch.

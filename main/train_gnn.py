@@ -7,7 +7,7 @@ import pytorch_lightning.callbacks as cb
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from data_prep.config import COMPLETE_small_DIR, TSV_small_DIR
+from data_prep.config import *
 from data_prep.data_utils import SUPPORTED_DATASETS
 from data_prep.data_utils import get_data
 from models.document_classifier import DocumentClassifier
@@ -174,11 +174,11 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
 
 
 if __name__ == "__main__":
-    tsv_dir = TSV_small_DIR
-    complete_dir = COMPLETE_small_DIR
+    # tsv_dir = TSV_small_DIR
+    # complete_dir = COMPLETE_small_DIR
 
-    # tsv_dir = TSV_DIR
-    # complete_dir = COMPLETE_DIR
+    tsv_dir = TSV_DIR
+    complete_dir = COMPLETE_DIR
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -189,7 +189,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch-size', dest='batch_size', type=int, default=8)
     parser.add_argument('--hop-size', dest='hop_size', type=int, default=2)
     parser.add_argument('--top-k', dest='top_k', type=int, default=30)
-    parser.add_argument('--k-shot', dest='k_shot', type=int, default=40, help="Number of examples per task/batch.")
+    parser.add_argument('--k-shot', dest='k_shot', type=int, default=5, help="Number of examples per task/batch.")
 
     parser.add_argument('--lr-enc', dest='l_rate_enc', type=float, default=0.01, help="Encoder learning rate.")
     parser.add_argument('--lr-cl', dest='l_rate_cl', type=float, default=-1, help="Classifier learning rate.")
