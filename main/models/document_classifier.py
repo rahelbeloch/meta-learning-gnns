@@ -12,7 +12,7 @@ class DocumentClassifier(pl.LightningModule):
     and overwriting standard functions for training and optimization.
     """
 
-    def __init__(self, model_hparams, optimizer_hparams, checkpoint=None, h_search=False):
+    def __init__(self, model_hparams, optimizer_hparams, batch_size, checkpoint=None, h_search=False):
         """
         Args:
             model_hparams - Hyperparameters for the whole model, as dictionary.
@@ -84,6 +84,9 @@ class DocumentClassifier(pl.LightningModule):
 
         return [optimizer], []
 
+    def log_on_epoch(self, metric, value):
+        self.log(metric, value, on_step=False, on_epoch=True, batch_size=self.hparams['batch_size'])
+
     def training_step(self, batch, batch_idx):
 
         sub_graphs, targets = batch
@@ -94,10 +97,10 @@ class DocumentClassifier(pl.LightningModule):
         predictions = self.classifier(out)
         loss = self.loss_module(predictions, targets)
 
-        self.log('train_accuracy', accuracy(predictions, targets), on_step=False, on_epoch=True)
-        self.log('train_f1_macro', f1(predictions, targets, average='macro'), on_step=False, on_epoch=True)
-        self.log('train_f1_micro', f1(predictions, targets, average='micro'), on_step=False, on_epoch=True)
-        self.log('train_loss', loss)
+        self.log_on_epoch('train_accuracy', accuracy(predictions, targets))
+        self.log_on_epoch('train_f1_macro', f1(predictions, targets, average='macro'))
+        self.log_on_epoch('train_f1_micro', f1(predictions, targets, average='micro'))
+        self.log('train_loss', loss, batch_size=self.hparams['batch_size'])
 
         # TODO: add scheduler
         # logging in optimizer step does not work, therefore here
@@ -113,9 +116,9 @@ class DocumentClassifier(pl.LightningModule):
         out = out[sub_graphs.ndata['classification_mask']]
         predictions = self.classifier(out)
 
-        self.log('val_accuracy', accuracy(predictions, targets))
-        self.log('val_f1_macro', f1(predictions, targets, average='macro'))
-        self.log('val_f1_micro', f1(predictions, targets, average='micro'))
+        self.log_on_epoch('val_accuracy', accuracy(predictions, targets))
+        self.log_on_epoch('val_f1_macro', f1(predictions, targets, average='macro'))
+        self.log_on_epoch('val_f1_micro', f1(predictions, targets, average='micro'))
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default logs it per epoch (weighted average over batches)
@@ -125,9 +128,9 @@ class DocumentClassifier(pl.LightningModule):
         out = out[sub_graphs.ndata['classification_mask']]
         predictions = self.classifier(out)
 
-        self.log('test_accuracy', accuracy(predictions, targets))
-        self.log('test_f1_macro', f1(predictions, targets, average='macro'))
-        self.log('test_f1_micro', f1(predictions, targets, average='micro'))
+        self.log_on_epoch('test_accuracy', accuracy(predictions, targets))
+        self.log_on_epoch('test_f1_macro', f1(predictions, targets, average='macro'))
+        self.log_on_epoch('test_f1_micro', f1(predictions, targets, average='micro'))
 
 
 def accuracy(predictions, labels):

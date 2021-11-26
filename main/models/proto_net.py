@@ -42,6 +42,7 @@ class ProtoNet(pl.LightningModule):
         prototypes = []
         for c in classes:
             # get all node features for this class and average them
+            # noinspection PyTypeChecker
             p = features[torch.where(targets == c)[0]].mean(dim=0)
             prototypes.append(p)
         prototypes = torch.stack(prototypes, dim=0)
@@ -62,6 +63,7 @@ class ProtoNet(pl.LightningModule):
         # Squared euclidean distance
         dist = torch.pow(prototypes[None, :] - feats[:, None], 2).sum(dim=2)
         predictions = F.log_softmax(-dist, dim=1)
+        # noinspection PyUnresolvedReferences
         labels = (classes[None, :] == targets[:, None]).long().argmax(dim=-1)
         return predictions, labels, accuracy(predictions, labels)
 
@@ -90,13 +92,16 @@ class ProtoNet(pl.LightningModule):
         meta_loss = F.cross_entropy(predictions, targets)
 
         if mode == 'train':
-            self.log(f"{mode}_loss", meta_loss)
+            self.log(f"{mode}_loss", meta_loss, batch_size=self.hparams['batch_size'])
 
-        self.log(f"{mode}_accuracy", acc, on_step=False, on_epoch=True)
-        self.log(f"{mode}_f1_macro", f1(predictions, targets, average='macro'), on_step=False, on_epoch=True)
-        self.log(f"{mode}_f1_micro", f1(predictions, targets, average='micro'), on_step=False, on_epoch=True)
+        self.log_on_epoch(f"{mode}_accuracy", acc)
+        self.log_on_epoch(f"{mode}_f1_macro", f1(predictions, targets, average='macro'))
+        self.log_on_epoch(f"{mode}_f1_micro", f1(predictions, targets, average='micro'))
 
         return meta_loss
+
+    def log_on_epoch(self, metric, value):
+        self.log(metric, value, on_step=False, on_epoch=True, batch_size=self.hparams['batch_size'])
 
     def training_step(self, batch, batch_idx):
         return self.calculate_loss(batch, mode="train")

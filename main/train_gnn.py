@@ -58,7 +58,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
     trainer = initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, data_name, checkpoint)
 
     if model_name == 'gat':
-        model = DocumentClassifier(model_params, optimizer_hparams, checkpoint, h_search)
+        model = DocumentClassifier(model_params, optimizer_hparams, b_size, checkpoint, h_search)
     elif model_name == 'prototypical':
         model = ProtoNet(model_params['input_dim'], model_params['cf_hid_dim'], optimizer_hparams['lr'])
     else:
