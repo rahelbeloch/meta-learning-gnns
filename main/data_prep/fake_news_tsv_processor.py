@@ -63,13 +63,13 @@ class TSVPreprocessor(DataPreprocessor):
 
 
 if __name__ == '__main__':
-    tsv_dir = "tsv-50"
-    complete_dir = "complete-50"
-    max_doc_nodes = 500
+    #tsv_dir = "tsv-50"
+    #complete_dir = "complete-50"
+    #max_doc_nodes = 500
 
-    # tsv_dir = TSV_DIR
-    # complete_dir = COMPLETE_DIR
-    # max_doc_nodes = None
+    tsv_dir = TSV_DIR
+    complete_dir = COMPLETE_DIR
+    max_doc_nodes = None
 
     data = 'gossipcop'
     preprocessor = TSVPreprocessor(data, 'data', tsv_dir, complete_dir)
