@@ -5,9 +5,9 @@ import time
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as cb
 import torch
-from importlib_resources import files
 from pytorch_lightning.loggers import TensorBoardLogger
 
+from data_prep.config import COMPLETE_small_DIR, TSV_small_DIR
 from data_prep.data_utils import SUPPORTED_DATASETS
 from data_prep.data_utils import get_data
 from models.document_classifier import DocumentClassifier
@@ -81,7 +81,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
         raise ValueError("Wanting to evaluate, but can't as checkpoint is None.")
 
     model = model.load_from_checkpoint(model_path)
-    test_acc, val_acc = evaluate(trainer, model, test_loader, val_loader)
+    evaluate(trainer, model, test_loader, val_loader)
 
 
 def initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, dataset, checkpoint):
@@ -148,25 +148,36 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
     val_results = results[1]
 
     test_accuracy = test_results['test_accuracy/dataloader_idx_0']
-    test_f1_micro = test_results['test_f1_macro/dataloader_idx_0']
+    test_f1_macro = test_results['test_f1_macro/dataloader_idx_0']
     test_f1_micro = test_results['test_f1_micro/dataloader_idx_0']
 
     val_accuracy = val_results['test_accuracy/dataloader_idx_1']
-    val_f1_micro = val_results['test_f1_macro/dataloader_idx_1']
-    Val_f1_micro = val_results['test_f1_micro/dataloader_idx_1']
+    val_f1_macro = val_results['test_f1_macro/dataloader_idx_1']
+    val_f1_micro = val_results['test_f1_micro/dataloader_idx_1']
 
     test_end = time.time()
     test_elapsed = test_end - test_start
 
     print(f'\nRequired time for testing: {int(test_elapsed / 60)} minutes.\n')
-    print(f'Test Results:\n test accuracy: {round(test_accuracy, 3)} ({test_accuracy})\n '
-          f'validation accuracy: {round(val_accuracy, 3)} ({val_accuracy})'
-          f'\n epochs: {trainer.current_epoch + 1}\n')
+    print(f'Test Results:\n '
+          f'test accuracy: {round(test_accuracy, 3)} ({test_accuracy})\n '
+          f'test f1 micro: {round(test_f1_micro, 3)} ({test_f1_micro})\n '
+          f'test f1 macro: {round(test_f1_macro, 3)} ({test_f1_macro})\n '
+          f'validation accuracy: {round(val_accuracy, 3)} ({val_accuracy})\n'
+          f'validation f1 macro: {round(val_f1_micro, 3)} ({val_f1_micro})\n '
+          f'validation f1 micro: {round(val_f1_macro, 3)} ({val_f1_macro})\n '
+          f'epochs: {trainer.current_epoch + 1}\n')
 
     return test_accuracy, val_accuracy
 
 
 if __name__ == "__main__":
+    tsv_dir = TSV_small_DIR
+    complete_dir = COMPLETE_small_DIR
+
+    # tsv_dir = TSV_DIR
+    # complete_dir = COMPLETE_DIR
+
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # TRAINING PARAMETERS
@@ -196,11 +207,11 @@ if __name__ == "__main__":
                         help='Select the dataset you want to use.')
     parser.add_argument('--data-dir', dest='data_dir', default='data',
                         help='Select the dataset you want to use.')
-    parser.add_argument('--tsv-dir', dest='tsv_dir', default='tsv-50',
+    parser.add_argument('--tsv-dir', dest='tsv_dir', default=tsv_dir,
                         help='Select the dataset you want to use.')
-    parser.add_argument('--complete-dir', dest='complete_dir', default='complete-50',
+    parser.add_argument('--complete-dir', dest='complete_dir', default=complete_dir,
                         help='Select the dataset you want to use.')
-    parser.add_argument('--model', dest='model', default='prototypical', choices=SUPPORTED_MODELS,
+    parser.add_argument('--model', dest='model', default='gat', choices=SUPPORTED_MODELS,
                         help='Select the model you want to use.')
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--cf-hidden-dim', dest='cf_hidden_dim', type=int, default=512)
