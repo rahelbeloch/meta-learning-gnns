@@ -131,9 +131,11 @@ dmypy.json
 # Raw data
 /main/data
 /logs
+main/data_prep/.vector_cache
+main/.vector_cache
 
 # Intellij project files
 /.idea/*
-/main/data/complete/FakeHealth/HealthStory/engagements/
+
+# Mac Stuff
 .DS_STORE
-main/data_prep/.vector_cache

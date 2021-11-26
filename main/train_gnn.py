@@ -163,10 +163,10 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
           f'test accuracy: {round(test_accuracy, 3)} ({test_accuracy})\n '
           f'test f1 micro: {round(test_f1_micro, 3)} ({test_f1_micro})\n '
           f'test f1 macro: {round(test_f1_macro, 3)} ({test_f1_macro})\n '
-          f'validation accuracy: {round(val_accuracy, 3)} ({val_accuracy})\n'
+          f'validation accuracy: {round(val_accuracy, 3)} ({val_accuracy})\n '
           f'validation f1 macro: {round(val_f1_micro, 3)} ({val_f1_micro})\n '
           f'validation f1 micro: {round(val_f1_macro, 3)} ({val_f1_macro})\n '
-          f'epochs: {trainer.current_epoch + 1}\n')
+          f'\nepochs: {trainer.current_epoch + 1}\n')
 
     return test_accuracy, val_accuracy
 
