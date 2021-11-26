@@ -239,8 +239,7 @@ class SubGraphs(Dataset):
         self.hop_size = h_size
 
         self.mask_name = mask_name
-
-        self.sub_graphs = {}
+        # self.sub_graphs = {}
 
     @property
     def mask(self):
@@ -310,21 +309,23 @@ class DGLSubGraphs(SubGraphs):
         Generate sub graphs on the flight using DGL graphs.
         """
 
-        if node_id not in self.sub_graphs.keys():
-            # instead of calculating shortest distance, we find the following ways to get sub graphs are quicker
-            h_hop_neighbors = self.get_hop_neighbors(node_id)
+        # if node_id not in self.sub_graphs.keys():
 
-            sub_graph = dgl.node_subgraph(self.graph.graph, h_hop_neighbors, store_ids=True)
+        # instead of calculating shortest distance, we find the following ways to get sub graphs are quicker
+        h_hop_neighbors = self.get_hop_neighbors(node_id)
 
-            # create mask for the classification; which node we want to classify
-            classification_mask = torch.zeros(sub_graph.num_nodes())
-            # noinspection PyTypeChecker
-            classification_mask[torch.where(sub_graph.ndata[dgl.NID] == node_id)[0]] = 1
-            sub_graph.ndata['classification_mask'] = classification_mask.bool()  # mask tensors must be bool
+        sub_graph = dgl.node_subgraph(self.graph.graph, h_hop_neighbors, store_ids=True)
 
-            self.sub_graphs[node_id] = sub_graph
+        # create mask for the classification; which node we want to classify
+        classification_mask = torch.zeros(sub_graph.num_nodes())
+        # noinspection PyTypeChecker
+        classification_mask[torch.where(sub_graph.ndata[dgl.NID] == node_id)[0]] = 1
+        sub_graph.ndata['classification_mask'] = classification_mask.bool()  # mask tensors must be bool
+        return sub_graph
 
-        return self.sub_graphs[node_id]
+            # self.sub_graphs[node_id] = sub_graph
+
+        # return self.sub_graphs[node_id]
 
     def get_hop_neighbors(self, node_id):
 
