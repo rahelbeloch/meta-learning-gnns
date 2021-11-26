@@ -138,7 +138,7 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
         val_accuracy (float) - The achieved validation accuracy.
     """
 
-    print('Testing model on validation and test ..........\n')
+    print('\nTesting model on validation and test ..........\n')
 
     test_start = time.time()
 
