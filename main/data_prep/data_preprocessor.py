@@ -196,11 +196,11 @@ class DataPreprocessor(GraphIO):
 
         print("\nWriting train-val-test files..")
 
-        splits = {'train': train_split, 'val': val_split, 'test': test_split}
-        for split, data in splits.items():
+        split_path = self.data_tsv_path('splits')
+
+        for split, data in {'train': train_split, 'val': val_split, 'test': test_split}.items():
             x, y, name_list = data
 
-            split_path = self.data_tsv_path('splits')
             if not split_path.exists():
                 split_path.mkdir()
 

@@ -10,14 +10,14 @@ from data_prep.graph_preprocessor import GraphPreprocessor
 
 class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
-    def __init__(self, config):
+    def __init__(self, config, max_users=None):
         super().__init__(config)
 
         self.load_doc_splits()
 
         if self.only_valid_users:
             self.filter_valid_users()
-        self.create_user_splits(max_users=100)
+        self.create_user_splits(max_users)
         self.create_doc_id_dicts()
         self.filter_contexts()
         self.create_adj_matrix()
@@ -81,9 +81,11 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 if __name__ == '__main__':
     complete_dir = COMPLETE_small_DIR
     tsv_dir = TSV_small_DIR
+    max_nr_users = 100
 
     # complete_dir = COMPLETE_DIR
     # tsv_dir = TSV_DIR
+    # max_nr_users = None
 
     parser = argparse.ArgumentParser()
 
@@ -110,4 +112,4 @@ if __name__ == '__main__':
 
     args, unparsed = parser.parse_known_args()
 
-    preprocessor = FakeNewsGraphPreprocessor(args.__dict__)
+    preprocessor = FakeNewsGraphPreprocessor(args.__dict__, max_nr_users)

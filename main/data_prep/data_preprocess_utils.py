@@ -64,9 +64,11 @@ def sanitize_text(text):
 
     # replace special symbols in the text
     text = re.sub('[' + punctuation + ']', ' ', text)
-    text = re.sub('\\b[0-9]+\\b', '', text)
     text = re.sub('\\s+', ' ', text)
 
+    # text = re.sub('\\b[0-9]+\\b', '', text)
+
+    # TODO: enable this?
     # text = re.sub(r'#[\w-]+', 'hashtag', text)
     # text = re.sub(r'https?://\S+', 'url', text)
 

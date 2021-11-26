@@ -33,6 +33,8 @@ class GraphPreprocessor(GraphIO):
         self.train_docs, self.test_docs, self.val_docs, self.n_total = None, None, None, None
         self.valid_users = None
 
+        self.vocab = None
+
     def doc_used(self, doc_id):
         return doc_id in self.train_docs or doc_id in self.test_docs or doc_id in self.val_docs
 
@@ -44,13 +46,13 @@ class GraphPreprocessor(GraphIO):
 
     def maybe_load_valid_users(self):
         if self.valid_users is None:
-            self.valid_users = self.load_if_exists(self.data_complete_dir(VALID_USERS % self.top_k))
+            self.valid_users = self.load_if_exists(self.data_complete_path(VALID_USERS % self.top_k))
 
     def maybe_load_id_mappings(self):
         if self.user2id is None:
-            self.user2id = self.load_if_exists(self.data_complete_dir(USER_2_ID_FILE_NAME % self.top_k))
+            self.user2id = self.load_if_exists(self.data_complete_path(USER_2_ID_FILE_NAME % self.top_k))
         if self.doc2id is None:
-            self.doc2id = self.load_if_exists(self.data_complete_dir(DOC_2_ID_FILE_NAME % self.top_k))
+            self.doc2id = self.load_if_exists(self.data_complete_path(DOC_2_ID_FILE_NAME % self.top_k))
         self.n_total = len(self.user2id) + len(self.doc2id)
 
     @staticmethod
@@ -144,7 +146,7 @@ class GraphPreprocessor(GraphIO):
 
         self.valid_users = valid_users
 
-    def create_user_splits(self, max_users=None):
+    def create_user_splits(self, max_users):
         """
         Walks through all users that interacted with documents and, divides them on train/val/test splits.
 
@@ -495,47 +497,91 @@ class GraphPreprocessor(GraphIO):
         print("saving edge_type list format in :  ", edge_type_file)
         np.save(edge_type_file, edge_index, allow_pickle=True)
 
-    def create_feature_matrix(self, features='one-hot'):
+    @staticmethod
+    def build_vocab(text_tokens, max_count=-1, min_count=2, max_vocab=15000):
 
-        if features not in FEATURE_TYPES:
-            raise ValueError(f"Trying t")
+        # creating word frequency dict
+        word_freq = {}
+        for text_token in text_tokens:
+            for token in set(text_token):
+                word_freq[token] = word_freq.get(token, 0) + 1
+        word_freq = [(f, w) for (w, f) in word_freq.items()]
+        word_freq.sort(reverse=True)
+
+        # collect token counts
+        token_counts = []
+        for (count, token) in word_freq:
+            if max_count != -1 and count > max_count:
+                continue
+            if count < min_count:
+                continue
+            token_counts.append((count, token))
+
+        token_counts.sort(reverse=True)
+        if max_vocab != -1:
+            token_counts = token_counts[:max_vocab]
+        # NIV: not in vocab token, i.e., out of vocab
+        token_counts.append((0, 'NIV'))
+
+        vocab = {}
+        for (i, (count, token)) in enumerate(token_counts):
+            vocab[token] = i + 1
+
+        return vocab
+
+    def create_feature_matrix(self, feature_type='one-hot', max_vocab=10000):
+
+        if feature_type not in FEATURE_TYPES:
+            raise ValueError(f"Trying to create features of type {feature_type} which is not supported!")
 
         self.maybe_load_id_mappings()
 
         self.print_step("Creating feature matrix")
-
-        max_vocab = 10000
-        glove = GloVe(name='twitter.27B', dim=200)
 
         # load all texts for test, train and val documents
         split_path = self.data_tsv_path('splits')
 
         all_texts = []
         for split in ['test', 'train', 'val']:
-            split_file_path = os.path.join(split_path, f'{split}.tsv')
-            reader = csv.DictReader(open(split_file_path, encoding='utf-8'), delimiter='\t')
+            reader = csv.DictReader(open(split_path / f'{split}.tsv', encoding='utf-8'), delimiter='\t')
             for row in reader:
-                # split_texts = list(reader)
-                all_texts.append(row['text'])
+                tokens = set(nltk.word_tokenize(row['text']))
+                all_texts.append(list(tokens))
 
         assert len(all_texts) == len(self.doc2id), "Nr of texts from doc splits does not equal to doc2id!"
 
         print(f"\nNr of docs = {len(self.doc2id)}")
         print(f"Nr of users = {len(self.user2id)}")
 
+        if feature_type == 'one-hot':
+            # create own vocabulary from all data
+            token2idx = self.build_vocab(all_texts)
+        elif 'glove' in feature_type:
+            glove = GloVe(name='twitter.27B', dim=200, max_vectors=max_vocab)
+            token2idx = glove.stoi
+        else:
+            raise ValueError(f"Trying to create features of type {feature_type} which is not unknown!")
+
         print("\nCreating features for docs nodes...")
         start = time.time()
 
         features_docs = []
-        for text in all_texts:
-            tokens = set(nltk.word_tokenize(text))
-            inds = torch.tensor([glove.stoi[token] for token in tokens if token in glove.stoi])
+        for tokens in all_texts:
+            indices = torch.tensor([token2idx[token] for token in tokens if token in token2idx])
 
             # Use only 10k most common tokens
-            inds = inds[inds < max_vocab]
-            doc_feat = torch.zeros(max_vocab)
-            if len(inds) > 0:
-                doc_feat[inds] = 1
+            indices = indices[indices < max_vocab]
+
+            if feature_type == 'one-hot':
+                doc_feat = torch.zeros(max_vocab)
+                doc_feat[indices] = 1
+            elif 'glove' in feature_type:
+                # noinspection PyUnboundLocalVariable
+                vectors = glove.vectors[indices]
+                doc_feat = vectors.mean(dim=0) if 'average' in feature_type else vectors.sum(dim=0)
+            else:
+                raise ValueError(f"Trying to create features of type {feature_type} which is not unknown!")
+
             features_docs.append(doc_feat)
         doc_features = torch.stack(features_docs)  # .to(self._device)
 
@@ -548,7 +594,6 @@ class GraphPreprocessor(GraphIO):
         feature_id_mapping = defaultdict(lambda: [])
         for count, file_path in enumerate(self.data_tsv_path('engagements').rglob('*.json')):
             doc_users = load_json_file(file_path)
-            # doc_key = self.get_doc_key(file, name_type='filepath')
             doc_key = file_path.stem
 
             # Each user of this doc has its features as the features of the doc
