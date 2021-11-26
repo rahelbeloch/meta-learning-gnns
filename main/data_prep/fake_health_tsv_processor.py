@@ -1,6 +1,4 @@
-import glob
 import json
-import os
 
 from data_prep.config import RAW_DIR
 from data_prep.data_preprocess_utils import load_json_file
@@ -33,7 +31,7 @@ class TSVPreprocessor(DataPreprocessor):
         self.print_step("Preparing Data Corpus")
 
         print("\nCreating doc2labels...")
-        doc_labels_src_dir = os.path.join(self.data_raw_dir, 'reviews', f'{self.dataset}.json')
+        doc_labels_src_dir = self.data_raw_path('reviews', f'{self.dataset}.json')
         doc2labels = {}
 
         for count, doc in enumerate(load_json_file(doc_labels_src_dir)):
@@ -44,11 +42,12 @@ class TSVPreprocessor(DataPreprocessor):
 
         print("\nCollecting doc contents...")
         contents = []
-        content_file_paths = os.path.join(self.data_raw_dir, 'content', self.dataset + "/*.json")
-        for file in glob.glob(content_file_paths):
+        content_file_paths = self.data_raw_path('content', self.dataset)
+        for file in content_file_paths.glob("*.json"):
             with open(file, 'r') as f:
                 doc_name = file.split('/')[-1].split('.')[0]
                 content = json.load(f)
+                contents.append([doc_name, content['title'], content['text'], doc2labels[str(doc_name)]])
                 contents.append([doc_name, content['title'], content['text'], doc2labels[str(doc_name)]])
 
         self.store_doc_contents(contents)

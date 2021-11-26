@@ -1,6 +1,5 @@
 import csv
 import json
-import os
 import random
 from collections import defaultdict
 
@@ -16,7 +15,7 @@ class DataPreprocessor(GraphIO):
 
     def maybe_load_non_interaction_docs(self):
         if self.non_interaction_docs is None:
-            self.non_interaction_docs = self.load_if_exists('nonInteractionDocs.json')
+            self.non_interaction_docs = self.load_if_exists(self.data_tsv_path('nonInteractionDocs.json'))
 
     def aggregate_user_contexts(self):
         """
@@ -33,46 +32,43 @@ class DataPreprocessor(GraphIO):
             print("\nIterating over : ", user_context)
 
             src_dir = self.data_raw_path(self.dataset, user_context)
-            if not os.path.exists(src_dir):
+            if not src_dir.exists():
                 raise ValueError(f'Source directory {src_dir} does not exist!')
 
-            for root, _, files in os.walk(src_dir):
-                for count, file in enumerate(files):
-                    file_path = os.path.join(root, file)
+            for count, file_path in enumerate(src_dir.glob('*')):
 
-                    # need to differentiate between how to read them because retweets are stored as JSONs in CSV!
-                    if user_context == 'tweets':
-                        user_ids = pd.read_csv(file_path)['user_id']
-                    elif user_context == 'retweets':
-                        user_ids = []
-                        with open(file_path, encoding='utf-8', newline='') as csv_file:
-                            lines = csv_file.readlines()
-                            for line in lines:
-                                json_str = json.loads(line)
-                                user_ids.append(json_str['user']['id'])
-                    else:
-                        raise ValueError(f'Unknown user context {user_context}!')
+                # need to differentiate between how to read them because retweets are stored as JSONs in CSV!
+                if user_context == 'tweets':
+                    user_ids = pd.read_csv(file_path)['user_id']
+                elif user_context == 'retweets':
+                    user_ids = []
+                    with open(file_path, encoding='utf-8', newline='') as csv_file:
+                        lines = csv_file.readlines()
+                        for line in lines:
+                            json_str = json.loads(line)
+                            user_ids.append(json_str['user']['id'])
+                else:
+                    raise ValueError(f'Unknown user context {user_context}!')
 
-                    user_ids = list(set([s for s in user_ids if isinstance(s, int)]))
+                user_ids = list(set([s for s in user_ids if isinstance(s, int)]))
 
-                    doc_id = file.split('.')[0]
+                doc_id = file_path.stem
 
-                    # only include this document ID in doc_users if we actually use it in our splits
-                    # if not self.doc_used(doc_id):
-                    #     continue
+                # only include this document ID in doc_users if we actually use it in our splits
+                # if not self.doc_used(doc_id):
+                #     continue
 
-                    docs_users[doc_id].update(user_ids)
-                    if count == 0:
-                        print(doc_id, docs_users[doc_id])
-                    if count % 2000 == 0:
-                        print(f"{count} done")
+                docs_users[doc_id].update(user_ids)
+                if count == 0:
+                    print(doc_id, docs_users[doc_id])
+                if count % 2000 == 0:
+                    print(f"{count} done")
 
         print(f"\nTotal tweets/re-tweets in the data set = {count}")
 
         # filter out documents which do not have any interaction with any user
-        self.non_interaction_docs = list(set(dict(filter(lambda f: f[1] > 0,
-                                                         dict(zip(docs_users, map(lambda x: len(x[1]),
-                                                                                  docs_users.items()))).items())).keys()))
+        self.non_interaction_docs = list(set(dict(filter(lambda f: f[1] > 0, dict(
+            zip(docs_users, map(lambda x: len(x[1]), docs_users.items()))).items())).keys()))
 
         non_interaction_docs_file = self.data_tsv_path('nonInteractionDocs.json')
         print(f"\nNon-interaction documents: {len(self.non_interaction_docs)}")
@@ -86,15 +82,15 @@ class DataPreprocessor(GraphIO):
     def save_user_doc_engagements(self, docs_users):
 
         dest_dir = self.data_tsv_path('engagements')
-        if not os.path.exists(dest_dir):
+        if not dest_dir.exists():
             print(f"Creating destination dir:  {dest_dir}\n")
-            os.makedirs(dest_dir)
+            dest_dir.mkdir()
 
         print(f"\nSaving engagement info for nr of docs: {len(docs_users)}")
         print(f"Writing in the dir: {dest_dir}")
 
         for doc, user_list in docs_users.items():
-            document_user_file = os.path.join(dest_dir, f'{str(doc)}.json')
+            document_user_file = dest_dir.joinpath(f'{str(doc)}.json')
             save_json_file({'users': list(user_list)}, document_user_file)
 
         print("\nDONE..!!")
@@ -103,12 +99,13 @@ class DataPreprocessor(GraphIO):
         """
         Applies some preprocessing to the data, e.g. replacing special characters, filters non-required articles out.
         :param min_len: Minimum required length for articles.
+        :param max_data_points: Maximum amount of documents to use.
         :return: Numpy arrays for article tests (x_data), article labels (y_data), and article names (doc_names).
         """
 
         x_data, y_data, doc_names, x_lengths, invalid = [], [], [], [], []
 
-        data_file = os.path.join(self.data_tsv_dir, self.dataset, CONTENT_INFO_FILE_NAME)
+        data_file = self.data_tsv_path(CONTENT_INFO_FILE_NAME)
 
         with open(data_file, encoding='utf-8') as data:
             reader = csv.DictReader(data, delimiter='\t')
@@ -153,6 +150,7 @@ class DataPreprocessor(GraphIO):
         Creates train, val and test splits via random splitting of the dataset in a stratified fashion to ensure
         similar data distribution. Currently only supports splitting data in 1 split for each set.
 
+        :param max_data_points: Maximum amount of documents to use.
         :param test_size: Size of the test split compared to the whole data.
         :param val_size: Size of the val split compared to the whole data.
         :param splits: Number of splits.
@@ -203,10 +201,10 @@ class DataPreprocessor(GraphIO):
             x, y, name_list = data
 
             split_path = self.data_tsv_path('splits')
-            if not os.path.exists(split_path):
-                os.makedirs(split_path)
+            if not split_path.exists():
+                split_path.mkdir()
 
-            split_file_path = os.path.join(split_path, f'{split}.tsv')
+            split_file_path = split_path.joinpath(f'{split}.tsv')
             print(f"{split} file in : {split_file_path}")
 
             with open(split_file_path, 'w', encoding='utf-8', newline='') as csv_file:

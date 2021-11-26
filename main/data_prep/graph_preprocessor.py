@@ -16,6 +16,7 @@ from data_prep.graph_io import GraphIO
 
 USER_CONTEXTS = ['user_followers', 'user_following']
 USER_CONTEXTS_FILTERED = ['user_followers_filtered', 'user_following_filtered']
+FEATURE_TYPES = ['one-hot', 'glove-sum', 'glove-average']
 
 
 class GraphPreprocessor(GraphIO):
@@ -43,13 +44,13 @@ class GraphPreprocessor(GraphIO):
 
     def maybe_load_valid_users(self):
         if self.valid_users is None:
-            self.valid_users = self.load_if_exists(VALID_USERS % self.top_k)
+            self.valid_users = self.load_if_exists(self.data_complete_dir(VALID_USERS % self.top_k))
 
     def maybe_load_id_mappings(self):
         if self.user2id is None:
-            self.user2id = self.load_if_exists(USER_2_ID_FILE_NAME % self.top_k)
+            self.user2id = self.load_if_exists(self.data_complete_dir(USER_2_ID_FILE_NAME % self.top_k))
         if self.doc2id is None:
-            self.doc2id = self.load_if_exists(DOC_2_ID_FILE_NAME % self.top_k)
+            self.doc2id = self.load_if_exists(self.data_complete_dir(DOC_2_ID_FILE_NAME % self.top_k))
         self.n_total = len(self.user2id) + len(self.doc2id)
 
     @staticmethod
@@ -72,32 +73,31 @@ class GraphPreprocessor(GraphIO):
         user_stats = defaultdict(lambda: {'fake': 0, 'real': 0})
 
         restriction_docs = 0
-        for root, dirs, files in os.walk(self.data_tsv_path('engagements')):
-            for count, file in enumerate(files):
+        for count, file_path in enumerate(self.data_tsv_path('engagements').glob('*')):
 
-                # only restrict users interacting with this document ID if we actually use this doc in our splits
-                doc_key = self.get_doc_key(file, name_type='file')
-                if not self.doc_used(doc_key):
-                    continue
+            # only restrict users interacting with this document ID if we actually use this doc in our splits
+            doc_key = file_path.stem
+            if not self.doc_used(doc_key):
+                continue
 
-                restriction_docs += 1
+            restriction_docs += 1
 
-                try:
-                    src_file = load_json_file(os.path.join(root, file))
-                except UnicodeDecodeError:
-                    # TODO: fix this error / keep track of files for which this happens
-                    print(f"Exception for doc {doc_key}")
-                    continue
-                except JSONDecodeError:
-                    # TODO: fix this error / keep track of files for which this happens
-                    print(f"Exception for doc {doc_key}")
-                    continue
+            try:
+                src_file = load_json_file(file_path)
+            except UnicodeDecodeError:
+                # TODO: fix this error / keep track of files for which this happens
+                print(f"Exception for doc {doc_key}")
+                continue
+            except JSONDecodeError:
+                # TODO: fix this error / keep track of files for which this happens
+                print(f"Exception for doc {doc_key}")
+                continue
 
-                users = src_file['users']
+            users = src_file['users']
 
-                for u in users:
-                    if doc_key in doc2labels:
-                        user_stats[u][self.labels()[doc2labels[doc_key]]] += 1
+            for u in users:
+                if doc_key in doc2labels:
+                    user_stats[u][self.labels()[doc2labels[doc_key]]] += 1
 
         # based on user stats, exclude some
         n_docs = len(self.train_docs) + len(self.test_docs) + len(self.val_docs)
@@ -159,36 +159,35 @@ class GraphPreprocessor(GraphIO):
         train_users, val_users, test_users = set(), set(), set()
 
         # walk through user-doc engagement files created before
-        for root, _, files in os.walk(self.data_tsv_path('engagements')):
-            print_iter = int(len(files) / 20)
+        files = list(self.data_tsv_path('engagements').glob('*'))
+        print_iter = int(len(files) / 20)
 
-            for count, file in enumerate(files):
+        for count, file_path in enumerate(files):
+            if max_users is not None and (len(train_users) + len(test_users) + len(val_users)) >= max_users:
+                break
 
-                if max_users is not None and (len(train_users) + len(test_users) + len(val_users)) >= max_users:
-                    break
+            try:
+                src_file = load_json_file(file_path)
+            except UnicodeDecodeError:
+                # TODO: fix this error / keep track of files for which this happens
+                print("Exception")
+                continue
 
-                try:
-                    src_file = load_json_file(os.path.join(root, file))
-                except UnicodeDecodeError:
-                    # TODO: fix this error / keep track of files for which this happens
-                    print("Exception")
-                    continue
+            if count % print_iter == 0:
+                print("{} / {} done..".format(count + 1, len(files)))
 
-                if count % print_iter == 0:
-                    print("{} / {} done..".format(count + 1, len(files)))
+            users = src_file['users']
 
-                doc_key = self.get_doc_key(file, name_type='file')
-                users = src_file['users']
+            # TODO: fix the runtime here, this is super slow
+            users_filtered = [u for u in users if self.valid_user(u)]
 
-                # TODO: fix the runtime here, this is super slow
-                users_filtered = [u for u in users if self.valid_user(u)]
-
-                if doc_key in self.train_docs:
-                    train_users.update(users_filtered)
-                if doc_key in self.val_docs:
-                    val_users.update(users_filtered)
-                if doc_key in self.test_docs:
-                    test_users.update(users_filtered)
+            doc_key = file_path.stem
+            if doc_key in self.train_docs:
+                train_users.update(users_filtered)
+            if doc_key in self.val_docs:
+                val_users.update(users_filtered)
+            if doc_key in self.test_docs:
+                test_users.update(users_filtered)
 
         if self.only_valid_users:
             all_users = set.union(*[train_users, val_users, test_users])
@@ -391,33 +390,32 @@ class GraphPreprocessor(GraphIO):
         edge_list = []
         not_found = 0
         no_connections_added_doc_ids = set()
-        for root, dirs, files in os.walk(self.data_tsv_path('engagements')):
-            for count, file_name in enumerate(files):
-                doc_key = str(file_name.split(".")[0])
-                if doc_key == '':
+        for count, file_path in enumerate(self.data_tsv_path('engagements').glob('*')):
+            doc_key = file_path.stem
+            if doc_key == '':
+                continue
+            src_file = load_json_file(file_path)
+            users = map(str, src_file['users'])
+            for user in users:
+                if doc_key in self.test_docs:
+                    # no connections between users and test documents!
+                    no_connections_added_doc_ids.add(self.doc2id[doc_key])
                     continue
-                src_file = load_json_file(os.path.join(root, file_name))
-                users = map(str, src_file['users'])
-                for user in users:
-                    if doc_key in self.test_docs:
-                        # no connections between users and test documents!
-                        no_connections_added_doc_ids.add(self.doc2id[doc_key])
-                        continue
 
-                    if doc_key in self.doc2id and user in self.user2id:
-                        doc_id = self.doc2id[doc_key]
-                        user_id = self.user2id[user]
+                if doc_key in self.doc2id and user in self.user2id:
+                    doc_id = self.doc2id[doc_key]
+                    user_id = self.user2id[user]
 
-                        # for DGL graph creation; edges are reversed later
-                        edge_list.append((doc_id, user_id))
-                        # edge_list.append((user_id, doc_id))
+                    # for DGL graph creation; edges are reversed later
+                    edge_list.append((doc_id, user_id))
+                    # edge_list.append((user_id, doc_id))
 
-                        adj_matrix[doc_id, user_id] = 1
-                        adj_matrix[user_id, doc_id] = 1
-                        edge_type[doc_id, user_id] = 2
-                        edge_type[user_id, doc_id] = 2
-                    else:
-                        not_found += 1
+                    adj_matrix[doc_id, user_id] = 1
+                    adj_matrix[user_id, doc_id] = 1
+                    edge_type[doc_id, user_id] = 2
+                    edge_type[user_id, doc_id] = 2
+                else:
+                    not_found += 1
 
         hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
@@ -432,35 +430,31 @@ class GraphPreprocessor(GraphIO):
 
         for user_context in USER_CONTEXTS_FILTERED:
             print(f"\n    - from {user_context} folder...")
-            user_context_src_dir = self.data_raw_path(user_context)
-            for root, dirs, files in os.walk(user_context_src_dir):
-                for count, file in enumerate(files):
-                    src_file_path = os.path.join(root, file)
-                    # user_id = src_file_path.split(".")[0]
-                    src_file = load_json_file(src_file_path)
-                    user_id = str(int(src_file['user_id']))
-                    if user_id not in self.user2id:
+            for count, file_path in enumerate(self.data_raw_path(user_context).glob('*')):
+                src_file = load_json_file(file_path)
+                user_id = str(int(src_file['user_id']))
+                if user_id not in self.user2id:
+                    continue
+                followers = src_file['followers'] if user_context == 'user_followers_filtered' else \
+                    src_file['following']
+                for follower in list(map(str, followers)):
+                    if follower not in self.user2id:
                         continue
-                    followers = src_file['followers'] if user_context == 'user_followers_filtered' else \
-                        src_file['following']
-                    for follower in list(map(str, followers)):
-                        if follower not in self.user2id:
-                            continue
 
-                        user_id1 = self.user2id[user_id]
-                        user_id2 = self.user2id[follower]
+                    user_id1 = self.user2id[user_id]
+                    user_id2 = self.user2id[follower]
 
-                        # for DGL graph creation; edges are reversed later
-                        edge_list.append((user_id2, user_id1))
-                        # edge_list.append((user_id1, user_id2))
+                    # for DGL graph creation; edges are reversed later
+                    edge_list.append((user_id2, user_id1))
+                    # edge_list.append((user_id1, user_id2))
 
-                        adj_matrix[user_id1, user_id2] = 1
-                        adj_matrix[user_id2, user_id1] = 1
-                        edge_type[user_id1, user_id2] = 3
-                        edge_type[user_id2, user_id1] = 3
+                    adj_matrix[user_id1, user_id2] = 1
+                    adj_matrix[user_id2, user_id1] = 1
+                    edge_type[user_id1, user_id2] = 3
+                    edge_type[user_id2, user_id1] = 3
 
-                    else:
-                        not_found += 1
+                else:
+                    not_found += 1
 
         edge_list_file = self.data_complete_path(EDGE_LIST_FILE_NAME % self.top_k)
         print("\nSaving edge list in :", edge_list_file)
@@ -501,7 +495,10 @@ class GraphPreprocessor(GraphIO):
         print("saving edge_type list format in :  ", edge_type_file)
         np.save(edge_type_file, edge_index, allow_pickle=True)
 
-    def create_feature_matrix(self):
+    def create_feature_matrix(self, features='one-hot'):
+
+        if features not in FEATURE_TYPES:
+            raise ValueError(f"Trying t")
 
         self.maybe_load_id_mappings()
 

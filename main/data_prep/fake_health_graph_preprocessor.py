@@ -46,12 +46,12 @@ class FakeHealthGraphPreprocessor(GraphPreprocessor):
         self.print_step("Aggregating follower/ing relations")
 
         src_dir = self.data_raw_path("engagements", self.dataset)
-        if not os.path.exists(src_dir):
+        if not src_dir.exists():
             raise ValueError(f'Source directory {src_dir} does not exist!')
 
         docs_users = defaultdict(set)
         count = 0
-        for root, _, files in os.walk(src_dir):
+        for root, _, files in src_dir.glob('*'):
             if root.endswith("replies"):
                 continue
             for count, file in enumerate(files):

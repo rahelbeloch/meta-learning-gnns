@@ -41,7 +41,7 @@ def print_label_distribution(labels):
 
 
 def load_json_file(file_name):
-    if os.path.exists(file_name):
+    if file_name.exists():
         return json.load(open(file_name, 'r'))
     else:
         raise ValueError(f"File {file_name} does not exist!")

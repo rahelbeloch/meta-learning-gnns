@@ -40,15 +40,13 @@ class TSVPreprocessor(DataPreprocessor):
         labels = {'real': 0, 'fake': 1}
         for label in labels.keys():
             # load all files from this label folder
-            content_files = os.path.join(self.data_raw_dir, self.dataset, label, '*')
-            for folder_name in glob.glob(content_files):
-                file_contents = folder_name + "/news content.json"
-                if not os.path.exists(file_contents):
+            for folder_name in self.data_raw_path(self.dataset, label).rglob('*'):
+                file_contents = folder_name / 'news content.json'
+                if not file_contents.exists():
                     no_content += 1
                     continue
 
-                doc_name = folder_name.split('/')[-1]
-
+                doc_name = folder_name.stem
                 if doc_name not in self.non_interaction_docs:
                     continue
 

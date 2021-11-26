@@ -32,9 +32,8 @@ class GraphIO:
         print(f'\n{"-" * 100}\n \t\t\t {step_title} for {self.dataset} dataset.\n{"-" * 100}')
 
     def load_if_exists(self, file_name):
-        file = self.data_complete_path(file_name)
-        if os.path.exists(file):
-            return load_json_file(file)
+        if file_name.exists():
+            return load_json_file(file_name)
         else:
             raise ValueError(f"Wanting to load file with name {file_name}, but this file does not exist!!")
 
