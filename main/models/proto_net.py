@@ -10,7 +10,7 @@ from models.gat_encoder import GATEncoder
 class ProtoNet(pl.LightningModule):
 
     # noinspection PyUnusedLocal
-    def __init__(self, input_dim, cf_hidden_dim, lr):
+    def __init__(self, input_dim, cf_hidden_dim, lr, batch_size):
         """
         Inputs
             proto_dim - Dimensionality of prototype feature space

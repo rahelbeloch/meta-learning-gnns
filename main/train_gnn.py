@@ -60,7 +60,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
     if model_name == 'gat':
         model = DocumentClassifier(model_params, optimizer_hparams, b_size, checkpoint, h_search)
     elif model_name == 'prototypical':
-        model = ProtoNet(model_params['input_dim'], model_params['cf_hid_dim'], optimizer_hparams['lr'])
+        model = ProtoNet(model_params['input_dim'], model_params['cf_hid_dim'], optimizer_hparams['lr'], b_size)
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 
