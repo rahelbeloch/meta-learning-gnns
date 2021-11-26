@@ -79,9 +79,9 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
 
 if __name__ == '__main__':
-    #complete_dir = COMPLETE_small_DIR
-    #tsv_dir = TSV_small_DIR
-    #max_nr_users = 500
+    # complete_dir = COMPLETE_small_DIR
+    # tsv_dir = TSV_small_DIR
+    # max_nr_users = 500
 
     complete_dir = COMPLETE_DIR
     tsv_dir = TSV_DIR

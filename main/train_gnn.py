@@ -55,7 +55,8 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
     }
 
     print('\nInitializing trainer ..........\n')
-    trainer = initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, data_name, checkpoint)
+    trainer = initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, data_name, k_shot, h_size,
+                                 checkpoint)
 
     if model_name == 'gat':
         model = DocumentClassifier(model_params, optimizer_hparams, b_size, checkpoint, h_search)
@@ -84,7 +85,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
     evaluate(trainer, model, test_loader, val_loader)
 
 
-def initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, dataset, checkpoint):
+def initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, dataset, k_shot, h_size, checkpoint):
     """
     Initializes a Lightning Trainer for respective parameters as given in the function header. Creates a proper
     folder name for the respective model files, initializes logging and early stopping.
@@ -92,10 +93,11 @@ def initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed
 
     model_checkpoint = cb.ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_accuracy")
 
+    base = f'dname={dataset}_seed={seed}_kshot={k_shot}_hops={h_size}_'
     if model_name == 'gat':
-        version_str = f'dname={dataset}_seed={seed}_lr-enc={l_rate_enc}_lr-cl={l_rate_cl}'
+        version_str = f'{base}_lr-enc={l_rate_enc}_lr-cl={l_rate_cl}'
     elif model_name == 'prototypical':
-        version_str = f'dname={dataset}_seed={seed}_lr={l_rate_enc}'
+        version_str = f'{base}_lr={l_rate_enc}'
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 

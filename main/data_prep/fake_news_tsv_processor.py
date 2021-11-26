@@ -1,7 +1,6 @@
-import glob
 import json
-import os.path
 
+from data_prep.config import *
 from data_prep.data_preprocessor import DataPreprocessor
 
 LABELS = {0: 'fake', 1: 'real'}
@@ -63,9 +62,9 @@ class TSVPreprocessor(DataPreprocessor):
 
 
 if __name__ == '__main__':
-    #tsv_dir = "tsv-50"
-    #complete_dir = "complete-50"
-    #max_doc_nodes = 500
+    # tsv_dir = "tsv-50"
+    # complete_dir = "complete-50"
+    # max_doc_nodes = 500
 
     tsv_dir = TSV_DIR
     complete_dir = COMPLETE_DIR
