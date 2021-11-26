@@ -18,7 +18,7 @@ LOG_PATH = "../logs/"
 
 
 def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr, l_rate_enc, l_rate_cl, cf_hidden_dim,
-          proto_dim, data_name, dirs, checkpoint, h_search, eval=False):
+          proto_dim, data_name, dirs, checkpoint, h_search, n_updates, evaluation=False):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     if model_name not in SUPPORTED_MODELS:
@@ -64,7 +64,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 
-    if not eval:
+    if not evaluation:
         # Training
         print('\nFitting model ..........\n')
         start = time.time()
@@ -187,7 +187,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch-size', dest='batch_size', type=int, default=8)
     parser.add_argument('--hop-size', dest='hop_size', type=int, default=2)
     parser.add_argument('--top-k', dest='top_k', type=int, default=30)
-    parser.add_argument('--k-shot', dest='k_shot', type=int, default=2, help="Number of examples per task/batch.")
+    parser.add_argument('--k-shot', dest='k_shot', type=int, default=40, help="Number of examples per task/batch.")
 
     parser.add_argument('--lr-enc', dest='l_rate_enc', type=float, default=0.01, help="Encoder learning rate.")
     parser.add_argument('--lr-cl', dest='l_rate_cl', type=float, default=-1, help="Classifier learning rate.")
@@ -197,8 +197,6 @@ if __name__ == "__main__":
     parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
     parser.add_argument('--inner-lr', dest='inner_lr', type=float, default=0.0001, help="Inner learning rate.")
     parser.add_argument('--n_updates', dest='n_updates', type=int, default=5,
-                        help="Inner gradient updates during meta learning.")
-    parser.add_argument('--n_shots', dest='n_shots', type=int, default=40,
                         help="Inner gradient updates during meta learning.")
 
     # CONFIGURATION
@@ -211,7 +209,7 @@ if __name__ == "__main__":
                         help='Select the dataset you want to use.')
     parser.add_argument('--complete-dir', dest='complete_dir', default=complete_dir,
                         help='Select the dataset you want to use.')
-    parser.add_argument('--model', dest='model', default='gat', choices=SUPPORTED_MODELS,
+    parser.add_argument('--model', dest='model', default='prototypical', choices=SUPPORTED_MODELS,
                         help='Select the model you want to use.')
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--cf-hidden-dim', dest='cf_hidden_dim', type=int, default=512)
@@ -242,5 +240,6 @@ if __name__ == "__main__":
         data_name=params["dataset"],
         dirs=(params["data_dir"], params["tsv_dir"], params["complete_dir"]),
         checkpoint=params["checkpoint"],
-        h_search=params["h_search"]
+        h_search=params["h_search"],
+        n_updates=params["n_updates"]
     )

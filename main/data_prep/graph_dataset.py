@@ -4,7 +4,7 @@ import itertools
 import dgl
 import torch
 from dgl.data import DGLDataset
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 from data_prep.fake_health_graph_preprocessor import *
 from data_prep.graph_io import GraphIO
@@ -309,8 +309,6 @@ class DGLSubGraphs(SubGraphs):
         Generate sub graphs on the flight using DGL graphs.
         """
 
-        # if node_id not in self.sub_graphs.keys():
-
         # instead of calculating shortest distance, we find the following ways to get sub graphs are quicker
         h_hop_neighbors = self.get_hop_neighbors(node_id)
 
@@ -321,11 +319,8 @@ class DGLSubGraphs(SubGraphs):
         # noinspection PyTypeChecker
         classification_mask[torch.where(sub_graph.ndata[dgl.NID] == node_id)[0]] = 1
         sub_graph.ndata['classification_mask'] = classification_mask.bool()  # mask tensors must be bool
+
         return sub_graph
-
-            # self.sub_graphs[node_id] = sub_graph
-
-        # return self.sub_graphs[node_id]
 
     def get_hop_neighbors(self, node_id):
 
@@ -360,12 +355,8 @@ class DGLSubGraphs(SubGraphs):
     def targets(self):
         return self.graph.graph.ndata['label']
 
-    # return batched_graph_spt, torch.LongTensor(support_y_relative), batched_graph_qry, torch.LongTensor(
-    #     query_y_relative), torch.LongTensor(support_center), torch.LongTensor(
-    #     query_center), support_node_idx, query_node_idx, support_graph_idx, query_graph_idx
-
-    # def get(self, idx):
-    #     return self._data
+    def as_dataloader(self, sampler, num_workers, collate_fn):
+        return DataLoader(self, batch_sampler=sampler, num_workers=num_workers, collate_fn=collate_fn)
 
 # class TorchGeomSubGraphs(SubGraphs):
 #     """
