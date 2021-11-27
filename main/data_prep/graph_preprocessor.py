@@ -572,10 +572,12 @@ class GraphPreprocessor(GraphIO):
             # Use only 10k most common tokens
             indices = indices[indices < max_vocab]
 
+            if len(indices) == 0:
+                continue
+
             if feature_type == 'one-hot':
                 doc_feat = torch.zeros(max_vocab)
-                if len(indices) > 0:
-                    doc_feat[indices] = 1
+                doc_feat[indices] = 1
             elif 'glove' in feature_type:
                 # noinspection PyUnboundLocalVariable
                 vectors = glove.vectors[indices]
