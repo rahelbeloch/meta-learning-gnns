@@ -541,12 +541,12 @@ class GraphPreprocessor(GraphIO):
         # load all texts for test, train and val documents
         split_path = self.data_tsv_path('splits')
 
-        all_texts = []
+        all_texts = {}
         for split in ['test', 'train', 'val']:
             reader = csv.DictReader(open(split_path / f'{split}.tsv', encoding='utf-8'), delimiter='\t')
             for row in reader:
                 tokens = set(nltk.word_tokenize(row['text']))
-                all_texts.append(list(tokens))
+                all_texts[row['id']] = list(tokens)
 
         assert len(all_texts) == len(self.doc2id), "Nr of texts from doc splits does not equal to doc2id!"
 
@@ -556,8 +556,10 @@ class GraphPreprocessor(GraphIO):
         if feature_type == 'one-hot':
             # create own vocabulary from all data
             token2idx = self.build_vocab(all_texts)
+            feature_size = max_vocab
         elif 'glove' in feature_type:
-            glove = GloVe(name='twitter.27B', dim=200, max_vectors=max_vocab)
+            feature_size = 200
+            glove = GloVe(name='twitter.27B', dim=feature_size, max_vectors=max_vocab)
             token2idx = glove.stoi
         else:
             raise ValueError(f"Trying to create features of type {feature_type} which is not unknown!")
@@ -565,14 +567,18 @@ class GraphPreprocessor(GraphIO):
         print("\nCreating features for docs nodes...")
         start = time.time()
 
+        skipped_doc_keys = []
         features_docs = []
-        for tokens in all_texts:
+        feature_ids = {}
+        count = 0
+        for doc_key, tokens in all_texts.items():
             indices = torch.tensor([token2idx[token] for token in tokens if token in token2idx])
 
             # Use only 10k most common tokens
             indices = indices[indices < max_vocab]
 
             if len(indices) == 0:
+                skipped_doc_keys.append(doc_key)
                 continue
 
             if feature_type == 'one-hot':
@@ -586,6 +592,9 @@ class GraphPreprocessor(GraphIO):
                 raise ValueError(f"Trying to create features of type {feature_type} which is not unknown!")
 
             features_docs.append(doc_feat)
+            feature_ids[doc_key] = count
+            count += 1
+
         doc_features = torch.stack(features_docs)  # .to(self._device)
 
         hrs, mins, secs = calc_elapsed_time(start, time.time())
@@ -600,14 +609,14 @@ class GraphPreprocessor(GraphIO):
             doc_key = file_path.stem
 
             # Each user of this doc has its features as the features of the doc
-            if doc_key not in self.doc2id:
+            if doc_key not in self.doc2id or doc_key not in feature_ids:
                 continue
 
             for user in doc_users['users']:
                 user_key = str(user)
                 if user_key not in self.user2id:
                     continue
-                feature_id_mapping[self.user2id[user_key]].append(self.doc2id[str(doc_key)])
+                feature_id_mapping[self.user2id[user_key]].append(feature_ids[str(doc_key)])
 
         feature_id_mapping = dict(sorted(feature_id_mapping.items(), key=lambda it: it[0]))
         features_users = []
@@ -615,12 +624,15 @@ class GraphPreprocessor(GraphIO):
             features_users.append(doc_features[doc_ids].sum(axis=0))
         user_features = torch.stack(features_users)  # .to(self._device)
 
+        # TODO: update doc2id, because there might be documents which are left without text, after using Glove Vocab
+
         hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
 
         print(f"\nCreating feature matrix and storing doc and user features...")
         start = time.time()
-        feature_matrix = lil_matrix((self.n_total, max_vocab))
+        total = doc_features.shape[0] + user_features.shape[0]
+        feature_matrix = lil_matrix((total, feature_size))
         print(f"Size of feature matrix = {feature_matrix.shape}")
 
         feature_matrix[:len(doc_features)] = doc_features
@@ -629,12 +641,10 @@ class GraphPreprocessor(GraphIO):
         hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
 
-        # TODO: do we need this?
-        feature_matrix = feature_matrix >= 1
-        feature_matrix = feature_matrix.astype(int)
-
-        # Sanity Checks
-        # feat_matrix_sum = np.array(feat_matrix.sum(axis=1)).squeeze(1)
+        if feature_type == 'one-hot':
+            # turning into 1-hot (as user features were aggregated from documents)
+            feature_matrix = feature_matrix >= 1
+            feature_matrix = feature_matrix.astype(int)
 
         filename = self.data_complete_path(FEAT_MATRIX_FILE_NAME % self.top_k)
         print(f"\nMatrix construction done! Saving in: {filename}")
