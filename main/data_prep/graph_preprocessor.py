@@ -372,7 +372,7 @@ class GraphPreprocessor(GraphIO):
         print(f"\nNr of docs = {len(self.doc2id)}")
         print(f"Nr of users = {len(self.user2id)}")
 
-        token2idx, feature_size, glove = self.get_vocab_token2idx(all_texts)
+        token2idx, feature_size, vectors = self.get_vocab_token2idx(all_texts)
 
         print("\nCreating features for docs nodes...")
         start = time.time()
@@ -396,8 +396,8 @@ class GraphPreprocessor(GraphIO):
                 doc_feat[indices] = 1
             elif 'glove' in self.feature_type:
                 # noinspection PyUnboundLocalVariable
-                vectors = glove.vectors[indices]
-                doc_feat = vectors.mean(dim=0) if 'average' in self.feature_type else vectors.sum(dim=0)
+                idx_vectors = vectors[indices]
+                doc_feat = idx_vectors.mean(dim=0) if 'average' in self.feature_type else idx_vectors.sum(dim=0)
             else:
                 raise ValueError(f"Trying to create features of type {self.feature_type} which is not unknown!")
 
