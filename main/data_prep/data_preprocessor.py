@@ -217,7 +217,7 @@ class DataPreprocessor(GraphIO):
 
         print("\nWriting train-val-test files..")
 
-        split_path = self.data_tsv_path(f'splits-{self.feature_type}')
+        split_path = self.data_tsv_path(f'splits-{self.feature_type}-{self.max_vocab}')
 
         for split, data in {'train': train_split, 'val': val_split, 'test': test_split}.items():
             x, y, name_list = data

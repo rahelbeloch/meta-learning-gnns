@@ -359,7 +359,7 @@ class GraphPreprocessor(GraphIO):
         self.print_step("Creating feature matrix")
 
         # load all texts for test, train and val documents
-        split_path = self.data_tsv_path(f'splits-{self.feature_type}')
+        split_path = self.data_tsv_path(f'splits-{self.feature_type}-{self.max_vocab}')
 
         all_texts = {}
         for split in ['test', 'train', 'val']:
@@ -462,7 +462,7 @@ class GraphPreprocessor(GraphIO):
             feature_matrix = feature_matrix >= 1
             feature_matrix = feature_matrix.astype(int)
 
-        filename = self.data_complete_path(FEAT_MATRIX_FILE_NAME % (self.top_k, self.feature_type))
+        filename = self.data_complete_path(FEAT_MATRIX_FILE_NAME % (self.top_k, self.feature_type, self.max_vocab))
         print(f"\nMatrix construction done! Saving in: {filename}")
         save_npz(filename, feature_matrix.tocsr())
 

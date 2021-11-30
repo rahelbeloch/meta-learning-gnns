@@ -27,7 +27,7 @@ EDGE_TYPE_FILE_NAME = f'{EDGE_TYPE_FILE}.npz'
 EDGE_INDEX_FILE_NAME = EDGE_TYPE_FILE + '_edge.npy'
 EDGE_LIST_FILE_NAME = 'edge_list_top%s.json'
 
-FEAT_MATRIX_FILE = 'feat_matrix_top%s_type_%s_train'
+FEAT_MATRIX_FILE = 'feat_matrix_train_top%s_type=%s_vsize=%s'
 FEAT_MATRIX_FILE_NAME = f'{FEAT_MATRIX_FILE}.npz'
 
 SPLIT_MASK_FILE_NAME = 'split_mask.json'
@@ -39,4 +39,4 @@ DOC_2_LABELS_FILE_NAME = 'doc2labels.json'
 TRAIN_LABELS_FILE_NAME = 'labels_train_val.json'
 ALL_LABELS_FILE_NAME = 'labels_train_val_test.json'
 
-DGL_GRAPH_FILE = '%s-%s-%s.dgl'
+DGL_GRAPH_FILE = 'data=%s-trainDocs%s-ftype=%s-vsize=%s.dgl'
