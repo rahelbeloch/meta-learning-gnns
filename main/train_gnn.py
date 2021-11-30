@@ -40,9 +40,9 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, l_rate_
 
     # the data preprocessing
     print('\nLoading data ..........')
-    train_loader, val_loader, test_loader, num_features, labels = get_data(data_name, model_name, h_size, top_k, k_shot,
-                                                                           nr_train_docs, feature_type, vocab_size,
-                                                                           dirs)
+    train_loader, val_loader, test_loader, num_features, labels, b_size = get_data(data_name, model_name, h_size, top_k,
+                                                                                   k_shot, nr_train_docs, feature_type,
+                                                                                   vocab_size, dirs)
 
     optimizer_hparams = {"lr_enc": l_rate_enc,
                          "lr_cl": l_rate_cl,
