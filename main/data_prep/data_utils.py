@@ -6,17 +6,16 @@ from models.batch_sampler import FewShotSubgraphSampler
 SUPPORTED_DATASETS = ['HealthStory', 'gossipcop', 'twitterHateSpeech']
 
 
-def get_data(data_name, model, batch_size, hop_size, top_k, k_shot, nr_train_docs, feature_type, vocab_size, dirs):
+def get_data(data_name, model, hop_size, top_k, k_shot, nr_train_docs, feature_type, vocab_size, dirs):
     """
     Creates and returns the correct data object depending on data_name.
     Args:
         data_name (str): Name of the data corpus which should be used.
         model (str): Name of the model should be used.
-        batch_size (int): Size of one batch.
         hop_size (int): Number of hops used to create sub graphs.
         top_k (int): Number of top users to be used in graph.
         k_shot (int): Number of examples used per task/batch.
-        train_docs (int): Number of total documents used for test/train/val.
+        nr_train_docs (str): Number of total documents used for test/train/val.
         feature_type (int): Type of features that should be used.
         vocab_size (int): Size of the vocabulary.
         dirs (str): Path to the data (full & complete) to be used to create the graph (feature file, edge file etc.)
@@ -30,9 +29,9 @@ def get_data(data_name, model, batch_size, hop_size, top_k, k_shot, nr_train_doc
     # graph_data = TorchGeomGraphDataset(data_name)
     graph_data = DglGraphDataset(data_name, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
 
-    train_graphs = DGLSubGraphs(graph_data, 'train_mask', b_size=batch_size, h_size=hop_size, meta=model != 'gat')
-    val_graphs = DGLSubGraphs(graph_data, 'val_mask', b_size=batch_size, h_size=hop_size, meta=model != 'gat')
-    test_graphs = DGLSubGraphs(graph_data, 'test_mask', b_size=batch_size, h_size=hop_size, meta=model != 'gat')
+    train_graphs = DGLSubGraphs(graph_data, 'train_mask', h_size=hop_size, meta=model != 'gat')
+    val_graphs = DGLSubGraphs(graph_data, 'val_mask', h_size=hop_size, meta=model != 'gat')
+    test_graphs = DGLSubGraphs(graph_data, 'test_mask', h_size=hop_size, meta=model != 'gat')
 
     num_workers = 6 if torch.cuda.is_available() else 0  # mac has 8 CPUs
 
@@ -54,7 +53,7 @@ def get_data(data_name, model, batch_size, hop_size, top_k, k_shot, nr_train_doc
     val_loader = val_graphs.as_dataloader(val_sampler, num_workers, collate_fn)
 
     test_sampler = FewShotSubgraphSampler(test_graphs, include_query=True, k_shot=k_shot)
-    print(f"Test sampler amount of batches: {train_sampler.num_batches}")
+    print(f"Test sampler amount of batches: {test_sampler.num_batches}")
     test_loader = test_graphs.as_dataloader(test_sampler, num_workers, collate_fn)
 
     # train_sampler = FewShotSubgraphSampler(train_graphs, include_query=True, k_shot=k_shot)

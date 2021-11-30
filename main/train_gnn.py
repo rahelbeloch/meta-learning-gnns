@@ -18,7 +18,7 @@ SUPPORTED_MODELS = ['gat', 'prototypical', 'gmeta']
 LOG_PATH = "../logs/"
 
 
-def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr, l_rate_enc, l_rate_cl, cf_hidden_dim,
+def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, l_rate_enc, l_rate_cl, cf_hidden_dim,
           proto_dim, data_name, dirs, checkpoint, h_search, train_docs, feature_type, vocab_size, n_updates,
           evaluation=False):
     os.makedirs(LOG_PATH, exist_ok=True)
@@ -29,7 +29,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
     nr_train_docs = 'all' if (train_docs is None or train_docs == -1) else str(train_docs)
 
     print(f'\nConfiguration:\n mode: {"TEST" if eval else "TRAIN"}\n model_name: {model_name}\n data_name: {data_name}'
-          f'\n nr_train_docs: {nr_train_docs}\n k_shot: {k_shot}\n seed: {seed}\n batch_size: {b_size}\n'
+          f'\n nr_train_docs: {nr_train_docs}\n k_shot: {k_shot}\n seed: {seed}\n '
           f' feature_type: {feature_type}\n checkpoint: {checkpoint}\n max epochs: {epochs}\n patience:{patience}\n'
           f' l_rate_enc: {l_rate_enc}\n l_rate_cl: {l_rate_cl}\n cf_hidden_dim: {cf_hidden_dim}\n')
 
@@ -40,9 +40,8 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
 
     # the data preprocessing
     print('\nLoading data ..........')
-    train_loader, val_loader, test_loader, num_features, labels = get_data(data_name, model_name, b_size, h_size,
-                                                                           top_k, k_shot, nr_train_docs, feature_type,
-                                                                           vocab_size,
+    train_loader, val_loader, test_loader, num_features, labels = get_data(data_name, model_name, h_size, top_k, k_shot,
+                                                                           nr_train_docs, feature_type, vocab_size,
                                                                            dirs)
 
     optimizer_hparams = {"lr_enc": l_rate_enc,
@@ -195,7 +194,6 @@ if __name__ == "__main__":
 
     parser.add_argument('--epochs', dest='epochs', type=int, default=20)
     parser.add_argument('--patience', dest='patience', type=int, default=10)
-    parser.add_argument('--batch-size', dest='batch_size', type=int, default=8)
     parser.add_argument('--hop-size', dest='hop_size', type=int, default=2)
     parser.add_argument('--top-k', dest='top_k', type=int, default=30)
     parser.add_argument('--k-shot', dest='k_shot', type=int, default=5, help="Number of examples per task/batch.")
@@ -244,7 +242,6 @@ if __name__ == "__main__":
         seed=params['seed'],
         epochs=params['epochs'],
         patience=params['patience'],
-        b_size=params["batch_size"],
         h_size=params["hop_size"],
         top_k=params["top_k"],
         k_shot=params["k_shot"],

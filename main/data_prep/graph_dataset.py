@@ -241,27 +241,16 @@ class SubGraphs(Dataset):
     Sub graphs class for a smaller graph constructed through the k-hop neighbors of one centroid node.
     """
 
-    def __init__(self, full_graph, mask_name, b_size, h_size):
+    def __init__(self, full_graph, mask_name, h_size):
         super().__init__()
 
         self.graph = full_graph
-
-        self.batch_size = b_size
         self.hop_size = h_size
-
         self.mask_name = mask_name
-        # self.sub_graphs = {}
 
     @property
     def mask(self):
         return self.graph.graph.ndata[self.mask_name].bool()
-
-    def __len__(self):
-        """
-        This dataloader is of size batch size as we initially sampled batch_size number of node IDs.
-        :return:
-        """
-        return self.batch_size
 
     @abc.abstractmethod
     def generate_subgraph(self, node_id):
@@ -310,8 +299,8 @@ class DGLSubGraphs(SubGraphs):
     Sub graphs class for a smaller graph constructed through the k-hop neighbors of one centroid node.
     """
 
-    def __init__(self, full_graph, mask_name, b_size, h_size, meta=False):
-        super().__init__(full_graph, mask_name, b_size, h_size)
+    def __init__(self, full_graph, mask_name, h_size, meta=False):
+        super().__init__(full_graph, mask_name, h_size)
 
         self.meta = meta
 
