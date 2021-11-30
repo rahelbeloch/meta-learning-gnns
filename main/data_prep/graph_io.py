@@ -48,7 +48,7 @@ class GraphIO:
     @staticmethod
     def create_dir(dir_name):
         if not dir_name.exists():
-            dir_name.mkdir()
+            dir_name.mkdir(parents=True)
         return dir_name
 
     def data_raw_path(self, *parts):
