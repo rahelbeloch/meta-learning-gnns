@@ -61,9 +61,6 @@ class FewShotSubgraphSampler(Sampler):
                          range(self.batches_per_class[c])]
             self.target_list = np.array(self.target_list)[np.argsort(sort_idxs)].tolist()
 
-        print(f"Length of few shot sampler: {len(self)}")
-        print(f"Num batches: {self.num_batches}")
-
     def shuffle_data(self):
         # Shuffle the examples per class
         for c in self.classes:

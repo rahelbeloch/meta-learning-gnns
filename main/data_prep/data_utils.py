@@ -46,12 +46,15 @@ def get_data(data_name, model, batch_size, hop_size, top_k, k_shot, train_docs, 
     collate_fn = collate_fn_base if model == 'gat' else collate_fn_proto
 
     train_sampler = FewShotSubgraphSampler(train_graphs, include_query=True, k_shot=k_shot)
+    print(f"\nTrain sampler amount of batches: {train_sampler.num_batches}")
     train_loader = train_graphs.as_dataloader(train_sampler, num_workers, collate_fn)
 
     val_sampler = FewShotSubgraphSampler(val_graphs, include_query=True, k_shot=k_shot)
+    print(f"Val sampler amount of batches: {val_sampler.num_batches}")
     val_loader = val_graphs.as_dataloader(val_sampler, num_workers, collate_fn)
 
     test_sampler = FewShotSubgraphSampler(test_graphs, include_query=True, k_shot=k_shot)
+    print(f"Test sampler amount of batches: {train_sampler.num_batches}")
     test_loader = test_graphs.as_dataloader(test_sampler, num_workers, collate_fn)
 
     # train_sampler = FewShotSubgraphSampler(train_graphs, include_query=True, k_shot=k_shot)
