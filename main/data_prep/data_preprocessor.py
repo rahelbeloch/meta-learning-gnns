@@ -5,6 +5,7 @@ from collections import defaultdict
 
 import numpy as np
 import pandas as pd
+import torch
 
 from data_prep.config import *
 from data_prep.data_preprocess_utils import save_json_file, sanitize_text, print_label_distribution, split_data
@@ -13,8 +14,9 @@ from data_prep.graph_io import GraphIO
 
 class DataPreprocessor(GraphIO):
 
-    def __init__(self, dataset, data_dir, tsv_dir, complete_dir):
-        super().__init__(dataset, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir)
+    def __init__(self, dataset, feature_type, max_vocab, data_dir, tsv_dir, complete_dir):
+        super().__init__(dataset, feature_type, max_vocab, data_dir=data_dir, tsv_dir=tsv_dir,
+                         complete_dir=complete_dir)
 
     def maybe_load_non_interaction_docs(self):
         if self.non_interaction_docs is None:
@@ -98,49 +100,61 @@ class DataPreprocessor(GraphIO):
 
         print("\nDONE..!!")
 
-    def preprocess(self, max_data_points, min_len=6):
+    def preprocess(self, num_train_nodes, min_len=6):
         """
         Applies some preprocessing to the data, e.g. replacing special characters, filters non-required articles out.
         :param min_len: Minimum required length for articles.
-        :param max_data_points: Maximum amount of documents to use.
-        :param content_file: File name in which article contents are stored.
+        :param num_train_nodes: Maximum amount of documents to use.
         :return: Numpy arrays for article tests (x_data), article labels (y_data), and article names (doc_names).
         """
 
-        x_data, y_data, doc_names, x_lengths, invalid = [], [], [], [], []
+        invalid = []
+        data_dict = {}
 
         data_file = self.data_tsv_path(CONTENT_INFO_FILE_NAME)
 
         with open(data_file, encoding='utf-8') as data:
             reader = csv.DictReader(data, delimiter='\t')
             for row in reader:
-
-                # if max_data_points is not None and len(x_data) > max_data_points:
-                #     break
-
                 text = sanitize_text(row['text'])
+                doc_key = str(row['id'])
                 if len(text) >= min_len:
-                    x_data.append(text)
-                    x_lengths.append(len(text))
-
-                    y_data.append(int(row['label']))
-                    doc_names.append(str(row['id']))
+                    data_dict[doc_key] = (text, int(row['label']))
                 else:
-                    invalid.append(row['id'])
+                    invalid.append(doc_key)
+
+        # Get the vocab we would have from these texts
+        token2idx, _, _ = self.get_vocab_token2idx({key: value[0] for (key, value) in data_dict.items()})
+
+        # Filter out documents for which we do not have features anyways
+        x_data, y_data, doc_names, x_lengths = [], [], [], []
+        for doc_key, doc_data in data_dict.items():
+            text = doc_data[0]
+
+            # check if we would end up having features for this text
+            indices = torch.tensor([token2idx[token] for token in text if token in token2idx])
+            if len(indices[indices < self.max_vocab]) == 0:
+                invalid.append(doc_key)
+                continue
+
+            x_data.append(text)
+            y_data.append(doc_data[1])
+            doc_names.append(doc_key)
+            x_lengths.append(len(text))
 
         print(f"Average length = {sum(x_lengths) / len(x_lengths)}")
         print(f"Minimum Length = {min(x_lengths)}")
-        print(f"Total data points invalid and therefore removed (length < {min_len}) = {len(invalid)}")
+        print(f"Total data points invalid and therefore removed (length < {min_len}) = {len(set(invalid))}")
 
         x_data = np.array(x_data)
         y_data = np.array(y_data)
         doc_names = np.array(doc_names)
 
-        if max_data_points is None:
+        if num_train_nodes is None:
             return x_data, y_data, doc_names
 
         # select only as many as we want
-        per_class = int(max_data_points / 2)
+        per_class = int(num_train_nodes / 2)
 
         sampled_indices = []
         for c in [0, 1]:
@@ -149,14 +163,12 @@ class DataPreprocessor(GraphIO):
 
         return x_data[sampled_indices], y_data[sampled_indices], doc_names[sampled_indices]
 
-    def create_data_splits(self, max_data_points=None, test_size=0.2, val_size=0.1,
-                           splits=1, duplicate_stats=False):
+    def create_data_splits(self, num_train_nodes=None, test_size=0.2, val_size=0.1, splits=1, duplicate_stats=False):
         """
         Creates train, val and test splits via random splitting of the dataset in a stratified fashion to ensure
         similar data distribution. Currently only supports splitting data in 1 split for each set.
 
-        :param content_file: File name in which article contents are stored.
-        :param max_data_points: Maximum amount of documents to use.
+        :param num_train_nodes: Maximum amount of train documents to use.
         :param test_size: Size of the test split compared to the whole data.
         :param val_size: Size of the val split compared to the whole data.
         :param splits: Number of splits.
@@ -165,7 +177,7 @@ class DataPreprocessor(GraphIO):
 
         self.print_step("Creating Data Splits")
 
-        data = self.preprocess(max_data_points)
+        data = self.preprocess(num_train_nodes)
 
         if duplicate_stats:
             # counting duplicates in test set

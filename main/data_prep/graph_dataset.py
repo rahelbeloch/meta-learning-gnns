@@ -142,28 +142,22 @@ class DglGraphDataset(GraphIO, DGLDataset):
     Parent class for graph datasets. It loads the graph from respective files.
     """
 
-    def __init__(self, corpus, top_k, num_nodes, data_dir, tsv_dir, complete_dir):
+    def __init__(self, corpus, top_k, feature_type, train_docs, data_dir, tsv_dir, complete_dir):
         super().__init__(dataset=corpus, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir)
 
         self.top_k = top_k
         self.num_features = None
-        self.num_nodes = num_nodes
         self.graph = None
 
-        self.initialize_graph()
+        self.initialize_graph(feature_type, train_docs)
 
-    def initialize_graph(self):
-        """
-
-        :return:
-        """
-
+    def initialize_graph(self, feature_type, train_docs):
         print('Initializing DGL graph ..........')
 
         # check if a DGL graph exists already for this dataset
-        nr_nodes = str(self.num_nodes) if self.num_nodes is not None else 'all'
-        graph_file = self.data_complete_path(DGL_GRAPH_FILE % (self.dataset, nr_nodes))
-        if os.path.exists(graph_file):
+        nr_train_docs = str(train_docs) if train_docs is not None else 'all'
+        graph_file = self.data_complete_path(DGL_GRAPH_FILE % (self.dataset, nr_train_docs))
+        if graph_file.exists():
             print(f'Graph file exists, loading graph from it: {graph_file}')
             (g,), _ = dgl.load_graphs(graph_file)
             self.graph = g
@@ -171,12 +165,16 @@ class DglGraphDataset(GraphIO, DGLDataset):
 
         print(f'Graph does not exist, creating it.')
 
-        feat_matrix_file = self.data_complete_path(FEAT_MATRIX_FILE_NAME % self.top_k)
+        feat_matrix_file = self.data_complete_path(FEAT_MATRIX_FILE_NAME % (self.top_k, feature_type))
+        if not feat_matrix_file.exists():
+            raise ValueError(f"Feature matrix file does not exist: {feat_matrix_file}")
         feat_matrix = torch.from_numpy(load_npz(feat_matrix_file).toarray())
         n_nodes = feat_matrix.shape[0]
         self.num_features = feat_matrix.shape[1]
 
         edge_list_file = self.data_complete_path(EDGE_LIST_FILE_NAME % self.top_k)
+        if not edge_list_file.exists():
+            raise ValueError(f"Edge list file does not exist: {edge_list_file}")
         edge_list = load_json_file(edge_list_file)
         src, dst = tuple(zip(*edge_list))
 
@@ -198,13 +196,17 @@ class DglGraphDataset(GraphIO, DGLDataset):
 
         g.ndata['feat'] = feat_matrix
 
-        y_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME)
-        y_labels = load_json_file(y_labels_file)['all_labels']
+        labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME)
+        if not labels_file.exists():
+            raise ValueError(f"Labels file does not exist: {labels_file}")
+        y_labels = load_json_file(labels_file)['all_labels']
         g.ndata['label'] = torch.LongTensor(y_labels)
 
         # If your dataset is a node classification dataset, you will need to assign
         # masks indicating whether a node belongs to training, validation, and test set.
         split_mask_file = self.data_complete_path(SPLIT_MASK_FILE_NAME)
+        if not split_mask_file.exists():
+            raise ValueError(f"Split masks file does not exist: {split_mask_file}")
         split_masks = load_json_file(split_mask_file)
 
         g.ndata['train_mask'] = torch.tensor(split_masks['train_mask'])
@@ -215,7 +217,7 @@ class DglGraphDataset(GraphIO, DGLDataset):
         # g.edata['weight'] = edge_features
 
         print(f"Created DGL graph, saving it in: {graph_file}")
-        dgl.save_graphs(graph_file, g)
+        dgl.save_graphs(str(graph_file), g)
 
         self.graph = g
 

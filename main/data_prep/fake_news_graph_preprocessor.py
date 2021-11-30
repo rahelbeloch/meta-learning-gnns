@@ -8,7 +8,8 @@ import numpy as np
 from data_prep.config import *
 from data_prep.data_preprocess_utils import save_json_file, load_json_file
 from data_prep.fake_news_tsv_processor import LABELS
-from data_prep.graph_preprocessor import GraphPreprocessor, USER_CONTEXTS_FILTERED, FEATURE_TYPES
+from data_prep.graph_io import FEATURE_TYPES
+from data_prep.graph_preprocessor import GraphPreprocessor, USER_CONTEXTS_FILTERED
 
 
 class FakeNewsGraphPreprocessor(GraphPreprocessor):
@@ -18,13 +19,13 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         self.load_doc_splits()
 
-        if self.only_valid_users:
-            self.filter_valid_users()
-        self.create_user_splits(max_users)
-        self.create_doc_id_dicts()
-        self.filter_contexts()
+        # if self.only_valid_users:
+        #     self.filter_valid_users()
+        # self.create_user_splits(max_users)
+        # self.create_doc_id_dicts()
+        # self.filter_contexts()
+        self.create_feature_matrix()
         self.create_adj_matrix()
-        self.create_feature_matrix(feature_type=config['feature_type'])
         self.create_labels()
         self.create_split_masks()
 
@@ -107,7 +108,6 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
             users = src_file['users']
 
-            # TODO: fix the runtime here, this is super slow
             users_filtered = [u for u in users if self.valid_user(u)]
 
             doc_key = file_path.stem
@@ -192,7 +192,7 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
         return adj_matrix, edge_type, edge_list, not_found
 
     def get_feature_id_mapping(self, feature_ids):
-        feature_id_mapping = defaultdict(lambda: [])
+        feature_id_mapping = defaultdict(list, {k: [] for k in self.user2id.values()})
         for count, file_path in enumerate(self.data_tsv_path('engagements').rglob('*.json')):
             doc_users = load_json_file(file_path)
             doc_key = file_path.stem
@@ -205,6 +205,7 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
                 user_key = str(user)
                 if user_key not in self.user2id:
                     continue
+
                 feature_id_mapping[self.user2id[user_key]].append(feature_ids[doc_key])
 
         return feature_id_mapping
@@ -249,13 +250,13 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
 
 if __name__ == '__main__':
-    # complete_dir = COMPLETE_small_DIR
-    # tsv_dir = TSV_small_DIR
-    # max_nr_users = 500
+    complete_dir = COMPLETE_small_DIR
+    tsv_dir = TSV_small_DIR
+    max_nr_users = 2000
 
-    complete_dir = COMPLETE_DIR
-    tsv_dir = TSV_DIR
-    max_nr_users = None
+    # complete_dir = COMPLETE_DIR
+    # tsv_dir = TSV_DIR
+    # max_nr_users = None
 
     parser = argparse.ArgumentParser()
 
@@ -282,6 +283,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--feature_type', type=str, default='one-hot', help='The type of features to use.',
                         choices=FEATURE_TYPES)
+
+    parser.add_argument('--max_vocab', type=int, default=10000, help='Size of the vocabulary used (if one-hot).')
 
     args, unparsed = parser.parse_known_args()
 

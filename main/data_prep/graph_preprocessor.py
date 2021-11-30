@@ -7,7 +7,6 @@ from collections import OrderedDict
 import nltk
 import torch
 from scipy.sparse import lil_matrix, save_npz
-from torchtext.vocab import GloVe
 
 from data_prep.config import *
 from data_prep.data_preprocess_utils import *
@@ -15,14 +14,14 @@ from data_prep.graph_io import GraphIO
 
 USER_CONTEXTS = ['user_followers', 'user_following']
 USER_CONTEXTS_FILTERED = ['user_followers_filtered', 'user_following_filtered']
-FEATURE_TYPES = ['one-hot', 'glove-sum', 'glove-average']
 
 
 class GraphPreprocessor(GraphIO):
 
     def __init__(self, config):
-        super().__init__(config['data_set'], config['data_dir'], config['data_tsv_dir'],
-                         config['data_complete_dir'])
+        super().__init__(config['data_set'], config['feature_type'], config['max_vocab'], config['data_dir'],
+                         config['data_tsv_dir'], config['data_complete_dir'])
+
         self.only_valid_users = config['valid_users']
         self.top_k = config['top_k']
         self.user_doc_threshold = config['user_doc_threshold']
@@ -31,8 +30,6 @@ class GraphPreprocessor(GraphIO):
         self.doc2id, self.user2id = None, None
         self.train_docs, self.test_docs, self.val_docs, self.n_total = None, None, None, None
         self.valid_users = None
-
-        self.vocab = None
 
     def doc_used(self, doc_key):
         return doc_key in self.train_docs or doc_key in self.test_docs or doc_key in self.val_docs
@@ -153,7 +150,9 @@ class GraphPreprocessor(GraphIO):
         assert len(set(doc2id.values())) == len(doc2id), "Doc2ID contains duplicate IDs!!"
         assert len(doc2id) == (n_val + n_train + n_test), "Doc2id does not contain all documents!"
         print("New doc2id len including test docs = ", len(doc2id))
-        save_json_file(doc2id, self.data_complete_path(DOC_2_ID_FILE_NAME % self.top_k))
+        doc2id_file = self.data_complete_path(DOC_2_ID_FILE_NAME % self.top_k)
+        print("Saving doc2id_train in : ", doc2id_file)
+        save_json_file(doc2id, doc2id_file)
         self.doc2id = doc2id
 
         splits = load_json_file(self.data_complete_path(USER_SPLITS_FILE_NAME))
@@ -183,33 +182,34 @@ class GraphPreprocessor(GraphIO):
         save_json_file(user2id, user2id_train_file)
         self.user2id = user2id
 
-        # node type should contain train and val docs and train, val and test users
-        node_type = node_type_train + node_type_val + node_type_user
-        assert len(node_type) == n_val + n_train + len(all_users)
-
-        print(f"\nNode type size = {len(node_type)}")
-        node_type_file = self.data_complete_path(NODE_TYPE_FILE_NAME % self.top_k)
-        node_type = np.array(node_type)
-        print(f"Saving node type in : {node_type_file}")
-        np.save(node_type_file, node_type, allow_pickle=True)
-
-        # print("\nAdding test docs..")
-        # n_test = len(self.test_docs)
-        # print("Test docs = ", n_test)
-        # orig_doc2id_len = len(self.doc2id)
-
-        # for test_count, doc in enumerate(self.test_docs):
-        #     self.doc2id[doc] = test_count + len(self.user2id) + orig_doc2id_len
-
-        node2id = self.doc2id.copy()
-        node2id.update(self.user2id)
-        assert len(node2id) == len(self.user2id) + len(self.doc2id), \
-            "Length of node2id is not the sum of doc2id and user2id length!"
-
-        print("\nNode2id size = ", len(node2id))
-        node2id_file = self.data_complete_path(NODE_2_ID_FILE_NAME % self.top_k)
-        print("Saving node2id_lr in : ", node2id_file)
-        save_json_file(node2id, node2id_file)
+        # TODO: do we need node type and node2id?
+        # # node type should contain train and val docs and train, val and test users
+        # node_type = node_type_train + node_type_val + node_type_user
+        # assert len(node_type) == n_val + n_train + len(all_users)
+        #
+        # print(f"\nNode type size = {len(node_type)}")
+        # node_type_file = self.data_complete_path(NODE_TYPE_FILE_NAME % self.top_k)
+        # node_type = np.array(node_type)
+        # print(f"Saving node type in : {node_type_file}")
+        # np.save(node_type_file, node_type, allow_pickle=True)
+        #
+        # # print("\nAdding test docs..")
+        # # n_test = len(self.test_docs)
+        # # print("Test docs = ", n_test)
+        # # orig_doc2id_len = len(self.doc2id)
+        #
+        # # for test_count, doc in enumerate(self.test_docs):
+        # #     self.doc2id[doc] = test_count + len(self.user2id) + orig_doc2id_len
+        #
+        # node2id = self.doc2id.copy()
+        # node2id.update(self.user2id)
+        # assert len(node2id) == len(self.user2id) + len(self.doc2id), \
+        #     "Length of node2id is not the sum of doc2id and user2id length!"
+        #
+        # print("\nNode2id size = ", len(node2id))
+        # node2id_file = self.data_complete_path(NODE_2_ID_FILE_NAME % self.top_k)
+        # print("Saving node2id_lr in : ", node2id_file)
+        # save_json_file(node2id, node2id_file)
 
         print("\nDone ! All files written.")
 
@@ -254,7 +254,7 @@ class GraphPreprocessor(GraphIO):
                         print("Writing filtered lists in : ", dest_dir)
                         print("Printing every: ", print_iter)
 
-                    dest_file_path = (dest_dir / str(user_id) + '.json')
+                    dest_file_path = (dest_dir / (user_id + '.json'))
 
                     # skip if we have already a file for this user
                     if dest_file_path.is_file():
@@ -363,42 +363,7 @@ class GraphPreprocessor(GraphIO):
         print("saving edge_type list format in :  ", edge_type_file)
         np.save(edge_type_file, edge_index, allow_pickle=True)
 
-    @staticmethod
-    def build_vocab(text_tokens, max_count=-1, min_count=2, max_vocab=15000):
-
-        # creating word frequency dict
-        word_freq = {}
-        for text_token in text_tokens:
-            for token in set(text_token):
-                word_freq[token] = word_freq.get(token, 0) + 1
-        word_freq = [(f, w) for (w, f) in word_freq.items()]
-        word_freq.sort(reverse=True)
-
-        # collect token counts
-        token_counts = []
-        for (count, token) in word_freq:
-            if max_count != -1 and count > max_count:
-                continue
-            if count < min_count:
-                continue
-            token_counts.append((count, token))
-
-        token_counts.sort(reverse=True)
-        if max_vocab != -1:
-            token_counts = token_counts[:max_vocab]
-        # NIV: not in vocab token, i.e., out of vocab
-        token_counts.append((0, 'NIV'))
-
-        vocab = {}
-        for (i, (count, token)) in enumerate(token_counts):
-            vocab[token] = i + 1
-
-        return vocab
-
-    def create_feature_matrix(self, feature_type='one-hot', max_vocab=10000):
-
-        if feature_type not in FEATURE_TYPES:
-            raise ValueError(f"Trying to create features of type {feature_type} which is not supported!")
+    def create_feature_matrix(self):
 
         self.maybe_load_id_mappings()
 
@@ -419,16 +384,7 @@ class GraphPreprocessor(GraphIO):
         print(f"\nNr of docs = {len(self.doc2id)}")
         print(f"Nr of users = {len(self.user2id)}")
 
-        if feature_type == 'one-hot':
-            # create own vocabulary from all data
-            token2idx = self.build_vocab(all_texts)
-            feature_size = max_vocab
-        elif 'glove' in feature_type:
-            feature_size = 200
-            glove = GloVe(name='twitter.27B', dim=feature_size, max_vectors=max_vocab)
-            token2idx = glove.stoi
-        else:
-            raise ValueError(f"Trying to create features of type {feature_type} which is not unknown!")
+        token2idx, feature_size, glove = self.get_vocab_token2idx(all_texts)
 
         print("\nCreating features for docs nodes...")
         start = time.time()
@@ -441,27 +397,46 @@ class GraphPreprocessor(GraphIO):
             indices = torch.tensor([token2idx[token] for token in tokens if token in token2idx])
 
             # Use only 10k most common tokens
-            indices = indices[indices < max_vocab]
+            indices = indices[indices < self.max_vocab]
 
             if len(indices) == 0:
                 skipped_doc_keys.append(doc_key)
                 continue
 
-            if feature_type == 'one-hot':
-                doc_feat = torch.zeros(max_vocab)
+            if self.feature_type == 'one-hot':
+                doc_feat = torch.zeros(self.max_vocab)
                 doc_feat[indices] = 1
-            elif 'glove' in feature_type:
+            elif 'glove' in self.feature_type:
                 # noinspection PyUnboundLocalVariable
                 vectors = glove.vectors[indices]
-                doc_feat = vectors.mean(dim=0) if 'average' in feature_type else vectors.sum(dim=0)
+                doc_feat = vectors.mean(dim=0) if 'average' in self.feature_type else vectors.sum(dim=0)
             else:
-                raise ValueError(f"Trying to create features of type {feature_type} which is not unknown!")
+                raise ValueError(f"Trying to create features of type {self.feature_type} which is not unknown!")
 
             features_docs.append(doc_feat)
             feature_ids[doc_key] = feature_idx
             feature_idx += 1
 
         doc_features = torch.stack(features_docs)  # .to(self._device)
+
+        # # have to update doc2id and user2id if this is the case
+        # print(f"\nUpdating doc2id and user2id because some documents do not have features: {skipped_doc_keys}")
+        # new_doc_idx = 0
+        # new_doc2id = {}
+        # if len(skipped_doc_keys) != 0:
+        #     for doc_key, doc_id in self.doc2id.items():
+        #         if doc_key in skipped_doc_keys:
+        #             continue
+        #         new_doc2id[doc_key] = new_doc_idx
+        #         new_doc_idx += 1
+        # # save_json_file(new_doc2id, self.data_complete_path(DOC_2_ID_FILE_NAME % self.top_k))
+        # self.doc2id = new_doc2id
+        #
+        # # subtract length of skipped docs from user ids
+        # self.user2id = {k: v - len(skipped_doc_keys) for k, v in self.user2id.items()}
+        # # TODO: save new doc2id and user2id?
+        # # TODO: update node type
+        # # TODO: update node2id
 
         hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs")
@@ -494,12 +469,12 @@ class GraphPreprocessor(GraphIO):
         hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
 
-        if feature_type == 'one-hot':
+        if self.feature_type == 'one-hot':
             # turning into 1-hot (as user features were aggregated from documents)
             feature_matrix = feature_matrix >= 1
             feature_matrix = feature_matrix.astype(int)
 
-        filename = self.data_complete_path(FEAT_MATRIX_FILE_NAME % self.top_k)
+        filename = self.data_complete_path(FEAT_MATRIX_FILE_NAME % (self.top_k, self.feature_type))
         print(f"\nMatrix construction done! Saving in: {filename}")
         save_npz(filename, feature_matrix.tocsr())
 

@@ -6,7 +6,7 @@ from models.batch_sampler import FewShotSubgraphSampler
 SUPPORTED_DATASETS = ['HealthStory', 'gossipcop', 'twitterHateSpeech']
 
 
-def get_data(data_name, model, batch_size, hop_size, top_k, k_shot, num_nodes, dirs):
+def get_data(data_name, model, batch_size, hop_size, top_k, k_shot, train_docs, feature_type, dirs):
     """
     Creates and returns the correct data object depending on data_name.
     Args:
@@ -25,7 +25,7 @@ def get_data(data_name, model, batch_size, hop_size, top_k, k_shot, num_nodes, d
         raise ValueError("Data with name '%s' is not supported." % data_name)
 
     # graph_data = TorchGeomGraphDataset(data_name)
-    graph_data = DglGraphDataset(data_name, top_k, num_nodes, *dirs)
+    graph_data = DglGraphDataset(data_name, top_k, feature_type, train_docs, *dirs)
 
     train_graphs = DGLSubGraphs(graph_data, 'train_mask', b_size=batch_size, h_size=hop_size, meta=model != 'gat')
     val_graphs = DGLSubGraphs(graph_data, 'val_mask', b_size=batch_size, h_size=hop_size, meta=model != 'gat')
