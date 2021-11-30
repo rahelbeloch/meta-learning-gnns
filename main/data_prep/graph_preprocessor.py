@@ -230,46 +230,44 @@ class GraphPreprocessor(GraphIO):
             dest_dir = self.data_raw_path(self.dataset, f'{user_context}_filtered')
             self.create_dir(dest_dir)
 
+            print_iter = int(20000 / 10)
             user_context_src_dir = self.data_raw_path(self.dataset, user_context)
-            for root, dirs, files in os.walk(user_context_src_dir):
-                for count, file in enumerate(files):
+            for count, file_path in enumerate(user_context_src_dir.glob('*')):
 
-                    user_id = file.split(".")[0]
-                    if user_id not in all_users:
-                        unknown_user_ids += 1
-                        continue
+                user_id = file_path.stem
+                if user_id not in all_users:
+                    unknown_user_ids += 1
+                    continue
 
-                    print_iter = int(len(files) / 10)
-                    if count == 0:
-                        print("Total user files = ", len(files))
-                        print("Writing filtered lists in : ", dest_dir)
-                        print("Printing every: ", print_iter)
+                if count == 0:
+                    print("Writing filtered lists in : ", dest_dir)
+                    print("Printing every: ", print_iter)
 
-                    dest_file_path = (dest_dir / (user_id + '.json'))
+                dest_file_path = (dest_dir / (user_id + '.json'))
 
-                    # skip if we have already a file for this user
-                    if dest_file_path.is_file():
-                        continue
+                # skip if we have already a file for this user
+                if dest_file_path.is_file():
+                    continue
 
-                    src_file = load_json_file(root / file)
+                src_file = load_json_file(file_path)
 
-                    follower_dest_key = 'followers' if user_context == 'user_followers' else 'following'
+                follower_dest_key = 'followers' if user_context == 'user_followers' else 'following'
 
-                    # will be different for FakeHealth and FakeNews
-                    follower_src_key = follower_key if follower_key is not None else follower_dest_key
+                # will be different for FakeHealth and FakeNews
+                follower_src_key = follower_key if follower_key is not None else follower_dest_key
 
-                    # only use follower if it is contained in all_users
-                    followers = [f for f in src_file[follower_src_key] if f in all_users]
-                    followers = list(map(int, followers))
+                # only use follower if it is contained in all_users
+                followers = [f for f in src_file[follower_src_key] if f in all_users]
+                followers = list(map(int, followers))
 
-                    temp = set()
-                    for follower in followers:
-                        temp.update([follower])
+                temp = set()
+                for follower in followers:
+                    temp.update([follower])
 
-                    save_json_file({'user_id': user_id, follower_dest_key: list(temp)}, dest_file_path)
+                save_json_file({'user_id': user_id, follower_dest_key: list(temp)}, dest_file_path)
 
-                    if count % print_iter == 0:
-                        print(f"{count + 1} done..")
+                if count % print_iter == 0:
+                    print(f"{count + 1} done..")
 
     def create_adj_matrix(self):
 
