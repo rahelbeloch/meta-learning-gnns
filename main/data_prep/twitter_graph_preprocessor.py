@@ -218,4 +218,4 @@ if __name__ == '__main__':
 
     args, unparsed = parser.parse_known_args()
 
-    preprocessor = FakeNewsGraphPreprocessor(args.__dict__, max_nr_users)
+    preprocessor = TwitterGraphPreprocessor(args.__dict__, max_nr_users)
