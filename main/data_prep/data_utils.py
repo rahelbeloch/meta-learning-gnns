@@ -6,7 +6,7 @@ from models.batch_sampler import FewShotSubgraphSampler
 SUPPORTED_DATASETS = ['HealthStory', 'gossipcop', 'twitterHateSpeech']
 
 
-def get_data(data_name, model, batch_size, hop_size, top_k, k_shot, train_docs, feature_type, dirs):
+def get_data(data_name, model, batch_size, hop_size, top_k, k_shot, train_docs, feature_type, vocab_size, dirs):
     """
     Creates and returns the correct data object depending on data_name.
     Args:
@@ -16,6 +16,9 @@ def get_data(data_name, model, batch_size, hop_size, top_k, k_shot, train_docs, 
         hop_size (int): Number of hops used to create sub graphs.
         top_k (int): Number of top users to be used in graph.
         k_shot (int): Number of examples used per task/batch.
+        train_docs (int): Number of total documents used for test/train/val.
+        feature_type (int): Type of features that should be used.
+        vocab_size (int): Size of the vocabulary.
         dirs (str): Path to the data (full & complete) to be used to create the graph (feature file, edge file etc.)
     Raises:
         Exception: if the data_name is not in SUPPORTED_DATASETS.
@@ -25,7 +28,7 @@ def get_data(data_name, model, batch_size, hop_size, top_k, k_shot, train_docs, 
         raise ValueError("Data with name '%s' is not supported." % data_name)
 
     # graph_data = TorchGeomGraphDataset(data_name)
-    graph_data = DglGraphDataset(data_name, top_k, feature_type, train_docs, *dirs)
+    graph_data = DglGraphDataset(data_name, top_k, feature_type, vocab_size, train_docs, *dirs)
 
     train_graphs = DGLSubGraphs(graph_data, 'train_mask', b_size=batch_size, h_size=hop_size, meta=model != 'gat')
     val_graphs = DGLSubGraphs(graph_data, 'val_mask', b_size=batch_size, h_size=hop_size, meta=model != 'gat')

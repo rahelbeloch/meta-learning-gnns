@@ -18,7 +18,8 @@ LOG_PATH = "../logs/"
 
 
 def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr, l_rate_enc, l_rate_cl, cf_hidden_dim,
-          proto_dim, data_name, dirs, checkpoint, h_search, train_docs, feature_type, n_updates, evaluation=False):
+          proto_dim, data_name, dirs, checkpoint, h_search, train_docs, feature_type, vocab_size, n_updates,
+          evaluation=False):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     if model_name not in SUPPORTED_MODELS:
@@ -37,7 +38,8 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
     # the data preprocessing
     print('\nLoading data ..........')
     train_loader, val_loader, test_loader, num_features = get_data(data_name, model_name, b_size, h_size,
-                                                                   top_k, k_shot, train_docs, feature_type, dirs)
+                                                                   top_k, k_shot, train_docs, feature_type, vocab_size,
+                                                                   dirs)
 
     optimizer_hparams = {"lr_enc": l_rate_enc,
                          "lr_cl": l_rate_cl,
@@ -211,6 +213,7 @@ if __name__ == "__main__":
                         help="Inner gradient updates during meta learning.")
     parser.add_argument('--feature-type', dest='feature_type', type=str, default='one-hot',
                         help="Type of features used.")
+    parser.add_argument('--vocab-size', dest='vocab_size', type=int, default=10000, help="Size of the vocabulary.")
     parser.add_argument('--data-dir', dest='data_dir', default='data',
                         help='Select the dataset you want to use.')
     parser.add_argument('--tsv-dir', dest='tsv_dir', default=tsv_dir,
@@ -251,5 +254,6 @@ if __name__ == "__main__":
         h_search=params["h_search"],
         train_docs=params["num_train_docs"],
         feature_type=params["feature_type"],
+        vocab_size=params["vocab_size"],
         n_updates=params["n_updates"]
     )
