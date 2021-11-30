@@ -15,8 +15,8 @@ class TSVPreprocessor(DataPreprocessor):
         - TSV files for gossipcop.
     """
 
-    def __init__(self, dataset, feature_type, max_vocab, data_dir, tsv_dir, complete_dir):
-        super().__init__(dataset,feature_type, max_vocab,  data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir)
+    def __init__(self, dataset, f_type, vocab_size, data_dir, tsv_dir, comp_dir):
+        super().__init__(dataset, f_type, vocab_size, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=comp_dir)
 
     def labels(self):
         return LABELS
@@ -75,4 +75,4 @@ if __name__ == '__main__':
     preprocessor = TSVPreprocessor(data, feature_type, max_vocab, 'data', tsv_dir, complete_dir)
     preprocessor.aggregate_user_contexts()
     preprocessor.corpus_to_tsv()
-    preprocessor.create_data_splits(num_train_nodes=num_train_nodes, duplicate_stats=False)
+    preprocessor.create_data_splits(num_train_nodes=num_train_nodes, min_length=25, duplicate_stats=False)

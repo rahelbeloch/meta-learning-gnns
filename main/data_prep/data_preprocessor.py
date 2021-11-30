@@ -101,7 +101,7 @@ class DataPreprocessor(GraphIO):
 
         print("\nDONE..!!")
 
-    def preprocess(self, num_train_nodes, min_len=25):
+    def preprocess(self, num_train_nodes, min_len):
         """
         Applies some preprocessing to the data, e.g. replacing special characters, filters non-required articles out.
         :param min_len: Minimum required length for articles.
@@ -157,16 +157,16 @@ class DataPreprocessor(GraphIO):
             return x_data, y_data, doc_names
 
         # select only as many as we want
-        per_class = int(num_train_nodes / 2)
+        per_class = int(num_train_nodes / len(self.labels()))
 
         sampled_indices = []
-        for c in [0, 1]:
+        for c in self.labels().keys():
             sampled = random.sample(np.where(y_data == c)[0].tolist(), per_class)
             sampled_indices += sampled
 
         return x_data[sampled_indices], y_data[sampled_indices], doc_names[sampled_indices]
 
-    def create_data_splits(self, num_train_nodes=None, test_size=0.2, val_size=0.1, splits=1, duplicate_stats=False):
+    def create_data_splits(self, num_train_nodes=None, min_length=None, test_size=0.2, val_size=0.1, splits=1, duplicate_stats=False):
         """
         Creates train, val and test splits via random splitting of the dataset in a stratified fashion to ensure
         similar data distribution. Currently only supports splitting data in 1 split for each set.
@@ -180,7 +180,7 @@ class DataPreprocessor(GraphIO):
 
         self.print_step("Creating Data Splits")
 
-        data = self.preprocess(num_train_nodes)
+        data = self.preprocess(num_train_nodes, min_length)
 
         if duplicate_stats:
             # counting duplicates in test set

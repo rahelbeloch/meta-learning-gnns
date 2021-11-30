@@ -4,7 +4,6 @@ import csv
 import time
 from collections import OrderedDict
 
-import nltk
 import torch
 from scipy.sparse import lil_matrix, save_npz
 
@@ -470,10 +469,6 @@ class GraphPreprocessor(GraphIO):
         save_npz(filename, feature_matrix.tocsr())
 
     @abc.abstractmethod
-    def create_labels(self):
-        raise NotImplementedError
-
-    @abc.abstractmethod
     def docs_to_adj(self, adj_matrix, edge_type):
         """
         Creates connections for docs an users in the adj_matrix, adds the edge type for every node.
@@ -490,6 +485,52 @@ class GraphPreprocessor(GraphIO):
     @abc.abstractmethod
     def get_feature_id_mapping(self, feature_ids):
         raise NotImplementedError
+
+    def create_labels(self):
+
+        self.print_step('Creating labels')
+
+        self.maybe_load_id_mappings()
+
+        print("Loading doc2labels dictionary...")
+        doc2labels = load_json_file(self.data_complete_path(DOC_2_LABELS_FILE_NAME))
+
+        train_docs = self.train_docs + self.val_docs
+        train_labels = np.zeros(len(train_docs), dtype=int)
+
+        # must be length of all nodes, but we only fill labels for train and val
+        all_labels = np.zeros(self.n_nodes, dtype=int)
+
+        for doc_key in train_docs:
+            if doc_key not in self.doc2id:
+                continue
+            if doc_key not in doc2labels:
+                raise ValueError(f'Can not retrieve label for document with key: {doc_key}')
+            label = doc2labels[doc_key]
+            doc_id = self.doc2id[doc_key]
+            train_labels[doc_id] = label
+            all_labels[doc_id] = label
+
+        for doc_key in self.test_docs:
+            if doc_key not in self.doc2id:
+                continue
+            if doc_key not in doc2labels:
+                raise ValueError(f'Can not retrieve label for document with key: {doc_key}')
+            all_labels[self.doc2id[doc_key]] = doc2labels[doc_key]
+
+        assert len(train_labels) == len(self.doc2id.keys()) - len(self.test_docs)
+        print(f"\nLen of (train) labels = {len(train_labels)}")
+
+        labels_file = self.data_complete_path(TRAIN_LABELS_FILE_NAME)
+        print(f"\nLabels list construction done! Saving in : {labels_file}")
+        save_json_file({'labels_list': list(train_labels)}, labels_file, converter=self.np_converter)
+
+        print("\nSum of all labels = ", int(sum(all_labels)))
+        print("Len of all labels = ", len(all_labels))
+
+        all_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME)
+        print(f"\nAll labels list construction done! Saving in : {all_labels_file}")
+        save_json_file({'all_labels': list(all_labels)}, all_labels_file, converter=self.np_converter)
 
     def create_split_masks(self):
         """

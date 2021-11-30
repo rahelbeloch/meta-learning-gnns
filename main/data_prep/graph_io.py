@@ -26,8 +26,8 @@ class GraphIO:
                              f" with raw data '{raw_path / dataset}' does not exist!")
 
         self.data_raw_dir = raw_path
-        self.data_tsv_dir = self.create_dir(data_path / tsv_dir)
-        self.data_complete_dir = self.create_dir(data_path / complete_dir)
+        self.data_tsv_dir = self.create_dir(data_path / tsv_dir / self.dataset).parent
+        self.data_complete_dir = self.create_dir(data_path / complete_dir / self.dataset).parent
 
         self.non_interaction_docs, self.max_vocab = None, max_vocab
 

@@ -207,7 +207,7 @@ if __name__ == "__main__":
 
     # CONFIGURATION
 
-    parser.add_argument('--dataset', dest='dataset', default='gossipcop', choices=SUPPORTED_DATASETS,
+    parser.add_argument('--dataset', dest='dataset', default='twitterHateSpeech', choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use.')
     parser.add_argument('--num-train-docs', dest='num_train_docs', type=int, default=num_nodes,
                         help="Inner gradient updates during meta learning.")

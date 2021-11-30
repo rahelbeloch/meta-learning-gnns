@@ -2,11 +2,10 @@ import argparse
 import copy
 from collections import defaultdict
 
-import numpy as np
-
 from data_prep.config import *
-from data_prep.data_preprocess_utils import save_json_file, load_json_file
-from data_prep.graph_preprocessor import GraphPreprocessor, FEATURE_TYPES
+from data_prep.data_preprocess_utils import load_json_file
+from data_prep.graph_io import FEATURE_TYPES
+from data_prep.graph_preprocessor import GraphPreprocessor
 from data_prep.twitter_tsv_processor import LABELS
 
 
@@ -23,7 +22,7 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
         self.create_doc_id_dicts()
 
         self.create_adj_matrix()
-        self.create_feature_matrix(feature_type=config['feature_type'])
+        self.create_feature_matrix()
         self.create_labels()
         self.create_split_masks()
 
@@ -178,52 +177,15 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         return feature_id_mapping
 
-    def create_labels(self):
-
-        self.print_step('Creating labels')
-
-        self.maybe_load_id_mappings()
-
-        print("Loading doc2labels dictionary...")
-        doc2labels = load_json_file(self.data_complete_path(DOC_2_LABELS_FILE_NAME))
-
-        train_docs = self.train_docs + self.val_docs
-        labels_list = np.zeros(len(train_docs), dtype=int)
-
-        for doc_key, label in doc2labels.items():
-            if doc_key not in train_docs:
-                continue
-            labels_list[self.doc2id[doc_key]] = label
-
-        assert len(labels_list) == len(self.doc2id.keys()) - len(self.test_docs)
-        print(f"\nLen of (train) labels = {len(labels_list)}")
-
-        labels_file = self.data_complete_path(TRAIN_LABELS_FILE_NAME)
-        print(f"\nLabels list construction done! Saving in : {labels_file}")
-        save_json_file({'labels_list': list(labels_list)}, labels_file, converter=self.np_converter)
-
-        # Create the all_labels file
-        all_labels = np.zeros(self.n_docs, dtype=int)
-        all_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME)
-        for doc_key in doc2labels.keys():
-            if doc_key not in self.doc2id:
-                continue
-            all_labels[self.doc2id[doc_key]] = doc2labels[doc_key]
-
-        print("Len of all labels = ", len(all_labels))
-
-        print(f"\nAll labels list construction done! Saving in : {all_labels_file}")
-        save_json_file({'all_labels': list(all_labels)}, all_labels_file, converter=self.np_converter)
-
 
 if __name__ == '__main__':
-    # complete_dir = COMPLETE_small_DIR
-    # tsv_dir = TSV_small_DIR
-    # max_nr_users = 500
+    complete_dir = COMPLETE_small_DIR
+    tsv_dir = TSV_small_DIR
+    max_nr_users = 500
 
-    complete_dir = COMPLETE_DIR
-    tsv_dir = TSV_DIR
-    max_nr_users = None
+    # complete_dir = COMPLETE_DIR
+    # tsv_dir = TSV_DIR
+    # max_nr_users = None
 
     parser = argparse.ArgumentParser()
 
@@ -250,6 +212,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--feature_type', type=str, default='one-hot', help='The type of features to use.',
                         choices=FEATURE_TYPES)
+
+    parser.add_argument('--max_vocab', type=int, default=10000, help='Size of the vocabulary used (if one-hot).')
 
     args, unparsed = parser.parse_known_args()
 
