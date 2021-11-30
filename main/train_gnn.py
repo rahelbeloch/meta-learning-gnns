@@ -5,6 +5,7 @@ import time
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as cb
 import torch
+from pytorch_lightning.callbacks import EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from data_prep.config import *
@@ -25,10 +26,12 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
     if model_name not in SUPPORTED_MODELS:
         raise ValueError("Model type '%s' is not supported." % model_name)
 
+    nr_train_docs = str(train_docs) if (train_docs is not None or train_docs != -1) else 'all'
+
     print(f'\nConfiguration:\n mode: {"TEST" if eval else "TRAIN"}\n model_name: {model_name}\n data_name: {data_name}'
-          f'\n k_shot: {k_shot} \n seed: {seed}\n batch_size: {b_size}\n checkpoint: {checkpoint}\n '
-          f'max epochs: {epochs}\n patience:{patience}\n l_rate_enc: {l_rate_enc}\n '
-          f'l_rate_cl: {l_rate_cl}\n cf_hidden_dim: {cf_hidden_dim}\n h_search: {h_search}\n')
+          f'\n nr_train_docs: {nr_train_docs}\n k_shot: {k_shot}\n seed: {seed}\n batch_size: {b_size}\n'
+          f' feature_type: {feature_type}\n checkpoint: {checkpoint}\n max epochs: {epochs}\n patience:{patience}\n'
+          f' l_rate_enc: {l_rate_enc}\n l_rate_cl: {l_rate_cl}\n cf_hidden_dim: {cf_hidden_dim}\n')
 
     # reproducible results
     pl.seed_everything(seed)
@@ -38,7 +41,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
     # the data preprocessing
     print('\nLoading data ..........')
     train_loader, val_loader, test_loader, num_features, labels = get_data(data_name, model_name, b_size, h_size,
-                                                                           top_k, k_shot, train_docs, feature_type,
+                                                                           top_k, k_shot, nr_train_docs, feature_type,
                                                                            vocab_size,
                                                                            dirs)
 
@@ -59,7 +62,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
 
     print('\nInitializing trainer ..........\n')
     trainer = initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, data_name, k_shot, h_size,
-                                 checkpoint)
+                                 feature_type, checkpoint)
 
     if model_name == 'gat':
         model = DocumentClassifier(model_params, optimizer_hparams, b_size, checkpoint, h_search)
@@ -88,7 +91,8 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
     evaluate(trainer, model, test_loader, val_loader)
 
 
-def initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, dataset, k_shot, h_size, checkpoint):
+def initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, dataset, k_shot, h_size, f_type,
+                       checkpoint):
     """
     Initializes a Lightning Trainer for respective parameters as given in the function header. Creates a proper
     folder name for the respective model files, initializes logging and early stopping.
@@ -96,7 +100,7 @@ def initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed
 
     model_checkpoint = cb.ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_accuracy")
 
-    base = f'dname={dataset}_seed={seed}_kshot={k_shot}_hops={h_size}_'
+    base = f'dname={dataset}_seed={seed}_kshot={k_shot}_hops={h_size}_ftype={f_type}_'
     if model_name == 'gat':
         version_str = f'{base}_lr-enc={l_rate_enc}_lr-cl={l_rate_cl}'
     elif model_name == 'prototypical':
@@ -177,13 +181,13 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
 
 
 if __name__ == "__main__":
-    tsv_dir = TSV_small_DIR
-    complete_dir = COMPLETE_small_DIR
-    num_nodes = int(COMPLETE_small_DIR.split('-')[1])
+    # tsv_dir = TSV_small_DIR
+    # complete_dir = COMPLETE_small_DIR
+    # num_nodes = int(COMPLETE_small_DIR.split('-')[1])
 
-    # tsv_dir = TSV_DIR
-    # complete_dir = COMPLETE_DIR
-    # num_nodes = None
+    tsv_dir = TSV_DIR
+    complete_dir = COMPLETE_DIR
+    num_nodes = -1
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 

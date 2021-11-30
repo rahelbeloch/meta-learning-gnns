@@ -142,19 +142,18 @@ class DglGraphDataset(GraphIO, DGLDataset):
     Parent class for graph datasets. It loads the graph from respective files.
     """
 
-    def __init__(self, corpus, top_k, feature_type, max_vocab, train_docs, data_dir, tsv_dir, complete_dir):
+    def __init__(self, corpus, top_k, feature_type, max_vocab, nr_train_docs, data_dir, tsv_dir, complete_dir):
         super().__init__(corpus, feature_type, max_vocab, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir)
 
         self.top_k = top_k
         self.graph = None
 
-        self.initialize_graph(feature_type, train_docs)
+        self.initialize_graph(feature_type, nr_train_docs)
 
-    def initialize_graph(self, feature_type, train_docs):
+    def initialize_graph(self, feature_type, nr_train_docs):
         print('Initializing DGL graph ..........')
 
         # check if a DGL graph exists already for this dataset
-        nr_train_docs = str(train_docs) if train_docs is not None else 'all'
         graph_file = self.data_complete_path(DGL_GRAPH_FILE % (self.dataset, nr_train_docs, feature_type))
         if graph_file.exists():
             print(f'Graph file exists, loading graph from it: {graph_file}')
