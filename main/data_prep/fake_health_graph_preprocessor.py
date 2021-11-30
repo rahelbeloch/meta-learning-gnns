@@ -24,10 +24,6 @@ class FakeHealthGraphPreprocessor(GraphPreprocessor):
         - Split masks
     """
 
-    @staticmethod
-    def get_doc_key(name, name_type):
-        return name.split('.')[0]
-
     def __init__(self, config):
         super().__init__(config)
 

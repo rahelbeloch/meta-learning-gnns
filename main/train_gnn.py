@@ -18,7 +18,7 @@ LOG_PATH = "../logs/"
 
 
 def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr, l_rate_enc, l_rate_cl, cf_hidden_dim,
-          proto_dim, data_name, dirs, checkpoint, h_search, n_updates, evaluation=False):
+          proto_dim, data_name, dirs, checkpoint, h_search, num_nodes, n_updates, evaluation=False):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     if model_name not in SUPPORTED_MODELS:
@@ -37,7 +37,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
     # the data preprocessing
     print('\nLoading data ..........')
     train_loader, val_loader, test_loader, num_features = get_data(data_name, model_name, b_size, h_size,
-                                                                   top_k, k_shot, dirs)
+                                                                   top_k, k_shot, num_nodes, dirs)
 
     optimizer_hparams = {"lr_enc": l_rate_enc,
                          "lr_cl": l_rate_cl,
@@ -174,11 +174,13 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
 
 
 if __name__ == "__main__":
-    # tsv_dir = TSV_small_DIR
-    # complete_dir = COMPLETE_small_DIR
+    tsv_dir = TSV_small_DIR
+    complete_dir = COMPLETE_small_DIR
+    num_nodes = COMPLETE_small_DIR.split('-')[1]
 
-    tsv_dir = TSV_DIR
-    complete_dir = COMPLETE_DIR
+    # tsv_dir = TSV_DIR
+    # complete_dir = COMPLETE_DIR
+    # num_nodes = None
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -203,7 +205,7 @@ if __name__ == "__main__":
 
     # CONFIGURATION
 
-    parser.add_argument('--dataset', dest='dataset', default='gossipcop', choices=SUPPORTED_DATASETS,
+    parser.add_argument('--dataset', dest='dataset', default='twitterHateSpeech', choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use.')
     parser.add_argument('--data-dir', dest='data_dir', default='data',
                         help='Select the dataset you want to use.')
@@ -243,5 +245,6 @@ if __name__ == "__main__":
         dirs=(params["data_dir"], params["tsv_dir"], params["complete_dir"]),
         checkpoint=params["checkpoint"],
         h_search=params["h_search"],
+        num_nodes=num_nodes,
         n_updates=params["n_updates"]
     )

@@ -31,7 +31,8 @@ class GraphIO:
     def print_step(self, step_title):
         print(f'\n{"-" * 100}\n \t\t\t {step_title} for {self.dataset} dataset.\n{"-" * 100}')
 
-    def load_if_exists(self, file_name):
+    @staticmethod
+    def load_if_exists(file_name):
         if file_name.exists():
             return load_json_file(file_name)
         else:

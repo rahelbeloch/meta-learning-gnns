@@ -1,9 +1,9 @@
-import json
+import csv
 
 from data_prep.config import *
 from data_prep.data_preprocessor import DataPreprocessor
 
-LABELS = {0: 'fake', 1: 'real'}
+LABELS = {0: 'racism', 1: 'sexism', 2: 'none'}
 
 
 class TSVPreprocessor(DataPreprocessor):
@@ -12,11 +12,13 @@ class TSVPreprocessor(DataPreprocessor):
     GraphPreprocessor can do its work.
 
     This includes creating and storing the following components:
-        - TSV files for gossipcop.
+        - TSV files for twitter hate speech.
     """
 
-    def __init__(self, dataset, data_dir, tsv_dir, complete_dir):
+    def __init__(self, dataset, data_dir, tsv_dir, complete_dir, content_file):
         super().__init__(dataset, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir)
+
+        self.content_file = content_file
 
     def labels(self):
         return LABELS
@@ -29,32 +31,34 @@ class TSVPreprocessor(DataPreprocessor):
 
         self.print_step("Preparing Data Corpus")
 
-        self.maybe_load_non_interaction_docs()
+        # TODO check if this doc has 0 interactions
+        # self.maybe_load_non_interaction_docs()
 
         print("\nCreating doc2labels and collecting doc contents...")
         doc2labels = {}
+        no_content = []
         contents = []
-        no_content = 0
 
-        for label in LABELS.keys():
-            # load all files from this label folder
-            for folder_name in self.data_raw_path(self.dataset, LABELS[label]).rglob('*'):
-                file_contents = folder_name / 'news content.json'
-                if not file_contents.exists():
-                    no_content += 1
+        data_file = self.data_raw_path(self.dataset, self.content_file)
+        with open(data_file, encoding='utf-8') as content_data:
+            reader = csv.DictReader(content_data)
+            # skip the header
+            next(reader, None)
+            for row in reader:
+
+                tweet_id = row['id']
+                tweet_content = row['tweet']
+                annotation = row['annotation']
+
+                if len(tweet_content) == 0:
+                    no_content.append(tweet_id)
                     continue
 
-                doc_name = folder_name.stem
-                if doc_name not in self.non_interaction_docs:
-                    continue
+                # label = LABELS[int(annotation)]
+                doc2labels[tweet_id] = int(annotation)
+                contents.append([tweet_id, tweet_content, int(annotation)])
 
-                doc2labels[doc_name] = label
-
-                with open(file_contents, 'r') as f:
-                    doc = json.load(f)
-                    contents.append([doc_name, doc['text'], label])
-
-        print(f"Total docs without content : {no_content}")
+        print(f"Total docs without content : {str(len(no_content))}")
 
         self.store_doc2labels(doc2labels)
         self.store_doc_contents(contents)
@@ -69,8 +73,11 @@ if __name__ == '__main__':
     complete_dir = COMPLETE_DIR
     max_doc_nodes = None
 
-    data = 'gossipcop'
-    preprocessor = TSVPreprocessor(data, 'data', tsv_dir, complete_dir)
+    data = 'twitterHateSpeech'
+    preprocessor = TSVPreprocessor(data, 'data', tsv_dir, complete_dir, 'twitter_data_waseem_hovy.csv')
+
+    # already done in author.txt
     # preprocessor.aggregate_user_contexts()
+
     preprocessor.corpus_to_tsv()
     preprocessor.create_data_splits(max_data_points=max_doc_nodes, duplicate_stats=False)

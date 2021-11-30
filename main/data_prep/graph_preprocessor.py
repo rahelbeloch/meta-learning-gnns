@@ -2,8 +2,7 @@ import abc
 import copy
 import csv
 import time
-from collections import defaultdict, OrderedDict
-from json import JSONDecodeError
+from collections import OrderedDict
 
 import nltk
 import torch
@@ -35,8 +34,8 @@ class GraphPreprocessor(GraphIO):
 
         self.vocab = None
 
-    def doc_used(self, doc_id):
-        return doc_id in self.train_docs or doc_id in self.test_docs or doc_id in self.val_docs
+    def doc_used(self, doc_key):
+        return doc_key in self.train_docs or doc_key in self.test_docs or doc_key in self.val_docs
 
     def load_doc_splits(self):
         doc_splits = load_json_file(self.data_tsv_path(DOC_SPLITS_FILE_NAME))
@@ -55,57 +54,23 @@ class GraphPreprocessor(GraphIO):
             self.doc2id = self.load_if_exists(self.data_complete_path(DOC_2_ID_FILE_NAME % self.top_k))
         self.n_total = len(self.user2id) + len(self.doc2id)
 
-    @staticmethod
-    @abc.abstractmethod
-    def get_doc_key(name, name_type):
-        raise NotImplementedError
+    def is_restricted(self, statistics):
+        for label, percentage in statistics.items():
+            if percentage >= self.user_doc_threshold:
+                return True
+        return False
 
-    def filter_valid_users(self):
+    def filter_users(self, user_stats, used_docs):
         """
-        From the user engagements folder, loads all document files (containing user IDs who interacted with
-        the respective document), counts how many document each user interacted with and identifies users
-        that shared at least X% of the articles of any class. Also picks the top K active users.
+        Counts how many document each user interacted with and identifies users that shared at least X% of
+        the articles of any class. Also picks the top K active users.
         """
-
-        self.print_step("Applying restrictions on users")
-
-        print(f"Filtering users who in any class shared articles more than : {self.user_doc_threshold * 100}%")
-
-        doc2labels = load_json_file(self.data_complete_path(DOC_2_LABELS_FILE_NAME))
-        user_stats = defaultdict(lambda: {'fake': 0, 'real': 0})
-
-        restriction_docs = 0
-        for count, file_path in enumerate(self.data_tsv_path('engagements').glob('*')):
-
-            # only restrict users interacting with this document ID if we actually use this doc in our splits
-            doc_key = file_path.stem
-            if not self.doc_used(doc_key):
-                continue
-
-            restriction_docs += 1
-
-            try:
-                src_file = load_json_file(file_path)
-            except UnicodeDecodeError:
-                # TODO: fix this error / keep track of files for which this happens
-                print(f"Exception for doc {doc_key}")
-                continue
-            except JSONDecodeError:
-                # TODO: fix this error / keep track of files for which this happens
-                print(f"Exception for doc {doc_key}")
-                continue
-
-            users = src_file['users']
-
-            for u in users:
-                if doc_key in doc2labels:
-                    user_stats[u][self.labels()[doc2labels[doc_key]]] += 1
 
         # based on user stats, exclude some
         n_docs = len(self.train_docs) + len(self.test_docs) + len(self.val_docs)
 
-        assert n_docs == restriction_docs, "Total nr of documents used does not equal the number of docs for " \
-                                           "which we restrict users!"
+        assert n_docs == used_docs, "Total nr of documents used does not equal the number of docs for which " \
+                                    "we restrict users!"
 
         user_stats_avg = copy.deepcopy(user_stats)
         for user, stat in user_stats_avg.items():
@@ -115,8 +80,7 @@ class GraphPreprocessor(GraphIO):
         # filter for 30% in either one of the classes
         restricted_users = []
         for user_id, stat in user_stats_avg.items():
-            restricted = stat['fake'] >= self.user_doc_threshold or stat['real'] >= self.user_doc_threshold
-            if restricted:
+            if self.is_restricted(stat):
                 # print(f'User with ID {user_id} shared {stat["fake"]} of fake and {stat["real"]} of real.')
                 restricted_users.append(user_id)
 
@@ -146,51 +110,7 @@ class GraphPreprocessor(GraphIO):
 
         self.valid_users = valid_users
 
-    def create_user_splits(self, max_users):
-        """
-        Walks through all users that interacted with documents and, divides them on train/val/test splits.
-
-        """
-
-        self.print_step("Creating user splits")
-
-        self.maybe_load_valid_users()
-
-        print("\nCollecting users for splits file..")
-
-        train_users, val_users, test_users = set(), set(), set()
-
-        # walk through user-doc engagement files created before
-        files = list(self.data_tsv_path('engagements').glob('*'))
-        print_iter = int(len(files) / 20)
-
-        for count, file_path in enumerate(files):
-            if max_users is not None and (len(train_users) + len(test_users) + len(val_users)) >= max_users:
-                break
-
-            try:
-                src_file = load_json_file(file_path)
-            except UnicodeDecodeError:
-                # TODO: fix this error / keep track of files for which this happens
-                print("Exception")
-                continue
-
-            if count % print_iter == 0:
-                print("{} / {} done..".format(count + 1, len(files)))
-
-            users = src_file['users']
-
-            # TODO: fix the runtime here, this is super slow
-            users_filtered = [u for u in users if self.valid_user(u)]
-
-            doc_key = file_path.stem
-            if doc_key in self.train_docs:
-                train_users.update(users_filtered)
-            if doc_key in self.val_docs:
-                val_users.update(users_filtered)
-            if doc_key in self.test_docs:
-                test_users.update(users_filtered)
-
+    def store_user_splits(self, train_users, test_users, val_users):
         if self.only_valid_users:
             all_users = set.union(*[train_users, val_users, test_users])
             print(f'All users: {len(all_users)}')
@@ -317,8 +237,7 @@ class GraphPreprocessor(GraphIO):
             print(f"\n    - from {user_context}  folder...")
 
             dest_dir = self.data_raw_path(self.dataset, f'{user_context}_filtered')
-            if not os.path.exists(dest_dir):
-                os.makedirs(dest_dir)
+            self.create_dir(dest_dir)
 
             user_context_src_dir = self.data_raw_path(self.dataset, user_context)
             for root, dirs, files in os.walk(user_context_src_dir):
@@ -335,13 +254,13 @@ class GraphPreprocessor(GraphIO):
                         print("Writing filtered lists in : ", dest_dir)
                         print("Printing every: ", print_iter)
 
-                    dest_file_path = os.path.join(dest_dir, str(user_id) + '.json')
+                    dest_file_path = (dest_dir / str(user_id) + '.json')
 
                     # skip if we have already a file for this user
-                    if os.path.isfile(dest_file_path):
+                    if dest_file_path.is_file():
                         continue
 
-                    src_file = load_json_file(os.path.join(root, file))
+                    src_file = load_json_file(root / file)
 
                     follower_dest_key = 'followers' if user_context == 'user_followers' else 'following'
 
@@ -389,39 +308,12 @@ class GraphPreprocessor(GraphIO):
         start = time.time()
 
         print("\nPreparing entries for doc-user pairs...")
-        edge_list = []
-        not_found = 0
-        no_connections_added_doc_ids = set()
-        for count, file_path in enumerate(self.data_tsv_path('engagements').glob('*')):
-            doc_key = file_path.stem
-            if doc_key == '':
-                continue
-            src_file = load_json_file(file_path)
-            users = map(str, src_file['users'])
-            for user in users:
-                if doc_key in self.test_docs:
-                    # no connections between users and test documents!
-                    no_connections_added_doc_ids.add(self.doc2id[doc_key])
-                    continue
 
-                if doc_key in self.doc2id and user in self.user2id:
-                    doc_id = self.doc2id[doc_key]
-                    user_id = self.user2id[user]
-
-                    # for DGL graph creation; edges are reversed later
-                    edge_list.append((doc_id, user_id))
-                    # edge_list.append((user_id, doc_id))
-
-                    adj_matrix[doc_id, user_id] = 1
-                    adj_matrix[user_id, doc_id] = 1
-                    edge_type[doc_id, user_id] = 2
-                    edge_type[user_id, doc_id] = 2
-                else:
-                    not_found += 1
+        adj_matrix, edge_type, edge_list, not_used = self.docs_to_adj(adj_matrix, edge_type)
 
         hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
-        print(f"Not Found users = {not_found}")
+        print(f"Not used users and docs = {not_used}")
         print(f"Non-zero entries = {adj_matrix.getnnz()}")
         print(f"Non-zero entries edge_type = {edge_type.getnnz()}")
 
@@ -430,33 +322,7 @@ class GraphPreprocessor(GraphIO):
         print("\nPreparing entries for user-user pairs...")
         print(f"Printing every {int(n_users / 10)}  users done.")
 
-        for user_context in USER_CONTEXTS_FILTERED:
-            print(f"\n    - from {user_context} folder...")
-            for count, file_path in enumerate(self.data_raw_path(user_context).glob('*')):
-                src_file = load_json_file(file_path)
-                user_id = str(int(src_file['user_id']))
-                if user_id not in self.user2id:
-                    continue
-                followers = src_file['followers'] if user_context == 'user_followers_filtered' else \
-                    src_file['following']
-                for follower in list(map(str, followers)):
-                    if follower not in self.user2id:
-                        continue
-
-                    user_id1 = self.user2id[user_id]
-                    user_id2 = self.user2id[follower]
-
-                    # for DGL graph creation; edges are reversed later
-                    edge_list.append((user_id2, user_id1))
-                    # edge_list.append((user_id1, user_id2))
-
-                    adj_matrix[user_id1, user_id2] = 1
-                    adj_matrix[user_id2, user_id1] = 1
-                    edge_type[user_id1, user_id2] = 3
-                    edge_type[user_id2, user_id1] = 3
-
-                else:
-                    not_found += 1
+        adj_matrix, edge_type, edge_list, not_used = self.users_to_adj(adj_matrix, edge_type, edge_list)
 
         edge_list_file = self.data_complete_path(EDGE_LIST_FILE_NAME % self.top_k)
         print("\nSaving edge list in :", edge_list_file)
@@ -570,7 +436,7 @@ class GraphPreprocessor(GraphIO):
         skipped_doc_keys = []
         features_docs = []
         feature_ids = {}
-        count = 0
+        feature_idx = 0
         for doc_key, tokens in all_texts.items():
             indices = torch.tensor([token2idx[token] for token in tokens if token in token2idx])
 
@@ -592,8 +458,8 @@ class GraphPreprocessor(GraphIO):
                 raise ValueError(f"Trying to create features of type {feature_type} which is not unknown!")
 
             features_docs.append(doc_feat)
-            feature_ids[doc_key] = count
-            count += 1
+            feature_ids[doc_key] = feature_idx
+            feature_idx += 1
 
         doc_features = torch.stack(features_docs)  # .to(self._device)
 
@@ -603,22 +469,9 @@ class GraphPreprocessor(GraphIO):
         print("\nCreating features for users nodes...")
         start = time.time()
 
-        feature_id_mapping = defaultdict(lambda: [])
-        for count, file_path in enumerate(self.data_tsv_path('engagements').rglob('*.json')):
-            doc_users = load_json_file(file_path)
-            doc_key = file_path.stem
-
-            # Each user of this doc has its features as the features of the doc
-            if doc_key not in self.doc2id or doc_key not in feature_ids:
-                continue
-
-            for user in doc_users['users']:
-                user_key = str(user)
-                if user_key not in self.user2id:
-                    continue
-                feature_id_mapping[self.user2id[user_key]].append(feature_ids[str(doc_key)])
-
+        feature_id_mapping = self.get_feature_id_mapping(feature_ids)
         feature_id_mapping = dict(sorted(feature_id_mapping.items(), key=lambda it: it[0]))
+
         features_users = []
         for user_id, doc_ids in feature_id_mapping.items():
             features_users.append(doc_features[doc_ids].sum(axis=0))
@@ -652,6 +505,24 @@ class GraphPreprocessor(GraphIO):
 
     @abc.abstractmethod
     def create_labels(self):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def docs_to_adj(self, adj_matrix, edge_type):
+        """
+        Creates connections for docs an users in the adj_matrix, adds the edge type for every node.
+        :param adj_matrix: Adjacency matrix
+        :param edge_type: Edge type matrix
+        :return: Copy of adj_matrix and edge_type with filled values, a list which describes the edges.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def users_to_adj(self, adj_matrix, edge_type, edge_list):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_feature_id_mapping(self, feature_ids):
         raise NotImplementedError
 
     def create_split_masks(self):

@@ -38,4 +38,4 @@ DOC_2_LABELS_FILE_NAME = 'doc2labels.json'
 TRAIN_LABELS_FILE_NAME = 'labels_train_val.json'
 ALL_LABELS_FILE_NAME = 'labels_train_val_test.json'
 
-DGL_GRAPH_FILE = '%s.dgl'
+DGL_GRAPH_FILE = '%s-%s.dgl'

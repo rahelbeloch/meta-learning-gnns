@@ -13,6 +13,9 @@ from data_prep.graph_io import GraphIO
 
 class DataPreprocessor(GraphIO):
 
+    def __init__(self, dataset, data_dir, tsv_dir, complete_dir):
+        super().__init__(dataset, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir)
+
     def maybe_load_non_interaction_docs(self):
         if self.non_interaction_docs is None:
             self.non_interaction_docs = self.load_if_exists(self.data_tsv_path('nonInteractionDocs.json'))
@@ -100,6 +103,7 @@ class DataPreprocessor(GraphIO):
         Applies some preprocessing to the data, e.g. replacing special characters, filters non-required articles out.
         :param min_len: Minimum required length for articles.
         :param max_data_points: Maximum amount of documents to use.
+        :param content_file: File name in which article contents are stored.
         :return: Numpy arrays for article tests (x_data), article labels (y_data), and article names (doc_names).
         """
 
@@ -114,17 +118,17 @@ class DataPreprocessor(GraphIO):
                 # if max_data_points is not None and len(x_data) > max_data_points:
                 #     break
 
-                if isinstance(row['text'], str) and len(row['text']) >= min_len:
-                    text = sanitize_text(row['text'])
+                text = sanitize_text(row['text'])
+                if len(text) >= min_len:
                     x_data.append(text)
                     x_lengths.append(len(text))
+
                     y_data.append(int(row['label']))
                     doc_names.append(str(row['id']))
                 else:
                     invalid.append(row['id'])
 
         print(f"Average length = {sum(x_lengths) / len(x_lengths)}")
-        print(f"Maximum length = {max(x_lengths)}")
         print(f"Minimum Length = {min(x_lengths)}")
         print(f"Total data points invalid and therefore removed (length < {min_len}) = {len(invalid)}")
 
@@ -145,11 +149,13 @@ class DataPreprocessor(GraphIO):
 
         return x_data[sampled_indices], y_data[sampled_indices], doc_names[sampled_indices]
 
-    def create_data_splits(self, max_data_points=None, test_size=0.2, val_size=0.1, splits=1, duplicate_stats=False):
+    def create_data_splits(self, max_data_points=None, test_size=0.2, val_size=0.1,
+                           splits=1, duplicate_stats=False):
         """
         Creates train, val and test splits via random splitting of the dataset in a stratified fashion to ensure
         similar data distribution. Currently only supports splitting data in 1 split for each set.
 
+        :param content_file: File name in which article contents are stored.
         :param max_data_points: Maximum amount of documents to use.
         :param test_size: Size of the test split compared to the whole data.
         :param val_size: Size of the val split compared to the whole data.
@@ -248,9 +254,9 @@ class DataPreprocessor(GraphIO):
         print("\nCreating the data corpus file for: ", self.dataset)
 
         content_dest_file = self.data_tsv_path(CONTENT_INFO_FILE_NAME)
-        with open(content_dest_file, 'w', encoding='utf-8', newline='') as csv_file:
+        with open(content_dest_file, 'w+', encoding='utf-8', newline='') as csv_file:
             csv_writer = csv.writer(csv_file, delimiter='\t')
-            csv_writer.writerow(['id', 'title', 'text', 'label'])
+            csv_writer.writerow(['id', 'text', 'label'])
             for file_content in contents:
                 csv_writer.writerow(file_content)
 

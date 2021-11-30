@@ -3,10 +3,10 @@ import torch.cuda
 from data_prep.graph_dataset import DGLSubGraphs, DglGraphDataset, collate_fn_proto, collate_fn_base
 from models.batch_sampler import FewShotSubgraphSampler
 
-SUPPORTED_DATASETS = ['HealthStory', 'gossipcop']
+SUPPORTED_DATASETS = ['HealthStory', 'gossipcop', 'twitterHateSpeech']
 
 
-def get_data(data_name, model, batch_size, hop_size, top_k, k_shot, dirs):
+def get_data(data_name, model, batch_size, hop_size, top_k, k_shot, num_nodes, dirs):
     """
     Creates and returns the correct data object depending on data_name.
     Args:
@@ -25,7 +25,7 @@ def get_data(data_name, model, batch_size, hop_size, top_k, k_shot, dirs):
         raise ValueError("Data with name '%s' is not supported." % data_name)
 
     # graph_data = TorchGeomGraphDataset(data_name)
-    graph_data = DglGraphDataset(data_name, top_k, *dirs)
+    graph_data = DglGraphDataset(data_name, top_k, num_nodes, *dirs)
 
     train_graphs = DGLSubGraphs(graph_data, 'train_mask', b_size=batch_size, h_size=hop_size, meta=model != 'gat')
     val_graphs = DGLSubGraphs(graph_data, 'val_mask', b_size=batch_size, h_size=hop_size, meta=model != 'gat')

@@ -142,11 +142,13 @@ class DglGraphDataset(GraphIO, DGLDataset):
     Parent class for graph datasets. It loads the graph from respective files.
     """
 
-    def __init__(self, corpus, top_k, data_dir, tsv_dir, complete_dir):
+    def __init__(self, corpus, top_k, num_nodes, data_dir, tsv_dir, complete_dir):
         super().__init__(dataset=corpus, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir)
 
         self.top_k = top_k
         self.num_features = None
+        self.num_nodes = num_nodes
+        self.graph = None
 
         self.initialize_graph()
 
@@ -159,7 +161,8 @@ class DglGraphDataset(GraphIO, DGLDataset):
         print('Initializing DGL graph ..........')
 
         # check if a DGL graph exists already for this dataset
-        graph_file = self.data_complete_path(DGL_GRAPH_FILE % self.dataset)
+        nr_nodes = str(self.num_nodes) if self.num_nodes is not None else 'all'
+        graph_file = self.data_complete_path(DGL_GRAPH_FILE % (self.dataset, nr_nodes))
         if os.path.exists(graph_file):
             print(f'Graph file exists, loading graph from it: {graph_file}')
             (g,), _ = dgl.load_graphs(graph_file)
@@ -180,18 +183,18 @@ class DglGraphDataset(GraphIO, DGLDataset):
         g = dgl.graph((src, dst), num_nodes=n_nodes)
         g = dgl.add_reverse_edges(g)
 
-        adjacency_matrix_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k)
-        adj_matrix = torch.from_numpy(load_npz(adjacency_matrix_file).toarray())
+        # adjacency_matrix_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k)
+        # adj_matrix = torch.from_numpy(load_npz(adjacency_matrix_file).toarray())
 
-        coo = g.adj(scipy_fmt='coo')
-        values = coo.data
-        indices = np.vstack((coo.row, coo.col))
+        # coo = g.adj(scipy_fmt='coo')
+        # values = coo.data
+        # indices = np.vstack((coo.row, coo.col))
 
-        i = torch.LongTensor(indices)
-        v = torch.FloatTensor(values)
-        shape = coo.shape
+        # i = torch.LongTensor(indices)
+        # v = torch.FloatTensor(values)
+        # shape = coo.shape
 
-        torch_tensor = torch.sparse.FloatTensor(i, v, torch.Size(shape)).to_dense()
+        # torch_tensor = torch.sparse.FloatTensor(i, v, torch.Size(shape)).to_dense()
 
         g.ndata['feat'] = feat_matrix
 
@@ -211,9 +214,10 @@ class DglGraphDataset(GraphIO, DGLDataset):
         # we do not have edge weights / features
         # g.edata['weight'] = edge_features
 
+        print(f"Created DGL graph, saving it in: {graph_file}")
+        dgl.save_graphs(graph_file, g)
+
         self.graph = g
-        # print(f"Created DGL graph, saving it in: {graph_file}")
-        # dgl.save_graphs(graph_file, g)
 
     def process(self):
         pass
