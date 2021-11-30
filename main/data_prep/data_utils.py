@@ -65,4 +65,5 @@ def get_data(data_name, model, batch_size, hop_size, top_k, k_shot, train_docs, 
 
     num_features = graph_data.num_features
     print(f'\nNum Features in graph: {num_features}\n')
+
     return train_loader, val_loader, test_loader, num_features

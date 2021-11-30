@@ -146,7 +146,6 @@ class DglGraphDataset(GraphIO, DGLDataset):
         super().__init__(corpus, feature_type, max_vocab, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir)
 
         self.top_k = top_k
-        self.num_features = None
         self.graph = None
 
         self.initialize_graph(feature_type, train_docs)
@@ -170,7 +169,6 @@ class DglGraphDataset(GraphIO, DGLDataset):
             raise ValueError(f"Feature matrix file does not exist: {feat_matrix_file}")
         feat_matrix = torch.from_numpy(load_npz(feat_matrix_file).toarray())
         n_nodes = feat_matrix.shape[0]
-        self.num_features = feat_matrix.shape[1]
 
         edge_list_file = self.data_complete_path(EDGE_LIST_FILE_NAME % self.top_k)
         if not edge_list_file.exists():
@@ -220,6 +218,10 @@ class DglGraphDataset(GraphIO, DGLDataset):
         dgl.save_graphs(str(graph_file), g)
 
         self.graph = g
+
+    @property
+    def num_features(self):
+        return self.graph.ndata['feat'].shape[0]
 
     def process(self):
         pass
