@@ -159,7 +159,7 @@ class DglGraphDataset(GraphIO, DGLDataset):
         graph_file = self.data_complete_path(DGL_GRAPH_FILE % (self.dataset, nr_train_docs, feature_type))
         if graph_file.exists():
             print(f'Graph file exists, loading graph from it: {graph_file}')
-            (g,), _ = dgl.load_graphs(graph_file)
+            (g,), _ = dgl.load_graphs(str(graph_file))
             self.graph = g
             return
 
