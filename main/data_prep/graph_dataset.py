@@ -220,8 +220,12 @@ class DglGraphDataset(GraphIO, DGLDataset):
         self.graph = g
 
     @property
+    def labels(self):
+        return self.graph.ndata['label'].unique()
+
+    @property
     def num_features(self):
-        return self.graph.ndata['feat'].shape[0]
+        return self.graph.ndata['feat'].shape[1]
 
     def process(self):
         pass

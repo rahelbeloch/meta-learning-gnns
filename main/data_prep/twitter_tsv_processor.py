@@ -20,6 +20,7 @@ class TSVPreprocessor(DataPreprocessor):
 
         self.content_file = content_file
 
+    @property
     def labels(self):
         return LABELS
 

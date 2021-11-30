@@ -27,6 +27,7 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
         self.create_labels()
         self.create_split_masks()
 
+    @property
     def labels(self):
         return LABELS
 
@@ -69,7 +70,7 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
             for u in users:
                 if doc_key in doc2labels:
-                    user_stats[u][self.labels()[doc2labels[doc_key]]] += 1
+                    user_stats[u][self.labels[doc2labels[doc_key]]] += 1
 
         super().filter_users(user_stats, used_docs)
 

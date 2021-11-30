@@ -37,16 +37,17 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
 
     # the data preprocessing
     print('\nLoading data ..........')
-    train_loader, val_loader, test_loader, num_features = get_data(data_name, model_name, b_size, h_size,
-                                                                   top_k, k_shot, train_docs, feature_type, vocab_size,
-                                                                   dirs)
+    train_loader, val_loader, test_loader, num_features, labels = get_data(data_name, model_name, b_size, h_size,
+                                                                           top_k, k_shot, train_docs, feature_type,
+                                                                           vocab_size,
+                                                                           dirs)
 
     optimizer_hparams = {"lr_enc": l_rate_enc,
                          "lr_cl": l_rate_cl,
                          "lr": lr
                          }
 
-    num_classes = 2
+    num_classes = len(labels)
 
     model_params = {
         'model': model_name,
@@ -176,13 +177,13 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
 
 
 if __name__ == "__main__":
-    # tsv_dir = TSV_small_DIR
-    # complete_dir = COMPLETE_small_DIR
-    # num_nodes = int(COMPLETE_small_DIR.split('-')[1])
+    tsv_dir = TSV_small_DIR
+    complete_dir = COMPLETE_small_DIR
+    num_nodes = int(COMPLETE_small_DIR.split('-')[1])
 
-    tsv_dir = TSV_DIR
-    complete_dir = COMPLETE_DIR
-    num_nodes = None
+    # tsv_dir = TSV_DIR
+    # complete_dir = COMPLETE_DIR
+    # num_nodes = None
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 

@@ -70,7 +70,7 @@ class GraphPreprocessor(GraphIO):
 
         user_stats_avg = copy.deepcopy(user_stats)
         for user, stat in user_stats_avg.items():
-            for label in self.labels().values():
+            for label in self.labels.values():
                 stat[label] = stat[label] / n_docs
 
         # filter for 30% in either one of the classes

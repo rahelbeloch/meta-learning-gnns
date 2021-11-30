@@ -18,6 +18,7 @@ class TSVPreprocessor(DataPreprocessor):
     def __init__(self, dataset, f_type, vocab_size, data_dir, tsv_dir, comp_dir):
         super().__init__(dataset, f_type, vocab_size, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=comp_dir)
 
+    @property
     def labels(self):
         return LABELS
 

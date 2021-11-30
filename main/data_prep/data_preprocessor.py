@@ -157,10 +157,10 @@ class DataPreprocessor(GraphIO):
             return x_data, y_data, doc_names
 
         # select only as many as we want
-        per_class = int(num_train_nodes / len(self.labels()))
+        per_class = int(num_train_nodes / len(self.labels))
 
         sampled_indices = []
-        for c in self.labels().keys():
+        for c in self.labels.keys():
             sampled = random.sample(np.where(y_data == c)[0].tolist(), per_class)
             sampled_indices += sampled
 
@@ -191,7 +191,7 @@ class DataPreprocessor(GraphIO):
                 d_text = data[0][i]
                 if d_text in texts:
                     duplicates[d_text]['counts'] += 1
-                    duplicates[d_text]['d_names'][self.labels()[data[1][i]]].append(data[2][i])
+                    duplicates[d_text]['d_names'][self.labels[data[1][i]]].append(data[2][i])
                 else:
                     texts.append(d_text)
 

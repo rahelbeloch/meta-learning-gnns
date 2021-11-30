@@ -19,6 +19,7 @@ class TSVPreprocessor(DataPreprocessor):
     def __init__(self, dataset, raw_dir):
         super().__init__(dataset, raw_dir=raw_dir)
 
+    @property
     def labels(self):
         return None
 

@@ -119,6 +119,7 @@ class GraphIO:
 
         return vocab
 
+    @property
     @abc.abstractmethod
     def labels(self):
         raise NotImplementedError
