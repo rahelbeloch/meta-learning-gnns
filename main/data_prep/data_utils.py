@@ -63,4 +63,6 @@ def get_data(data_name, model, batch_size, hop_size, top_k, k_shot, train_docs, 
     # test_sampler = FewShotSubgraphSampler(test_graphs, include_query=True, k_shot=k_shot)
     # test_loader = DataLoader(test_graphs, batch_sampler=test_sampler, num_workers=num_workers, collate_fn=collate_fn)
 
-    return train_loader, val_loader, test_loader, graph_data.num_features
+    num_features = graph_data.num_features
+    print(f'\nNum Features in graph: {num_features}\n')
+    return train_loader, val_loader, test_loader, num_features
