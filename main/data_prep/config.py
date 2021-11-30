@@ -8,7 +8,7 @@ TSV_small_DIR = 'tsv-%s' % num_doc_nodes
 
 CONTENT_INFO_FILE_NAME = 'docsContentInformation.tsv'
 
-DOC_SPLITS_FILE_NAME = 'docSplits.json'
+DOC_SPLITS_FILE_NAME = 'docSplits_%s.json'
 USER_SPLITS_FILE_NAME = 'userSplits.json'
 
 USER_2_ID_FILE_NAME = 'user2id_lr_top%s_train.json'

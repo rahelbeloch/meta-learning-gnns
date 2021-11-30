@@ -28,14 +28,14 @@ class GraphPreprocessor(GraphIO):
 
         # temporary attributes for data which has been loaded and will be reused
         self.doc2id, self.user2id = None, None
-        self.train_docs, self.test_docs, self.val_docs, self.n_total = None, None, None, None
+        self.train_docs, self.test_docs, self.val_docs, self.n_nodes = None, None, None, None
         self.valid_users = None
 
     def doc_used(self, doc_key):
         return doc_key in self.train_docs or doc_key in self.test_docs or doc_key in self.val_docs
 
     def load_doc_splits(self):
-        doc_splits = load_json_file(self.data_tsv_path(DOC_SPLITS_FILE_NAME))
+        doc_splits = load_json_file(self.data_tsv_path(DOC_SPLITS_FILE_NAME % self.feature_type))
         self.train_docs = doc_splits['train_docs']
         self.test_docs = doc_splits['test_docs']
         self.val_docs = doc_splits['val_docs']
@@ -49,7 +49,7 @@ class GraphPreprocessor(GraphIO):
             self.user2id = self.load_if_exists(self.data_complete_path(USER_2_ID_FILE_NAME % self.top_k))
         if self.doc2id is None:
             self.doc2id = self.load_if_exists(self.data_complete_path(DOC_2_ID_FILE_NAME % self.top_k))
-        self.n_total = len(self.user2id) + len(self.doc2id)
+        self.n_nodes = len(self.user2id) + len(self.doc2id)
 
     def is_restricted(self, statistics):
         for label, percentage in statistics.items():
@@ -192,15 +192,7 @@ class GraphPreprocessor(GraphIO):
         # node_type = np.array(node_type)
         # print(f"Saving node type in : {node_type_file}")
         # np.save(node_type_file, node_type, allow_pickle=True)
-        #
-        # # print("\nAdding test docs..")
-        # # n_test = len(self.test_docs)
-        # # print("Test docs = ", n_test)
-        # # orig_doc2id_len = len(self.doc2id)
-        #
-        # # for test_count, doc in enumerate(self.test_docs):
-        # #     self.doc2id[doc] = test_count + len(self.user2id) + orig_doc2id_len
-        #
+
         # node2id = self.doc2id.copy()
         # node2id.update(self.user2id)
         # assert len(node2id) == len(self.user2id) + len(self.doc2id), \
@@ -295,9 +287,9 @@ class GraphPreprocessor(GraphIO):
         print("Length doc2id = ", n_docs)
 
         # Creating and filling the adjacency matrix (doc-user edges); includes test docs!
-        self.n_total = n_docs + n_users
-        adj_matrix = lil_matrix((self.n_total, self.n_total))
-        edge_type = lil_matrix((self.n_total, self.n_total))
+        self.n_nodes = n_docs + n_users
+        adj_matrix = lil_matrix((self.n_nodes, self.n_nodes))
+        edge_type = lil_matrix((self.n_nodes, self.n_nodes))
 
         # Creating self-loops for each node (diagonals are 1's)
         for i in range(adj_matrix.shape[0]):
@@ -370,14 +362,13 @@ class GraphPreprocessor(GraphIO):
         self.print_step("Creating feature matrix")
 
         # load all texts for test, train and val documents
-        split_path = self.data_tsv_path('splits')
+        split_path = self.data_tsv_path(f'splits-{self.feature_type}')
 
         all_texts = {}
         for split in ['test', 'train', 'val']:
             reader = csv.DictReader(open(split_path / f'{split}.tsv', encoding='utf-8'), delimiter='\t')
             for row in reader:
-                tokens = set(nltk.word_tokenize(row['text']))
-                all_texts[row['id']] = list(tokens)
+                all_texts[row['id']] = row['text'].split(' ')
 
         assert len(all_texts) == len(self.doc2id), "Nr of texts from doc splits does not equal to doc2id!"
 
@@ -509,7 +500,7 @@ class GraphPreprocessor(GraphIO):
 
         self.maybe_load_id_mappings()
 
-        train_mask, val_mask, test_mask = np.zeros(self.n_total), np.zeros(self.n_total), np.zeros(self.n_total)
+        train_mask, val_mask, test_mask = np.zeros(self.n_nodes), np.zeros(self.n_nodes), np.zeros(self.n_nodes)
 
         for doc, doc_id in self.doc2id.items():
             doc_n = str(doc)

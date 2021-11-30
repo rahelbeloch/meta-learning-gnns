@@ -203,7 +203,7 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
         save_json_file({'labels_list': list(labels_list)}, labels_file, converter=self.np_converter)
 
         # Create the all_labels file
-        all_labels = np.zeros(self.n_total, dtype=int)
+        all_labels = np.zeros(self.n_docs, dtype=int)
         all_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME)
         for doc_key in doc2labels.keys():
             if doc_key not in self.doc2id:

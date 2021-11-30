@@ -3,6 +3,7 @@ import json
 import random
 from collections import defaultdict
 
+import nltk
 import numpy as np
 import pandas as pd
 import torch
@@ -100,7 +101,7 @@ class DataPreprocessor(GraphIO):
 
         print("\nDONE..!!")
 
-    def preprocess(self, num_train_nodes, min_len=6):
+    def preprocess(self, num_train_nodes, min_len=25):
         """
         Applies some preprocessing to the data, e.g. replacing special characters, filters non-required articles out.
         :param min_len: Minimum required length for articles.
@@ -118,8 +119,9 @@ class DataPreprocessor(GraphIO):
             for row in reader:
                 text = sanitize_text(row['text'])
                 doc_key = str(row['id'])
-                if len(text) >= min_len:
-                    data_dict[doc_key] = (text, int(row['label']))
+                tokens = set(nltk.word_tokenize(text))
+                if len(tokens) >= min_len:
+                    data_dict[doc_key] = (tokens, int(row['label']))
                 else:
                     invalid.append(doc_key)
 
@@ -129,21 +131,22 @@ class DataPreprocessor(GraphIO):
         # Filter out documents for which we do not have features anyways
         x_data, y_data, doc_names, x_lengths = [], [], [], []
         for doc_key, doc_data in data_dict.items():
-            text = doc_data[0]
+            tokens = doc_data[0]
 
             # check if we would end up having features for this text
-            indices = torch.tensor([token2idx[token] for token in text if token in token2idx])
+            indices = torch.tensor([token2idx[token] for token in tokens if token in token2idx])
             if len(indices[indices < self.max_vocab]) == 0:
                 invalid.append(doc_key)
                 continue
 
-            x_data.append(text)
+            x_data.append(tokens)
             y_data.append(doc_data[1])
             doc_names.append(doc_key)
-            x_lengths.append(len(text))
+            x_lengths.append(len(tokens))
 
         print(f"Average length = {sum(x_lengths) / len(x_lengths)}")
-        print(f"Minimum Length = {min(x_lengths)}")
+        print(f"Shortest Length = {min(x_lengths)}")
+        print(f"Longest Length = {max(x_lengths)}")
         print(f"Total data points invalid and therefore removed (length < {min_len}) = {len(set(invalid))}")
 
         x_data = np.array(x_data)
@@ -214,7 +217,7 @@ class DataPreprocessor(GraphIO):
 
         print("\nWriting train-val-test files..")
 
-        split_path = self.data_tsv_path('splits')
+        split_path = self.data_tsv_path(f'splits-{self.feature_type}')
 
         for split, data in {'train': train_split, 'val': val_split, 'test': test_split}.items():
             x, y, name_list = data
@@ -229,9 +232,10 @@ class DataPreprocessor(GraphIO):
                 csv_writer = csv.writer(csv_file, delimiter='\t')
                 csv_writer.writerow(['id', 'text', 'label'])
                 for i in range(len(x)):
-                    csv_writer.writerow([name_list[i], x[i], y[i]])
+                    text = ' '.join(x[i])           # join for better reading it later
+                    csv_writer.writerow([name_list[i], text, y[i]])
 
-        doc_splits_file = self.data_tsv_path(DOC_SPLITS_FILE_NAME)
+        doc_splits_file = self.data_tsv_path(DOC_SPLITS_FILE_NAME % self.feature_type)
         print("Writing doc_splits in : ", doc_splits_file)
 
         doc_names_train, doc_names_test, doc_names_val = train_split[2], test_split[2], val_split[2]

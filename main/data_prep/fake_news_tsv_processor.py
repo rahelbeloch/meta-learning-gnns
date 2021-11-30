@@ -73,6 +73,6 @@ if __name__ == '__main__':
 
     data = 'gossipcop'
     preprocessor = TSVPreprocessor(data, feature_type, max_vocab, 'data', tsv_dir, complete_dir)
-    # preprocessor.aggregate_user_contexts()
+    preprocessor.aggregate_user_contexts()
     preprocessor.corpus_to_tsv()
     preprocessor.create_data_splits(num_train_nodes=num_train_nodes, duplicate_stats=False)
