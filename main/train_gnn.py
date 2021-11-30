@@ -26,7 +26,7 @@ def train(model_name, seed, epochs, patience, b_size, h_size, top_k, k_shot, lr,
     if model_name not in SUPPORTED_MODELS:
         raise ValueError("Model type '%s' is not supported." % model_name)
 
-    nr_train_docs = str(train_docs) if (train_docs is not None or train_docs != -1) else 'all'
+    nr_train_docs = 'all' if (train_docs is None or train_docs == -1) else str(train_docs)
 
     print(f'\nConfiguration:\n mode: {"TEST" if eval else "TRAIN"}\n model_name: {model_name}\n data_name: {data_name}'
           f'\n nr_train_docs: {nr_train_docs}\n k_shot: {k_shot}\n seed: {seed}\n batch_size: {b_size}\n'
