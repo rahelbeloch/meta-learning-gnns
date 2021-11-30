@@ -1,4 +1,5 @@
---model gat --complete-dir complete --tsv-dir tsv --seed 82 --dataset gossipcop --feature-type one-hot
---model prototypical --complete-dir complete --tsv-dir tsv --seed 82 --dataset gossipcop --feature-type one-hot
 --model gat --complete-dir complete --tsv-dir tsv --seed 82 --dataset twitterHateSpeech --feature-type one-hot
 --model prototypical --complete-dir complete --tsv-dir tsv --seed 82 --dataset twitterHateSpeech --feature-type one-hot
+--model gat --complete-dir complete --tsv-dir tsv --seed 82 --dataset gossipcop --feature-type one-hot
+--model prototypical --complete-dir complete --tsv-dir tsv --seed 82 --dataset gossipcop --feature-type one-hot
+
