@@ -153,7 +153,7 @@ class DglGraphDataset(GraphIO, DGLDataset):
         self.initialize_graph(feature_type, nr_train_docs)
 
     def initialize_graph(self, feature_type, nr_train_docs):
-        print('Initializing DGL graph ..........')
+        print('\nInitializing DGL graph ..........')
 
         # check if a DGL graph exists already for this dataset
         graph_file = self.data_complete_path(

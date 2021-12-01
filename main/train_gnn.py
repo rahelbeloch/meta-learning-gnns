@@ -1,11 +1,11 @@
 import argparse
 import os
 import time
+from pathlib import Path
 
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as cb
 import torch
-from pytorch_lightning.callbacks import EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from data_prep.config import *
@@ -19,18 +19,20 @@ LOG_PATH = "../logs/"
 
 
 def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, l_rate_enc, l_rate_cl, cf_hidden_dim,
-          proto_dim, data_name, dirs, checkpoint, h_search, train_docs, feature_type, vocab_size, n_updates,
-          evaluation=False):
+          proto_dim, data_train, data_eval, dirs, checkpoint, train_docs, feature_type, vocab_size, n_updates):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     if model_name not in SUPPORTED_MODELS:
         raise ValueError("Model type '%s' is not supported." % model_name)
 
+    if checkpoint is not None and model_name not in checkpoint:
+        raise ValueError(f"Can not evaluate model type '{model_name}' on a pretrained model of another type.")
+
     nr_train_docs = 'all' if (train_docs is None or train_docs == -1) else str(train_docs)
 
-    print(f'\nConfiguration:\n mode: {"TEST" if eval else "TRAIN"}\n model_name: {model_name}\n data_name: {data_name}'
-          f'\n nr_train_docs: {nr_train_docs}\n k_shot: {k_shot}\n seed: {seed}\n '
-          f' feature_type: {feature_type}\n checkpoint: {checkpoint}\n max epochs: {epochs}\n patience:{patience}\n'
+    print(f'\nConfiguration:\n mode: {"TEST" if eval else "TRAIN"}\n model_name: {model_name}\n data_train: '
+          f'{data_train}\n data_eval: {data_eval}\n nr_train_docs: {nr_train_docs}\n k_shot: {k_shot}\n seed: {seed}\n '
+          f'feature_type: {feature_type}\n checkpoint: {checkpoint}\n max epochs: {epochs}\n patience:{patience}\n'
           f' l_rate_enc: {l_rate_enc}\n l_rate_cl: {l_rate_cl}\n cf_hidden_dim: {cf_hidden_dim}\n')
 
     # reproducible results
@@ -40,28 +42,32 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, l_rate_
 
     # the data preprocessing
     print('\nLoading data ..........')
-    train_loader, val_loader, test_loader, num_features, labels, b_size = get_data(data_name, model_name, h_size, top_k,
-                                                                                   k_shot, nr_train_docs, feature_type,
-                                                                                   vocab_size, dirs)
+    loaders, num_features, labels = get_data(data_train, data_eval, model_name, h_size, top_k, k_shot, nr_train_docs,
+                                             feature_type, vocab_size, dirs)
 
-    optimizer_hparams = {"lr_enc": l_rate_enc,
-                         "lr_cl": l_rate_cl,
-                         "lr": lr
-                         }
+    optimizer_hparams = {
+        "lr_enc": l_rate_enc,
+        "lr_cl": l_rate_cl,
+        "lr": lr
+    }
 
-    num_classes = len(labels)
+    # if we only want to evaluate, model should be initialized with nr of labels from evaluation data
+    evaluation = checkpoint is not None and Path(checkpoint).exists()
 
     model_params = {
         'model': model_name,
         'cf_hid_dim': cf_hidden_dim,
         'input_dim': num_features,
-        'output_dim': num_classes,
+        'output_dim': len(labels[0]),
         'proto_dim': proto_dim
     }
 
     print('\nInitializing trainer ..........\n')
-    trainer = initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, data_name, k_shot, h_size,
-                                 feature_type, checkpoint)
+    trainer = initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, data_train, data_eval,
+                                 k_shot, h_size, feature_type)
+
+    train_loader, train_val_loader, test_val_loader, test_loader = loaders
+    b_size = train_loader.batch_size
 
     if model_name == 'gat':
         model = GatBase(model_params, optimizer_hparams, b_size, checkpoint)
@@ -72,9 +78,10 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, l_rate_
 
     if not evaluation:
         # Training
+
         print('\nFitting model ..........\n')
         start = time.time()
-        trainer.fit(model, train_loader, val_loader)
+        trainer.fit(model, train_loader, train_val_loader)
 
         end = time.time()
         elapsed = end - start
@@ -84,14 +91,20 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, l_rate_
         model_path = trainer.checkpoint_callback.best_model_path
         print(f'Best model path: {model_path}')
     else:
-        raise ValueError("Wanting to evaluate, but can't as checkpoint is None.")
+        model_path = checkpoint
+
+    # Evaluation
 
     model = model.load_from_checkpoint(model_path)
-    evaluate(trainer, model, test_loader, val_loader)
+    # model was trained on another dataset --> reinitialize
+    if model_name == 'gat':
+        model.reset_classifier(len(labels[1]))
+
+    evaluate(trainer, model, test_loader, test_val_loader)
 
 
-def initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, dataset, k_shot, h_size, f_type,
-                       checkpoint):
+def initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed, data_train, data_eval, k_shot, h_size,
+                       f_type):
     """
     Initializes a Lightning Trainer for respective parameters as given in the function header. Creates a proper
     folder name for the respective model files, initializes logging and early stopping.
@@ -99,7 +112,7 @@ def initialize_trainer(epochs, patience, model_name, l_rate_enc, l_rate_cl, seed
 
     model_checkpoint = cb.ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_accuracy")
 
-    base = f'dname={dataset}_seed={seed}_kshot={k_shot}_hops={h_size}_ftype={f_type}_'
+    base = f'dtrain={data_train}_deval={data_eval}_seed={seed}_kshot={k_shot}_hops={h_size}_ftype={f_type}_'
     if model_name == 'gat':
         version_str = f'{base}_lr-enc={l_rate_enc}_lr-cl={l_rate_cl}'
     elif model_name == 'prototypical':
@@ -184,6 +197,9 @@ if __name__ == "__main__":
     # complete_dir = COMPLETE_small_DIR
     # num_nodes = int(COMPLETE_small_DIR.split('-')[1])
 
+    # model_checkpoint = '../logs/prototypical/dname=gossipcop_seed=1234_lr=0.01/checkpoints/epoch=0-step=8.ckpt.ckpt'
+    model_checkpoint = None
+
     tsv_dir = TSV_DIR
     complete_dir = COMPLETE_DIR
     num_nodes = -1
@@ -210,8 +226,11 @@ if __name__ == "__main__":
 
     # CONFIGURATION
 
-    parser.add_argument('--dataset', dest='dataset', default='twitterHateSpeech', choices=SUPPORTED_DATASETS,
-                        help='Select the dataset you want to use.')
+    parser.add_argument('--dataset-train', dest='dataset_train', default='gossipcop', choices=SUPPORTED_DATASETS,
+                        help='Select the dataset you want to use for training. '
+                             'If a checkpoint is provided we do not train again.')
+    parser.add_argument('--dataset-eval', dest='dataset_eval', default='twitterHateSpeech', choices=SUPPORTED_DATASETS,
+                        help='Select the dataset you want to use for evaluation.')
     parser.add_argument('--num-train-docs', dest='num_train_docs', type=int, default=num_nodes,
                         help="Inner gradient updates during meta learning.")
     parser.add_argument('--feature-type', dest='feature_type', type=str, default='one-hot',
@@ -223,12 +242,12 @@ if __name__ == "__main__":
                         help='Select the dataset you want to use.')
     parser.add_argument('--complete-dir', dest='complete_dir', default=complete_dir,
                         help='Select the dataset you want to use.')
-    parser.add_argument('--model', dest='model', default='prototypical', choices=SUPPORTED_MODELS,
+    parser.add_argument('--model', dest='model', default='gat', choices=SUPPORTED_MODELS,
                         help='Select the model you want to use.')
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--cf-hidden-dim', dest='cf_hidden_dim', type=int, default=512)
     parser.add_argument('--proto-dim', dest='proto_dim', type=int, default=64)
-    parser.add_argument('--checkpoint', default=None, type=str, metavar='PATH',
+    parser.add_argument('--checkpoint', default=model_checkpoint, type=str, metavar='PATH',
                         help='Path to latest checkpoint (default: None)')
     parser.add_argument('--transfer', dest='transfer', action='store_true', help='Transfer the model to new dataset.')
     parser.add_argument('--h-search', dest='h_search', action='store_true', default=False,
@@ -250,10 +269,10 @@ if __name__ == "__main__":
         l_rate_cl=params["l_rate_cl"],
         cf_hidden_dim=params["cf_hidden_dim"],
         proto_dim=params["proto_dim"],
-        data_name=params["dataset"],
+        data_train=params["dataset_train"],
+        data_eval=params["dataset_eval"],
         dirs=(params["data_dir"], params["tsv_dir"], params["complete_dir"]),
         checkpoint=params["checkpoint"],
-        h_search=params["h_search"],
         train_docs=params["num_train_docs"],
         feature_type=params["feature_type"],
         vocab_size=params["vocab_size"],

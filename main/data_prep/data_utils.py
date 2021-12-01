@@ -3,14 +3,15 @@ import torch.cuda
 from data_prep.graph_dataset import DGLSubGraphs, DglGraphDataset, collate_fn_proto, collate_fn_base
 from models.batch_sampler import FewShotSubgraphSampler
 
-SUPPORTED_DATASETS = ['HealthStory', 'gossipcop', 'twitterHateSpeech']
+SUPPORTED_DATASETS = ['gossipcop', 'twitterHateSpeech']
 
 
-def get_data(data_name, model, hop_size, top_k, k_shot, nr_train_docs, feature_type, vocab_size, dirs):
+def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, nr_train_docs, feature_type, vocab_size, dirs):
     """
     Creates and returns the correct data object depending on data_name.
     Args:
-        data_name (str): Name of the data corpus which should be used.
+        data_train (str): Name of the data corpus which should be used for training.
+        data_eval (str): Name of the data corpus which should be used for testing/evaluation.
         model (str): Name of the model should be used.
         hop_size (int): Number of hops used to create sub graphs.
         top_k (int): Number of top users to be used in graph.
@@ -23,46 +24,33 @@ def get_data(data_name, model, hop_size, top_k, k_shot, nr_train_docs, feature_t
         Exception: if the data_name is not in SUPPORTED_DATASETS.
     """
 
-    if data_name not in SUPPORTED_DATASETS:
-        raise ValueError("Data with name '%s' is not supported." % data_name)
+    if data_train not in SUPPORTED_DATASETS or data_eval not in SUPPORTED_DATASETS:
+        raise ValueError(f"Data with name '{data_train}' or '{data_eval}' is not supported.")
 
-    # graph_data = TorchGeomGraphDataset(data_name)
-    graph_data = DglGraphDataset(data_name, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
-
-    train_graphs = DGLSubGraphs(graph_data, 'train_mask', h_size=hop_size, meta=model != 'gat')
-    val_graphs = DGLSubGraphs(graph_data, 'val_mask', h_size=hop_size, meta=model != 'gat')
-    test_graphs = DGLSubGraphs(graph_data, 'test_mask', h_size=hop_size, meta=model != 'gat')
+    graph_data_train = DglGraphDataset(data_train, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
 
     num_workers = 6 if torch.cuda.is_available() else 0  # mac has 8 CPUs
-
-    # load the whole graph once (it internally has the train/val/test masks)
-
-    # loader, vocab_size, data = graph_data.initialize_graph_data()
-    # train_sub_graphs = TorchGeomSubGraphs(graph_data, 'train', b_size=128, h_size=2)
-    # val_sub_graphs = TorchGeomSubGraphs(graph_data, 'val', b_size=128, h_size=2)
-    # test_sub_graphs = TorchGeomSubGraphs(graph_data, 'test', b_size=128, h_size=2)
-
     collate_fn = collate_fn_base if model == 'gat' else collate_fn_proto
 
-    train_sampler = FewShotSubgraphSampler(train_graphs, include_query=True, k_shot=k_shot)
-    print(f"\nTrain sampler amount of batches: {train_sampler.num_batches}")
-    train_loader = train_graphs.as_dataloader(train_sampler, num_workers, collate_fn)
+    train_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, collate_fn, 'train')
+    train_val_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, collate_fn, 'val')
 
-    val_sampler = FewShotSubgraphSampler(val_graphs, include_query=True, k_shot=k_shot)
-    print(f"Val sampler amount of batches: {val_sampler.num_batches}")
-    val_loader = val_graphs.as_dataloader(val_sampler, num_workers, collate_fn)
+    # creating a test loader from the other dataset
+    graph_data_eval = DglGraphDataset(data_eval, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
+    test_loader = get_loader(graph_data_eval, model, hop_size, k_shot, num_workers, collate_fn, 'test')
+    test_val_loader = get_loader(graph_data_eval, model, hop_size, k_shot, num_workers, collate_fn, 'val')
 
-    test_sampler = FewShotSubgraphSampler(test_graphs, include_query=True, k_shot=k_shot)
-    print(f"Test sampler amount of batches: {test_sampler.num_batches}")
-    test_loader = test_graphs.as_dataloader(test_sampler, num_workers, collate_fn)
+    assert graph_data_train.num_features == graph_data_eval.num_features, \
+        "Number of features for train and eval data is not equal!"
 
-    # train_sampler = FewShotSubgraphSampler(train_graphs, include_query=True, k_shot=k_shot)
-    # train_loader = DataLoader(train_graphs, batch_sampler=train_sampler, num_workers=num_workers, collate_fn=collate_fn)
-    #
-    # val_sampler = FewShotSubgraphSampler(val_graphs, include_query=True, k_shot=k_shot)
-    # val_loader = DataLoader(val_graphs, batch_sampler=val_sampler, num_workers=num_workers, collate_fn=collate_fn)
-    #
-    # test_sampler = FewShotSubgraphSampler(test_graphs, include_query=True, k_shot=k_shot)
-    # test_loader = DataLoader(test_graphs, batch_sampler=test_sampler, num_workers=num_workers, collate_fn=collate_fn)
+    loaders = (train_loader, train_val_loader, test_val_loader, test_loader)
+    labels = (graph_data_train.labels, graph_data_eval.labels)
 
-    return train_loader, val_loader, test_loader, graph_data.num_features, graph_data.labels, train_loader.batch_size
+    return loaders, graph_data_train.num_features, labels
+
+
+def get_loader(graph_data, model, hop_size, k_shot, num_workers, collate_fn, mode):
+    graphs = DGLSubGraphs(graph_data, f'{mode}_mask', h_size=hop_size, meta=model != 'gat')
+    sampler = FewShotSubgraphSampler(graphs, include_query=True, k_shot=k_shot)
+    print(f"\n{mode} sampler amount of batches: {sampler.num_batches}")
+    return graphs.as_dataloader(sampler, num_workers, collate_fn)
