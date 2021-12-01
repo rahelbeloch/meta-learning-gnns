@@ -163,7 +163,7 @@ class DglGraphDataset(GraphIO, DGLDataset):
 
         print(f'Graph does not exist, creating it.')
 
-        feat_matrix_file = self.data_complete_path(FEAT_MATRIX_FILE_NAME % (self.top_k, feature_type))
+        feat_matrix_file = self.data_complete_path(FEAT_MATRIX_FILE_NAME % (self.top_k, feature_type, self.max_vocab))
         if not feat_matrix_file.exists():
             raise ValueError(f"Feature matrix file does not exist: {feat_matrix_file}")
         feat_matrix = torch.from_numpy(load_npz(feat_matrix_file).toarray())
