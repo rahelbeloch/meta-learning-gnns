@@ -1,4 +1,3 @@
-import dgl
 import torch
 from torch.utils.data import Sampler
 
@@ -38,7 +37,7 @@ class FewShotMamlSubgraphSampler(Sampler):
     def __len__(self):
         return len(self.batch_sampler) // self.task_batch_size
 
-    def get_collate_fn(self):
+    def get_collate_fn(self, _):
         """
         This collate function converts list of all given samples (e.g. (local batch size * task batch size) x 3)
         into a list of batches (task batch size x 3 x local batch size). Makes it easier to process in the PL Maml.
@@ -60,8 +59,8 @@ class FewShotMamlSubgraphSampler(Sampler):
             # should have size: 16 (self.task_batch_size)
             assert len(targets) == self.task_batch_size
             assert len(graphs) == self.task_batch_size
-            assert len(graphs[0]) == self.local_batch_size     # should have size: 30 (self.local_batch_size)
-            assert len(targets[0]) == self.local_batch_size      # should have size: 30 (self.local_batch_size)
+            assert len(graphs[0]) == self.local_batch_size  # should have size: 30 (self.local_batch_size)
+            assert len(targets[0]) == self.local_batch_size  # should have size: 30 (self.local_batch_size)
 
             return list(zip(graphs, targets))
 
@@ -75,8 +74,3 @@ class FewShotMamlSubgraphSampler(Sampler):
             # return (support_graphs, query_graphs, support_labels, query_labels)
 
         return collate_fn
-
-
-def split_list(a_list):
-    half = len(a_list) // 2
-    return a_list[:half], a_list[half:]

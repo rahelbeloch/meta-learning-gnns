@@ -56,8 +56,8 @@ class GatBase(pl.LightningModule):
         Also initializes the learning rate scheduler.
         """
 
-        lr = self.hparams.optimizer_hparams.lr
-        lr_cl = self.hparams.optimizer_hparams.lr_cl
+        lr = self.hparams.optimizer_hparams['lr']
+        lr_cl = self.hparams.optimizer_hparams['lr_cl']
         if lr_cl < 0:  # classifier learning rate not specified
             lr_cl = lr
 

@@ -6,8 +6,8 @@ import torch
 import torch.nn.functional as func
 from torch import optim
 
+from models.batch_sampler import split_list
 from models.gat_encoder import GATEncoder
-from models.maml_batch_sampler import split_list
 from models.proto_net import ProtoNet
 from models.train_utils import f1
 
@@ -123,6 +123,7 @@ class ProtoMAML(pl.LightningModule):
         if mode == "train":
             opt = self.optimizers()
             opt.step()
+            # noinspection PyUnresolvedReferences
             opt.zero_grad()
 
         self.log(f"{mode}_loss", sum(losses) / len(losses))
