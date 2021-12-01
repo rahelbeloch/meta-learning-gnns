@@ -154,7 +154,7 @@ class DglGraphDataset(GraphIO, DGLDataset):
         print('Initializing DGL graph ..........')
 
         # check if a DGL graph exists already for this dataset
-        graph_file = self.data_complete_path(DGL_GRAPH_FILE % (self.dataset, nr_train_docs, feature_type, vocab_size))
+        graph_file = self.data_complete_path(DGL_GRAPH_FILE % (self.dataset, nr_train_docs, feature_type, self.max_vocab))
         if graph_file.exists():
             print(f'Graph file exists, loading graph from it: {graph_file}')
             (g,), _ = dgl.load_graphs(str(graph_file))
