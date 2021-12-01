@@ -234,6 +234,10 @@ class DglGraphDataset(GraphIO, DGLDataset):
     def num_features(self):
         return self.graph.ndata['feat'].shape[1]
 
+    @property
+    def num_nodes(self):
+        return self.graph.ndata['feat'].shape[0]
+
     def process(self):
         pass
 

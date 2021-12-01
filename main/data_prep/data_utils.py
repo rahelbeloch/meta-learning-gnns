@@ -65,4 +65,4 @@ def get_data(data_name, model, hop_size, top_k, k_shot, nr_train_docs, feature_t
     # test_sampler = FewShotSubgraphSampler(test_graphs, include_query=True, k_shot=k_shot)
     # test_loader = DataLoader(test_graphs, batch_sampler=test_sampler, num_workers=num_workers, collate_fn=collate_fn)
 
-    return train_loader, val_loader, test_loader, graph_data.num_features, graph_data.labels, train_loader.batch_size
+    return train_loader, val_loader, test_loader, graph_data.num_features, graph_data.num_nodes, graph_data.labels, train_loader.batch_size

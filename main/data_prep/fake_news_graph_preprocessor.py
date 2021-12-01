@@ -17,9 +17,9 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         self.load_doc_splits()
 
-        if self.only_valid_users:
-            self.filter_valid_users()
-        self.create_user_splits(max_users)
+        #if self.only_valid_users:
+        #    self.filter_valid_users()
+        #self.create_user_splits(max_users)
         self.create_doc_id_dicts()
         self.filter_contexts()
         self.create_feature_matrix()
@@ -245,7 +245,7 @@ if __name__ == '__main__':
     parser.add_argument('--feature_type', type=str, default='one-hot', help='The type of features to use.',
                         choices=FEATURE_TYPES)
 
-    parser.add_argument('--max_vocab', type=int, default=8000, help='Size of the vocabulary used (if one-hot).')
+    parser.add_argument('--max_vocab', type=int, default=5000, help='Size of the vocabulary used (if one-hot).')
 
     args, unparsed = parser.parse_known_args()
 

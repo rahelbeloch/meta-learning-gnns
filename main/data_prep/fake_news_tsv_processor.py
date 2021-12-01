@@ -71,7 +71,7 @@ if __name__ == '__main__':
     num_train_nodes = None
 
     feature_type = 'one-hot'
-    max_vocab = 8000
+    max_vocab = 5000
     data = 'gossipcop'
 
     preprocessor = TSVPreprocessor(data, feature_type, max_vocab, 'data', tsv_dir, complete_dir)
