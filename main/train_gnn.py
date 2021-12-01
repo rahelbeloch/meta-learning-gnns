@@ -64,7 +64,7 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, l_rate_
                                  feature_type, checkpoint)
 
     if model_name == 'gat':
-        model = GatBase(model_params, optimizer_hparams, b_size, checkpoint, h_search)
+        model = GatBase(model_params, optimizer_hparams, b_size, checkpoint)
     elif model_name == 'prototypical':
         model = ProtoNet(model_params['input_dim'], model_params['cf_hid_dim'], optimizer_hparams['lr'], b_size)
     else:
