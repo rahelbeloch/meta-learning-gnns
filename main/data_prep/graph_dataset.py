@@ -4,9 +4,11 @@ import itertools
 import dgl
 import torch
 from dgl.data import DGLDataset
+from scipy.sparse import load_npz
 from torch.utils.data import Dataset, DataLoader
 
-from data_prep.fake_health_graph_preprocessor import *
+from data_prep.config import *
+from data_prep.data_preprocess_utils import load_json_file
 from data_prep.graph_io import GraphIO
 
 
@@ -154,7 +156,8 @@ class DglGraphDataset(GraphIO, DGLDataset):
         print('Initializing DGL graph ..........')
 
         # check if a DGL graph exists already for this dataset
-        graph_file = self.data_complete_path(DGL_GRAPH_FILE % (self.dataset, nr_train_docs, feature_type, self.max_vocab))
+        graph_file = self.data_complete_path(
+            DGL_GRAPH_FILE % (self.dataset, nr_train_docs, feature_type, self.max_vocab))
         if graph_file.exists():
             print(f'Graph file exists, loading graph from it: {graph_file}')
             (g,), _ = dgl.load_graphs(str(graph_file))
@@ -164,9 +167,11 @@ class DglGraphDataset(GraphIO, DGLDataset):
         print(f'Graph does not exist, creating it.')
 
         if feature_type == 'one-hot':
-            feat_matrix_file = self.data_complete_path(FEAT_MATRIX_FILE_NAME % (self.top_k, feature_type, self.max_vocab))
+            feat_matrix_file = self.data_complete_path(
+                FEAT_MATRIX_FILE_NAME % (self.top_k, feature_type, self.max_vocab))
         else:
-            feat_matrix_file = self.data_complete_path(FEAT_MATRIX_FILE_NAME % (self.top_k, feature_type, self.max_vocab))
+            feat_matrix_file = self.data_complete_path(
+                FEAT_MATRIX_FILE_NAME % (self.top_k, feature_type, self.max_vocab))
         if not feat_matrix_file.exists():
             raise ValueError(f"Feature matrix file does not exist: {feat_matrix_file}")
         feat_matrix = torch.from_numpy(load_npz(feat_matrix_file).toarray())

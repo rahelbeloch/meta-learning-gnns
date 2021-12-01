@@ -3,8 +3,8 @@ import torch
 import torch.nn.functional as F
 from torch import optim
 
-from models.document_classifier import f1, accuracy
 from models.gat_encoder import GATEncoder
+from models.train_utils import *
 
 
 class ProtoNet(pl.LightningModule):

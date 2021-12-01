@@ -1,18 +1,18 @@
 import pytorch_lightning as pl
-import sklearn
 import torch
 from torch import nn
 
 from models.gat_encoder import GATEncoder
+from models.train_utils import *
 
 
-class DocumentClassifier(pl.LightningModule):
+class GatBase(pl.LightningModule):
     """
     PyTorch Lightning module containing all model setup: Picking the correct encoder, initializing the classifier,
     and overwriting standard functions for training and optimization.
     """
 
-    def __init__(self, model_hparams, optimizer_hparams, batch_size, checkpoint=None, h_search=False):
+    def __init__(self, model_hparams, optimizer_hparams, batch_size, checkpoint=None):
         """
         Args:
             model_hparams - Hyperparameters for the whole model, as dictionary.
@@ -131,14 +131,3 @@ class DocumentClassifier(pl.LightningModule):
         self.log_on_epoch('test_accuracy', accuracy(predictions, targets))
         self.log_on_epoch('test_f1_macro', f1(predictions, targets, average='macro'))
         self.log_on_epoch('test_f1_micro', f1(predictions, targets, average='micro'))
-
-
-def accuracy(predictions, labels):
-    # noinspection PyUnresolvedReferences
-    return (labels == predictions.argmax(dim=-1)).float().mean().item()
-
-
-def f1(predictions, targets, average='binary'):
-    predictions_cpu = predictions.argmax(dim=-1).detach().cpu()
-    targets_cpu = targets.detach().cpu()
-    return sklearn.metrics.f1_score(targets_cpu, predictions_cpu, average=average).item()

@@ -11,7 +11,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from data_prep.config import *
 from data_prep.data_utils import SUPPORTED_DATASETS
 from data_prep.data_utils import get_data
-from models.document_classifier import DocumentClassifier
+from models.gat_base import GatBase
 from models.proto_net import ProtoNet
 
 SUPPORTED_MODELS = ['gat', 'prototypical', 'gmeta']
@@ -64,7 +64,7 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, l_rate_
                                  feature_type, checkpoint)
 
     if model_name == 'gat':
-        model = DocumentClassifier(model_params, optimizer_hparams, b_size, checkpoint, h_search)
+        model = GatBase(model_params, optimizer_hparams, b_size, checkpoint, h_search)
     elif model_name == 'prototypical':
         model = ProtoNet(model_params['input_dim'], model_params['cf_hid_dim'], optimizer_hparams['lr'], b_size)
     else:
@@ -138,7 +138,7 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
 
     Args:
         trainer (pl.Trainer) - Lightning trainer to use.
-        model (DocumentClassifier) - The Lightning Module which should be used.
+        model (pl.LightningModule) - The Lightning Module which should be used.
         test_dataloader (DataLoader) - Data loader for the test split.
         val_dataloader (DataLoader) - Data loader for the validation split.
     Returns:
