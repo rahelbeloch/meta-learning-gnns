@@ -234,6 +234,10 @@ class DglGraphDataset(GraphIO, DGLDataset):
     def num_features(self):
         return self.graph.ndata['feat'].shape[1]
 
+    @property
+    def num_nodes(self):
+        return self.graph.ndata['feat'].shape[0]
+
     def process(self):
         pass
 
@@ -273,13 +277,8 @@ def collate_fn_proto(batch_samples):
     Receives a batch of samples (subgraphs and labels) node IDs for which sub graphs need to be generated on the flight.
     :param batch_samples: List of pairs where each pair is: (graph, label)
     """
-    node_ids, graphs, labels = list(map(list, zip(*batch_samples)))
+    _, graphs, labels = list(map(list, zip(*batch_samples)))
 
-    # for i in range(len(node_ids)):
-    #     print(f"Node ID {node_ids[i]}, edges {graphs[i].num_edges()}, nodes {graphs[i].num_nodes()}")
-
-    # as we have support and query set combined, split them in half
-    # support_node_ids, query_node_ids = split_list(node_ids)
     support_sub_graphs, query_sub_graphs = split_list(graphs)
     support_labels, query_labels = split_list(labels)
 

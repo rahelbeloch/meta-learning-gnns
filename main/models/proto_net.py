@@ -1,6 +1,6 @@
 import pytorch_lightning as pl
 import torch
-import torch.nn.functional as F
+import torch.nn.functional as func
 from torch import optim
 
 from models.gat_encoder import GATEncoder
@@ -62,7 +62,7 @@ class ProtoNet(pl.LightningModule):
         """
         # Squared euclidean distance
         dist = torch.pow(prototypes[None, :] - feats[:, None], 2).sum(dim=2)
-        predictions = F.log_softmax(-dist, dim=1)
+        predictions = func.log_softmax(-dist, dim=1)
         # noinspection PyUnresolvedReferences
         labels = (classes[None, :] == targets[:, None]).long().argmax(dim=-1)
         return predictions, labels, accuracy(predictions, labels)
@@ -82,14 +82,14 @@ class ProtoNet(pl.LightningModule):
 
         support_graphs, query_graphs, support_targets, query_targets = batch
 
-        support_feats, node_mask = self.model(support_graphs)
+        support_feats, _ = self.model(support_graphs)
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
-        query_feats, node_mask = self.model(query_graphs)
+        query_feats, _ = self.model(query_graphs)
         query_feats = query_feats[query_graphs.ndata['classification_mask']]
         predictions, targets, acc = ProtoNet.classify_features(prototypes, classes, query_feats, query_targets)
 
-        meta_loss = F.cross_entropy(predictions, targets)
+        meta_loss = func.cross_entropy(predictions, targets)
 
         if mode == 'train':
             self.log(f"{mode}_loss", meta_loss, batch_size=self.hparams['batch_size'])

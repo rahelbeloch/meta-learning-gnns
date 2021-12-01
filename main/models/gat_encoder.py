@@ -1,5 +1,5 @@
 import torch
-import torch.nn.functional as F
+import torch.nn.functional as func
 from torch import nn
 from torch_geometric.nn import GATv2Conv
 
@@ -27,10 +27,10 @@ class GATEncoder(nn.Module):
         features, edge_index = sub_graphs.ndata['feat'], torch.stack(sub_graphs.all_edges())
 
         features = self.conv1(features.float(), edge_index)
-        features = F.relu(features)
+        features = func.relu(features)
 
         # TODO: add dropout
-        # x = F.dropout(x, p=self.dropout, training=self.training)
+        # x = func.dropout(x, p=self.dropout, training=self.training)
         # TODO: add edge weight?
 
         features = self.conv2(features.float(), edge_index)

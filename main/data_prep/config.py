@@ -2,7 +2,7 @@ RAW_DIR = 'raw'
 TSV_DIR = 'tsv'
 COMPLETE_DIR = 'complete'
 
-num_doc_nodes = '5000'
+num_doc_nodes = '8000'
 COMPLETE_small_DIR = 'complete-%s' % num_doc_nodes
 TSV_small_DIR = 'tsv-%s' % num_doc_nodes
 

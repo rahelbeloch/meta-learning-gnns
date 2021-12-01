@@ -49,10 +49,10 @@ class GatBase(pl.LightningModule):
         Also initializes the learning rate scheduler.
         """
 
-        lr_enc = self.hparams.optimizer_hparams['lr_enc']
-        lr_cl = self.hparams.optimizer_hparams['lr_cl']
+        lr = self.hparams.optimizer_hparams.lr
+        lr_cl = self.hparams.optimizer_hparams.lr_cl
         if lr_cl < 0:  # classifier learning rate not specified
-            lr_cl = lr_enc
+            lr_cl = lr
 
         # weight_decay_enc = self.hparams.optimizer_hparams["weight_decay_enc"]
         # weight_decay_cl = self.hparams.optimizer_hparams["weight_decay_cl"]
@@ -67,7 +67,7 @@ class GatBase(pl.LightningModule):
         grouped_parameters = [
             {
                 'params': [p for n, p in params if is_encoder(n)],
-                'lr': lr_enc  # ,
+                'lr': lr  # ,
                 # 'weight_decay': weight_decay_enc
             },
             {
@@ -90,7 +90,7 @@ class GatBase(pl.LightningModule):
     def training_step(self, batch, batch_idx):
 
         sub_graphs, targets = batch
-        out, node_mask = self.model(sub_graphs)
+        out, _ = self.model(sub_graphs)
 
         # only predict for the center node
         out = out[sub_graphs.ndata['classification_mask']]
@@ -110,7 +110,7 @@ class GatBase(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
 
         sub_graphs, targets = batch
-        out, node_mask = self.model(sub_graphs)
+        out, _ = self.model(sub_graphs)
 
         # only predict for the center node
         out = out[sub_graphs.ndata['classification_mask']]
@@ -123,7 +123,7 @@ class GatBase(pl.LightningModule):
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default logs it per epoch (weighted average over batches)
         sub_graphs, targets = batch
-        out, node_mask = self.model(sub_graphs)
+        out, _ = self.model(sub_graphs)
 
         out = out[sub_graphs.ndata['classification_mask']]
         predictions = self.classifier(out)
