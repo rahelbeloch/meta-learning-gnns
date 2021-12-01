@@ -153,7 +153,7 @@ class DglGraphDataset(GraphIO, DGLDataset):
         self.initialize_graph(feature_type, nr_train_docs)
 
     def initialize_graph(self, feature_type, nr_train_docs):
-        print('Initializing DGL graph ..........')
+        print('\nInitializing DGL graph ..........')
 
         # check if a DGL graph exists already for this dataset
         graph_file = self.data_complete_path(
@@ -231,8 +231,8 @@ class DglGraphDataset(GraphIO, DGLDataset):
         return self.graph.ndata['label'].unique()
 
     @property
-    def num_features(self):
-        return self.graph.ndata['feat'].shape[1]
+    def size(self):
+        return self.graph.ndata['feat'].shape
 
     @property
     def num_nodes(self):
@@ -270,40 +270,6 @@ class SubGraphs(Dataset):
         Generate sub graphs on the flight.
         """
         raise NotImplementedError
-
-
-def collate_fn_proto(batch_samples):
-    """
-    Receives a batch of samples (subgraphs and labels) node IDs for which sub graphs need to be generated on the flight.
-    :param batch_samples: List of pairs where each pair is: (graph, label)
-    """
-    node_ids, graphs, labels = list(map(list, zip(*batch_samples)))
-
-    # for i in range(len(node_ids)):
-    #     print(f"Node ID {node_ids[i]}, edges {graphs[i].num_edges()}, nodes {graphs[i].num_nodes()}")
-
-    # as we have support and query set combined, split them in half
-    # support_node_ids, query_node_ids = split_list(node_ids)
-    support_sub_graphs, query_sub_graphs = split_list(graphs)
-    support_labels, query_labels = split_list(labels)
-
-    return dgl.batch(support_sub_graphs), dgl.batch(query_sub_graphs), \
-           torch.LongTensor(support_labels), torch.LongTensor(query_labels)  # center, node_idx, graph_idx
-
-
-def collate_fn_base(batch_samples):
-    """
-    Receives a batch of samples (subgraphs and labels) node IDs for which sub graphs need to be generated on the flight.
-    :param batch_samples: List of pairs where each pair is: (graph, label)
-    """
-    node_ids, graphs, labels = list(map(list, zip(*batch_samples)))
-
-    return dgl.batch(graphs), torch.LongTensor(labels)  # center, node_idx, graph_idx
-
-
-def split_list(a_list):
-    half = len(a_list) // 2
-    return a_list[:half], a_list[half:]
 
 
 class DGLSubGraphs(SubGraphs):

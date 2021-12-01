@@ -12,6 +12,7 @@ class GatBase(pl.LightningModule):
     and overwriting standard functions for training and optimization.
     """
 
+    # noinspection PyUnusedLocal
     def __init__(self, model_hparams, optimizer_hparams, batch_size, checkpoint=None):
         """
         Args:
@@ -24,24 +25,30 @@ class GatBase(pl.LightningModule):
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace
         self.save_hyperparameters()
 
-        model_name = model_hparams['model']
-        cf_hidden_dim = model_hparams['cf_hid_dim']
-        num_classes = model_hparams['output_dim']
+        self.model = GATEncoder(model_hparams['input_dim'], hidden_dim=model_hparams['cf_hid_dim'], num_heads=2)
 
-        if model_name == 'gat':
-            self.model = GATEncoder(model_hparams['input_dim'], hidden_dim=cf_hidden_dim, num_heads=2)
-            self.classifier = nn.Sequential(
-                # TODO: maybe
-                # nn.Dropout(config["dropout"]),
-                # WHY??
-                # nn.Linear(3 * cf_hidden_dim, cf_hidden_dim),
-                nn.Linear(cf_hidden_dim, cf_hidden_dim),
-                nn.ReLU(),
-                nn.Linear(cf_hidden_dim, num_classes))
-        else:
-            raise ValueError("Model type '%s' is not supported." % model_name)
+        if checkpoint is not None:
+            encoder = load_pretrained_encoder(checkpoint)
+            self.model.load_state_dict(encoder)
+
+        self.classifier = self.get_classifier(model_hparams['output_dim'])
 
         self.loss_module = nn.CrossEntropyLoss()
+
+    def reset_classifier(self, num_classes):
+        self.classifier = self.get_classifier(num_classes)
+
+    def get_classifier(self, num_classes):
+        cf_hidden_dim = self.hparams['model_hparams']['cf_hid_dim']
+        return nn.Sequential(
+            # TODO: maybe
+            # nn.Dropout(config["dropout"]),
+            # WHY??
+            # nn.Linear(3 * cf_hidden_dim, cf_hidden_dim),
+            nn.Linear(cf_hidden_dim, cf_hidden_dim),
+            nn.ReLU(),
+            nn.Linear(cf_hidden_dim, num_classes)
+        )
 
     def configure_optimizers(self):
         """
@@ -49,10 +56,10 @@ class GatBase(pl.LightningModule):
         Also initializes the learning rate scheduler.
         """
 
-        lr_enc = self.hparams.optimizer_hparams['lr_enc']
+        lr = self.hparams.optimizer_hparams['lr']
         lr_cl = self.hparams.optimizer_hparams['lr_cl']
         if lr_cl < 0:  # classifier learning rate not specified
-            lr_cl = lr_enc
+            lr_cl = lr
 
         # weight_decay_enc = self.hparams.optimizer_hparams["weight_decay_enc"]
         # weight_decay_cl = self.hparams.optimizer_hparams["weight_decay_cl"]
@@ -67,7 +74,7 @@ class GatBase(pl.LightningModule):
         grouped_parameters = [
             {
                 'params': [p for n, p in params if is_encoder(n)],
-                'lr': lr_enc  # ,
+                'lr': lr  # ,
                 # 'weight_decay': weight_decay_enc
             },
             {
@@ -90,7 +97,7 @@ class GatBase(pl.LightningModule):
     def training_step(self, batch, batch_idx):
 
         sub_graphs, targets = batch
-        out, node_mask = self.model(sub_graphs)
+        out, _ = self.model(sub_graphs)
 
         # only predict for the center node
         out = out[sub_graphs.ndata['classification_mask']]
@@ -110,7 +117,7 @@ class GatBase(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
 
         sub_graphs, targets = batch
-        out, node_mask = self.model(sub_graphs)
+        out, _ = self.model(sub_graphs)
 
         # only predict for the center node
         out = out[sub_graphs.ndata['classification_mask']]
@@ -123,7 +130,7 @@ class GatBase(pl.LightningModule):
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default logs it per epoch (weighted average over batches)
         sub_graphs, targets = batch
-        out, node_mask = self.model(sub_graphs)
+        out, _ = self.model(sub_graphs)
 
         out = out[sub_graphs.ndata['classification_mask']]
         predictions = self.classifier(out)
@@ -131,3 +138,23 @@ class GatBase(pl.LightningModule):
         self.log_on_epoch('test_accuracy', accuracy(predictions, targets))
         self.log_on_epoch('test_f1_macro', f1(predictions, targets, average='macro'))
         self.log_on_epoch('test_f1_micro', f1(predictions, targets, average='micro'))
+
+
+def load_pretrained_encoder(checkpoint_path):
+    """
+    Load a pretrained encoder state dict and remove 'model.' from the keys in the state dict, so that solely
+    the encoder can be loaded.
+
+    Args:
+        checkpoint_path (str) - Path to a checkpoint for the DocumentClassifier.
+    Returns:
+        encoder_state_dict (dict) - Containing all keys for weights of encoder.
+    """
+    checkpoint = torch.load(checkpoint_path)
+    encoder_state_dict = {}
+    for layer, param in checkpoint["state_dict"].items():
+        if layer.startswith("model"):
+            new_layer = layer[layer.index(".") + 1:]
+            encoder_state_dict[new_layer] = param
+
+    return encoder_state_dict

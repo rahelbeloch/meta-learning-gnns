@@ -1,6 +1,8 @@
+import abc
 import random
 from collections import defaultdict
 
+import dgl
 import numpy as np
 import torch
 from torch.utils.data import Sampler
@@ -91,3 +93,38 @@ class FewShotSubgraphSampler(Sampler):
 
     def __len__(self):
         return self.num_batches
+
+    @staticmethod
+    def get_collate_fn(model):
+        collate_fn = None
+
+        if model == 'gat':
+            def collate_fn(batch_samples):
+                """
+                Receives a batch of samples (sub graphs and labels) node IDs for which sub graphs need to be generated
+                on the flight.
+                :param batch_samples: List of pairs where each pair is: (graph, label)
+                """
+                node_ids, graphs, labels = list(map(list, zip(*batch_samples)))
+                return dgl.batch(graphs), torch.LongTensor(labels)
+        elif model == 'prototypical':
+            def collate_fn(batch_samples):
+                """
+                Receives a batch of samples (sub graphs and labels) node IDs for which sub graphs need to be generated
+                on the flight.
+                :param batch_samples: List of pairs where each pair is: (graph, label)
+                """
+                _, graphs, labels = list(map(list, zip(*batch_samples)))
+
+                support_sub_graphs, query_sub_graphs = split_list(graphs)
+                support_labels, query_labels = split_list(labels)
+
+                return dgl.batch(support_sub_graphs), dgl.batch(query_sub_graphs), torch.LongTensor(
+                    support_labels), torch.LongTensor(query_labels)
+
+        return collate_fn
+
+
+def split_list(a_list):
+    half = len(a_list) // 2
+    return a_list[:half], a_list[half:]
