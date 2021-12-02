@@ -6,11 +6,10 @@ from collections import defaultdict
 import nltk
 import numpy as np
 import pandas as pd
-import torch
 
 from data_prep.config import *
 from data_prep.data_preprocess_utils import save_json_file, sanitize_text, print_label_distribution, split_data
-from data_prep.graph_io import GraphIO
+from data_prep.graph_io import GraphIO, NIV_IDX
 
 
 class DataPreprocessor(GraphIO):
@@ -129,16 +128,16 @@ class DataPreprocessor(GraphIO):
         token2idx, _, _ = self.get_vocab_token2idx({key: value[0] for (key, value) in data_dict.items()})
 
         # Filter out documents for which we do not have features any ways
-        invalid_no_features = {}
+        invalid_only_niv = {}
         x_data, y_data, doc_names, x_lengths = [], [], [], []
 
         for doc_key, doc_data in data_dict.items():
             tokens = doc_data[0]
 
-            # check if we would end up having features for this text
-            indices = torch.tensor([token2idx[token] for token in tokens if token in token2idx])
-            if len(indices[indices < self.max_vocab]) == 0:
-                invalid_no_features[doc_key] = tokens
+            indices = [token2idx[token] if token in token2idx else token2idx[NIV_IDX[1]] for token in tokens]
+            if all(v == NIV_IDX[0] for v in indices):
+                # if only NIV tokens for this document, skip it
+                invalid_only_niv[doc_key] = tokens
                 continue
 
             x_data.append(tokens)
@@ -150,13 +149,13 @@ class DataPreprocessor(GraphIO):
         print(f"Shortest Length = {min(x_lengths)}")
         print(f"Longest Length = {max(x_lengths)}")
         print(f"Total data points invalid and removed (length < {min_len}) = {len(set(invalid_min_length))}")
-        print(f"Total data points invalid and removed (no features) = {len(set(invalid_no_features.keys()))}")
+        print(f"Total data points invalid and removed (only NIV tokens) = {len(set(invalid_only_niv.keys()))}")
 
-        if len(invalid_no_features) > 0:
+        if len(invalid_only_niv) > 0:
             # save the invalid files with their words
-            invalid_docs_file = self.data_complete_path('invalid-docs-no-features.txt')
+            invalid_docs_file = self.data_complete_path('invalid-docs-niv.txt')
             with open(invalid_docs_file, mode='wt', encoding='utf-8') as file:
-                invalid = {doc_key: ' '.join(tokens) for doc_key, tokens in invalid_no_features.items()}
+                invalid = {doc_key: ' '.join(tokens) for doc_key, tokens in invalid_only_niv.items()}
                 invalid = [': '.join(entry) for entry in invalid.items()]
                 file.write('\n'.join(invalid))
 
@@ -181,9 +180,10 @@ class DataPreprocessor(GraphIO):
                            duplicate_stats=False):
         """
         Creates train, val and test splits via random splitting of the dataset in a stratified fashion to ensure
-        similar data distribution. Currently only supports splitting data in 1 split for each set.
+        similar data distribution. Currently, only supports splitting data in 1 split for each set.
 
         :param num_train_nodes: Maximum amount of train documents to use.
+        :param min_length: Minimum length of the documents to use.
         :param test_size: Size of the test split compared to the whole data.
         :param val_size: Size of the val split compared to the whole data.
         :param splits: Number of splits.
@@ -247,7 +247,7 @@ class DataPreprocessor(GraphIO):
                     text = ' '.join(x[i])  # join for better reading it later
                     csv_writer.writerow([name_list[i], text, y[i]])
 
-        doc_splits_file = self.data_tsv_path(DOC_SPLITS_FILE_NAME % self.feature_type)
+        doc_splits_file = self.data_tsv_path(DOC_SPLITS_FILE_NAME % (self.feature_type, self.max_vocab))
         print("Writing doc_splits in : ", doc_splits_file)
 
         doc_names_train, doc_names_test, doc_names_val = train_split[2], test_split[2], val_split[2]

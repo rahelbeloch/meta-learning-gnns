@@ -12,6 +12,7 @@ from data_prep.data_preprocess_utils import *
 from data_prep.config import *
 
 FEATURE_TYPES = ['one-hot', 'glove-sum', 'glove-average']
+NIV_IDX = (0, 'NIV')
 
 
 class GraphIO:
@@ -112,7 +113,7 @@ class GraphIO:
         if self.max_vocab != -1:
             token_counts = token_counts[:self.max_vocab]
         # NIV: not in vocab token, i.e., out of vocab
-        token_counts.append((0, 'NIV'))
+        token_counts.append(NIV_IDX)
 
         vocab = {}
         for (i, (count, token)) in enumerate(token_counts):
