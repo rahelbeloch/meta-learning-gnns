@@ -148,7 +148,8 @@ class DataPreprocessor(GraphIO):
         print(f"Average length = {sum(x_lengths) / len(x_lengths)}")
         print(f"Shortest Length = {min(x_lengths)}")
         print(f"Longest Length = {max(x_lengths)}")
-        print(f"Total data points invalid and removed (length < {min_len}) = {len(set(invalid_min_length))}")
+
+        print(f"\nTotal data points invalid and removed (length < {min_len}) = {len(set(invalid_min_length))}")
         print(f"Total data points invalid and removed (only NIV tokens) = {len(set(invalid_only_niv.keys()))}")
 
         if len(invalid_only_niv) > 0:
@@ -176,7 +177,7 @@ class DataPreprocessor(GraphIO):
 
         return x_data[sampled_indices], y_data[sampled_indices], doc_names[sampled_indices]
 
-    def create_data_splits(self, num_train_nodes=None, min_length=None, test_size=0.2, val_size=0.1, splits=1,
+    def create_data_splits(self, test_size, val_size, num_train_nodes=None, min_length=None, splits=1,
                            duplicate_stats=False):
         """
         Creates train, val and test splits via random splitting of the dataset in a stratified fashion to ensure
@@ -211,27 +212,36 @@ class DataPreprocessor(GraphIO):
             save_json_file(duplicates, duplicates_file, converter=self.np_converter)
 
         # Creating train-val-test split with same/similar label distribution in each split
+        split_dict = {}
 
-        # one tuple is one split and contains: (x, y, doc_names)
-        rest_split, test_split = split_data(splits, test_size, data)
+        if test_size > 0:
+            # one tuple is one split and contains: (x, y, doc_names)
+            rest_split, test_split = split_data(splits, test_size, data)
+            assert len(set(test_split[2])) == len(test_split[2]), "Test split contains duplicate doc names!"
+            print_label_distribution(test_split[1], 'test')
+            split_dict['test'] = test_split
+        else:
+            rest_split = data
 
-        assert len(set(test_split[2])) == len(test_split[2]), "Test split contains duplicate doc names!"
+        if val_size > 0:
+            # split rest data into validation and train splits
+            train_split, val_split = split_data(splits, val_size, rest_split)
+            assert len(set(val_split[2])) == len(val_split[2]), "Validation split contains duplicate doc names!"
+            print_label_distribution(val_split[1], 'val')
+            split_dict['val'] = val_split
+        else:
+            train_split = data
 
-        # split rest data into validation and train splits
-        train_split, val_split = split_data(splits, val_size, rest_split)
-
-        assert len(set(val_split[2])) == len(val_split[2]), "Validation split contains duplicate doc names!"
         assert len(set(train_split[2])) == len(train_split[2]), "Train split contains duplicate doc names!"
+        print_label_distribution(train_split[1], 'train')
+        split_dict['train'] = train_split
 
-        print_label_distribution(train_split[1])
-        print_label_distribution(val_split[1])
-        print_label_distribution(test_split[1])
-
-        print("\nWriting train-val-test files..")
+        print("\nWriting train-val-test files...\n")
 
         split_path = self.data_tsv_path(f'splits-{self.feature_type}-{self.max_vocab}')
 
-        for split, data in {'train': train_split, 'val': val_split, 'test': test_split}.items():
+        doc_names_split_dict = {}
+        for split, data in split_dict.items():
             x, y, name_list = data
 
             if not split_path.exists():
@@ -247,16 +257,13 @@ class DataPreprocessor(GraphIO):
                     text = ' '.join(x[i])  # join for better reading it later
                     csv_writer.writerow([name_list[i], text, y[i]])
 
+            print(f"Total {split} = ", len(name_list))
+
+            doc_names_split_dict[f'{split}_docs'] = name_list
+
         doc_splits_file = self.data_tsv_path(DOC_SPLITS_FILE_NAME % (self.feature_type, self.max_vocab))
-        print("Writing doc_splits in : ", doc_splits_file)
-
-        doc_names_train, doc_names_test, doc_names_val = train_split[2], test_split[2], val_split[2]
-        print("\nTotal train = ", len(doc_names_train))
-        print("Total test = ", len(doc_names_test))
-        print("Total val = ", len(doc_names_val))
-
-        split_dict = {'test_docs': doc_names_test, 'train_docs': doc_names_train, 'val_docs': doc_names_val}
-        save_json_file(split_dict, doc_splits_file, converter=self.np_converter)
+        print("\nWriting doc_splits in : ", doc_splits_file)
+        save_json_file(doc_names_split_dict, doc_splits_file, converter=self.np_converter)
 
     def store_doc2labels(self, doc2labels):
         """

@@ -34,10 +34,10 @@ def get_label_distribution(labels):
     return fake / denom, real / denom
 
 
-def print_label_distribution(labels):
+def print_label_distribution(labels, split):
     fake, real = get_label_distribution(labels)
-    print(f"\nFake labels in train split  = {fake * 100:.2f} %")
-    print(f"Real labels in train split  = {real * 100:.2f} %")
+    print(f"\nFake labels in {split} split  = {fake * 100:.2f} %")
+    print(f"Real labels in {split} split  = {real * 100:.2f} %")
 
 
 def load_json_file(file_name):
@@ -69,8 +69,6 @@ def sanitize_text(text):
     # (twitter hate speech) preprocessing from Pushkar's repo
     text = re.sub('[' + punctuation + ']', ' ', text)
     text = re.sub('\\b[0-9]+\\b', '', text)
-
-
 
     # (gossipcop) preprocessing from safer paper
     text = text.replace('\n', ' ')

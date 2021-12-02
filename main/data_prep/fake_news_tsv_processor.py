@@ -62,13 +62,13 @@ class TSVPreprocessor(DataPreprocessor):
 
 
 if __name__ == '__main__':
-    #tsv_dir = TSV_small_DIR
-    #complete_dir = COMPLETE_small_DIR
-    #num_train_nodes = int(COMPLETE_small_DIR.split('-')[1])
+    tsv_dir = TSV_small_DIR
+    complete_dir = COMPLETE_small_DIR
+    num_train_nodes = int(COMPLETE_small_DIR.split('-')[1])
 
-    tsv_dir = TSV_DIR
-    complete_dir = COMPLETE_DIR
-    num_train_nodes = None
+    # tsv_dir = TSV_DIR
+    # complete_dir = COMPLETE_DIR
+    # num_train_nodes = None
 
     feature_type = 'one-hot'
     max_vocab = 10000
@@ -77,9 +77,9 @@ if __name__ == '__main__':
     # data, val_size, test_size, min_len = 'twitterHateSpeech', 0.25, 0.75, 1
 
     preprocessor = TSVPreprocessor(data, feature_type, max_vocab, 'data', tsv_dir, complete_dir)
-    preprocessor.aggregate_user_contexts()
-    preprocessor.corpus_to_tsv()
-    preprocessor.create_data_splits(num_train_nodes=num_train_nodes,
-                                    min_length=min_len,
-                                    test_size=test_size,
-                                    val_size=val_size)
+    # preprocessor.aggregate_user_contexts()
+    # preprocessor.corpus_to_tsv()
+    preprocessor.create_data_splits(test_size=test_size,
+                                    val_size=val_size,
+                                    num_train_nodes=num_train_nodes,
+                                    min_length=min_len)

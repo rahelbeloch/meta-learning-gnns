@@ -69,8 +69,10 @@ if __name__ == '__main__':
     # tsv_dir = TSV_small_DIR
     # complete_dir = COMPLETE_small_DIR
     # num_train_nodes = int(COMPLETE_small_DIR.split('-')[1])
+
     feature_type = 'one-hot'
     max_vocab = 10000
+    test_size, val_size = 0.75, 0.25
 
     tsv_dir = TSV_DIR
     complete_dir = COMPLETE_DIR
@@ -81,4 +83,5 @@ if __name__ == '__main__':
                                    'twitter_data_waseem_hovy.csv')
 
     preprocessor.corpus_to_tsv()
-    preprocessor.create_data_splits(num_train_nodes=num_train_nodes, min_length=6, duplicate_stats=False)
+    preprocessor.create_data_splits(test_size=test_size, val_size=val_size, num_train_nodes=num_train_nodes,
+                                    min_length=6)
