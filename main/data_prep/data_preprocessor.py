@@ -155,7 +155,7 @@ class DataPreprocessor(GraphIO):
         if len(invalid_no_features) > 0:
             # save the invalid files with their words
             invalid_docs_file = self.data_complete_path('invalid-docs-no-features.txt')
-            with open(invalid_docs_file, mode='wt', encoding='utf-8') as file:
+            with open(invalid_docs_file, mode='w+', encoding='utf-8') as file:
                 invalid = {doc_key: ' '.join(tokens) for doc_key, tokens in invalid_no_features.items()}
                 invalid = [': '.join(entry) for entry in invalid.items()]
                 file.write('\n'.join(invalid))
