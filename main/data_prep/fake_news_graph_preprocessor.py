@@ -18,14 +18,14 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
         self.load_doc_splits()
 
         if self.only_valid_users:
-           self.filter_valid_users()
-        # self.create_user_splits(max_users)
-        # self.create_doc_id_dicts()
-        # self.filter_contexts()
-        # self.create_feature_matrix()
-        # self.create_adj_matrix()
-        # self.create_labels()
-        # self.create_split_masks()
+            self.filter_valid_users()
+        self.create_user_splits(max_users)
+        self.create_doc_id_dicts()
+        self.filter_contexts()
+        self.create_feature_matrix()
+        self.create_adj_matrix()
+        self.create_labels()
+        self.create_split_masks()
 
     @property
     def labels(self):
@@ -46,7 +46,7 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
         user_stats = defaultdict(lambda: {'fake': 0, 'real': 0})
 
         used_docs = 0
-        for file_path in self.data_tsv_path('engagements').glob('*'):
+        for file_path in self.get_engagement_files():
 
             # only restrict users interacting with this document ID if we actually use this doc in our splits
             doc_key = file_path.stem
@@ -71,6 +71,9 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         super().filter_users(user_stats, used_docs)
 
+    def get_engagement_files(self):
+        return self.data_tsv_path('engagements').glob('*')
+
     def create_user_splits(self, max_users):
         """
         Walks through all users that interacted with documents and, divides them on train/val/test splits.
@@ -85,15 +88,19 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
         train_users, val_users, test_users = set(), set(), set()
 
         # walk through user-doc engagement files created before
-        files = list(self.data_tsv_path('engagements').glob('*'))
+        files = list(self.get_engagement_files())
         print_iter = int(len(files) / 20)
 
         for count, file_path in enumerate(files):
             if max_users is not None and (len(train_users) + len(test_users) + len(val_users)) >= max_users:
                 break
 
+            doc_key = file_path.stem
+            if not self.doc_used(doc_key):
+                continue
+
             try:
-                src_file = load_json_file(file_path)
+                users = load_json_file(file_path)['users']
             except UnicodeDecodeError:
                 # TODO: fix this error / keep track of files for which this happens
                 print("Exception")
@@ -102,17 +109,16 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
             if count % print_iter == 0:
                 print("{} / {} done..".format(count + 1, len(files)))
 
-            users = src_file['users']
+            if doc_key in self.train_docs:
+                user_set = train_users
+            if doc_key in self.val_docs:
+                user_set = val_users
+            if doc_key in self.test_docs:
+                user_set = test_users
 
             users_filtered = [u for u in users if self.valid_user(u)]
-
-            doc_key = file_path.stem
-            if doc_key in self.train_docs:
-                train_users.update(users_filtered)
-            if doc_key in self.val_docs:
-                val_users.update(users_filtered)
-            if doc_key in self.test_docs:
-                test_users.update(users_filtered)
+            # noinspection PyUnboundLocalVariable
+            user_set.update(users_filtered)
 
         super().store_user_splits(train_users, test_users, val_users)
 
@@ -124,7 +130,7 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
         edge_list = []
         not_used = 0
 
-        for count, file_path in enumerate(self.data_tsv_path('engagements').glob('*')):
+        for file_path in self.get_engagement_files():
             doc_key = file_path.stem
             if doc_key == '':
                 continue

@@ -70,7 +70,7 @@ if __name__ == '__main__':
     complete_dir = COMPLETE_DIR
     num_train_nodes = None
 
-    feature_type = 'one-hot'
+    feature_type = 'glove-average'
     max_vocab = 10000
 
     data, val_size, test_size, min_len = 'gossipcop', 0.125, 0.0, 25

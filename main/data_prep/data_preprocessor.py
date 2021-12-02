@@ -134,7 +134,7 @@ class DataPreprocessor(GraphIO):
         for doc_key, doc_data in data_dict.items():
             tokens = doc_data[0]
 
-            indices = [token2idx[token] if token in token2idx else token2idx[NIV_IDX[1]] for token in tokens]
+            indices = self.as_vocab_indices(token2idx, tokens)
             if all(v == NIV_IDX[0] for v in indices):
                 # if only NIV tokens for this document, skip it
                 invalid_only_niv[doc_key] = tokens

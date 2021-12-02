@@ -77,7 +77,6 @@ class GraphPreprocessor(GraphIO):
         restricted_users = []
         for user_id, stat in user_stats_avg.items():
             if self.is_restricted(stat):
-                # print(f'User with ID {user_id} shared {stat["fake"]} of fake and {stat["real"]} of real.')
                 restricted_users.append(user_id)
 
         restricted_users_file = self.data_complete_path(RESTRICTED_USERS % self.user_doc_threshold)
@@ -217,20 +216,21 @@ class GraphPreprocessor(GraphIO):
 
         return doc2id, node_type
 
-    def filter_contexts(self, follower_key=None):
+    def filter_contexts(self):
         self.print_step("Creating filtered follower-following")
 
         all_users = load_json_file(self.data_complete_path(USER_2_ID_FILE_NAME % self.top_k))
         print("Total users in this dataset = ", len(all_users))
 
+        print_iter = int(20000 / 10)
         unknown_user_ids = 0
+
         for user_context in USER_CONTEXTS:
             print(f"\n    - from {user_context}  folder...")
 
-            dest_dir = self.data_raw_path(self.dataset, f'{user_context}_filtered')
-            self.create_dir(dest_dir)
+            user_context_filtered_dir = self.data_raw_path(self.dataset, f'{user_context}_filtered')
+            self.create_dir(user_context_filtered_dir)
 
-            print_iter = int(20000 / 10)
             user_context_src_dir = self.data_raw_path(self.dataset, user_context)
             for count, file_path in enumerate(user_context_src_dir.glob('*')):
 
@@ -240,31 +240,27 @@ class GraphPreprocessor(GraphIO):
                     continue
 
                 if count == 0:
-                    print("Writing filtered lists in : ", dest_dir)
+                    print("Writing filtered lists in : ", user_context_filtered_dir)
                     print("Printing every: ", print_iter)
 
-                dest_file_path = (dest_dir / (user_id + '.json'))
+                dest_file_path = (user_context_filtered_dir / (user_id + '.json'))
 
                 # skip if we have already a file for this user
                 if dest_file_path.is_file():
                     continue
 
-                src_file = load_json_file(file_path)
+                follower_key = 'followers' if user_context == 'user_followers' else 'following'
+                followers = load_json_file(file_path)[follower_key]
 
-                follower_dest_key = 'followers' if user_context == 'user_followers' else 'following'
-
-                # will be different for FakeHealth and FakeNews
-                follower_src_key = follower_key if follower_key is not None else follower_dest_key
-
-                # only use follower if it is contained in all_users
-                followers = [f for f in src_file[follower_src_key] if f in all_users]
+                followers = [f for f in followers if f in all_users]  # only use follower if contained in all_users
                 followers = list(map(int, followers))
 
                 temp = set()
                 for follower in followers:
                     temp.update([follower])
 
-                save_json_file({'user_id': user_id, follower_dest_key: list(temp)}, dest_file_path)
+                follower_json = {'user_id': user_id, follower_key: list(temp)}
+                save_json_file(follower_json, dest_file_path)
 
                 if count % print_iter == 0:
                     print(f"{count + 1} done..")
@@ -381,10 +377,7 @@ class GraphPreprocessor(GraphIO):
         feature_ids = {}
         feature_idx = 0
         for doc_key, tokens in all_texts.items():
-            indices = torch.tensor([token2idx[token] for token in tokens if token in token2idx])
-
-            # Use only 10k most common tokens
-            indices = indices[indices < self.max_vocab]
+            indices = self.as_vocab_indices(token2idx, tokens)
 
             if self.feature_type == 'one-hot':
                 doc_feat = torch.zeros(self.max_vocab)
@@ -414,9 +407,7 @@ class GraphPreprocessor(GraphIO):
         features_users = []
         for user_id, doc_ids in feature_id_mapping.items():
             features_users.append(doc_features[doc_ids].sum(axis=0))
-        user_features = torch.stack(features_users)  # .to(self._device)
-
-        # TODO: update doc2id, because there might be documents which are left without text, after using Glove Vocab
+        user_features = torch.stack(features_users)
 
         hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
@@ -424,6 +415,8 @@ class GraphPreprocessor(GraphIO):
         print(f"\nCreating feature matrix and storing doc and user features...")
         start = time.time()
         total = doc_features.shape[0] + user_features.shape[0]
+
+        # TODO: use torch.sparse matrix
         feature_matrix = lil_matrix((total, feature_size))
         print(f"Size of feature matrix = {feature_matrix.shape}")
 
