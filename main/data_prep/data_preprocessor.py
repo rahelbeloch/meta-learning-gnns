@@ -109,7 +109,7 @@ class DataPreprocessor(GraphIO):
         :return: Numpy arrays for article tests (x_data), article labels (y_data), and article names (doc_names).
         """
 
-        invalid = []
+        invalid_min_length = []
         data_dict = {}
 
         data_file = self.data_tsv_path(CONTENT_INFO_FILE_NAME)
@@ -123,20 +123,22 @@ class DataPreprocessor(GraphIO):
                 if len(tokens) >= min_len:
                     data_dict[doc_key] = (tokens, int(row['label']))
                 else:
-                    invalid.append(doc_key)
+                    invalid_min_length.append(doc_key)
 
         # Get the vocab we would have from these texts
         token2idx, _, _ = self.get_vocab_token2idx({key: value[0] for (key, value) in data_dict.items()})
 
-        # Filter out documents for which we do not have features anyways
+        # Filter out documents for which we do not have features any ways
+        invalid_no_features = {}
         x_data, y_data, doc_names, x_lengths = [], [], [], []
+
         for doc_key, doc_data in data_dict.items():
             tokens = doc_data[0]
 
             # check if we would end up having features for this text
             indices = torch.tensor([token2idx[token] for token in tokens if token in token2idx])
             if len(indices[indices < self.max_vocab]) == 0:
-                invalid.append(doc_key)
+                invalid_no_features[doc_key] = tokens
                 continue
 
             x_data.append(tokens)
@@ -147,7 +149,16 @@ class DataPreprocessor(GraphIO):
         print(f"Average length = {sum(x_lengths) / len(x_lengths)}")
         print(f"Shortest Length = {min(x_lengths)}")
         print(f"Longest Length = {max(x_lengths)}")
-        print(f"Total data points invalid and therefore removed (length < {min_len}) = {len(set(invalid))}")
+        print(f"Total data points invalid and removed (length < {min_len}) = {len(set(invalid_min_length))}")
+        print(f"Total data points invalid and removed (no features) = {len(set(invalid_no_features.keys()))}")
+
+        if len(invalid_no_features) > 0:
+            # save the invalid files with their words
+            invalid_docs_file = self.data_complete_path('invalid-docs-no-features.txt')
+            with open(invalid_docs_file, mode='wt', encoding='utf-8') as file:
+                invalid = {doc_key: ' '.join(tokens) for doc_key, tokens in invalid_no_features.items()}
+                invalid = [': '.join(entry) for entry in invalid.items()]
+                file.write('\n'.join(invalid))
 
         x_data = np.array(x_data)
         y_data = np.array(y_data)
@@ -166,7 +177,8 @@ class DataPreprocessor(GraphIO):
 
         return x_data[sampled_indices], y_data[sampled_indices], doc_names[sampled_indices]
 
-    def create_data_splits(self, num_train_nodes=None, min_length=None, test_size=0.2, val_size=0.1, splits=1, duplicate_stats=False):
+    def create_data_splits(self, num_train_nodes=None, min_length=None, test_size=0.2, val_size=0.1, splits=1,
+                           duplicate_stats=False):
         """
         Creates train, val and test splits via random splitting of the dataset in a stratified fashion to ensure
         similar data distribution. Currently only supports splitting data in 1 split for each set.
@@ -232,7 +244,7 @@ class DataPreprocessor(GraphIO):
                 csv_writer = csv.writer(csv_file, delimiter='\t')
                 csv_writer.writerow(['id', 'text', 'label'])
                 for i in range(len(x)):
-                    text = ' '.join(x[i])           # join for better reading it later
+                    text = ' '.join(x[i])  # join for better reading it later
                     csv_writer.writerow([name_list[i], text, y[i]])
 
         doc_splits_file = self.data_tsv_path(DOC_SPLITS_FILE_NAME % self.feature_type)

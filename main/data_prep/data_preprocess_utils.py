@@ -62,15 +62,21 @@ def calc_elapsed_time(start, end):
 def sanitize_text(text):
     text = text.lower()
 
-    # replace special symbols in the text
-    text = re.sub('[' + punctuation + ']', ' ', text)
     text = re.sub('\\s+', ' ', text)
 
-    # text = re.sub('\\b[0-9]+\\b', '', text)
+    # TODO: different preprocessing for different datasets
 
-    # TODO: enable this?
-    # text = re.sub(r'#[\w-]+', 'hashtag', text)
-    # text = re.sub(r'https?://\S+', 'url', text)
+    # (twitter hate speech) preprocessing from Pushkar's repo
+    text = re.sub('[' + punctuation + ']', ' ', text)
+    text = re.sub('\\b[0-9]+\\b', '', text)
+
+
+
+    # (gossipcop) preprocessing from safer paper
+    text = text.replace('\n', ' ')
+    text = text.replace('\t', ' ')
+    text = re.sub(r'#[\w-]+', 'hashtag', text)
+    text = re.sub(r'https?://\S+', 'url', text)
 
     # filter out stopwords
     text = [w for w in text.split(' ') if w not in STOP_WORDS]

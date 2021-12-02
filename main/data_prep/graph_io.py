@@ -79,16 +79,17 @@ class GraphIO:
     def get_vocab_token2idx(self, texts):
         if self.feature_type == 'one-hot':
             # create own vocabulary from all data
-            return self.build_vocab(texts), self.max_vocab, None
+            vocab = self.build_vocab(texts)
+            return vocab, len(vocab), None
         elif 'glove' in self.feature_type:
             feature_size = 200
             glove = GloVe(name='twitter.27B', dim=feature_size, max_vectors=self.max_vocab)
+            # check if words are in the inflected form
             return glove.stoi, feature_size, glove.vectors
         else:
             raise ValueError(f"Trying to create features of type {self.feature_type} which is not unknown!")
 
-    @staticmethod
-    def build_vocab(all_text_tokens, max_count=-1, min_count=2, max_vocab=15000):
+    def build_vocab(self, all_text_tokens, max_count=-1, min_count=2):
 
         # creating word frequency dict
         word_freq = {}
@@ -108,8 +109,8 @@ class GraphIO:
             token_counts.append((count, token))
 
         token_counts.sort(reverse=True)
-        if max_vocab != -1:
-            token_counts = token_counts[:max_vocab]
+        if self.max_vocab != -1:
+            token_counts = token_counts[:self.max_vocab]
         # NIV: not in vocab token, i.e., out of vocab
         token_counts.append((0, 'NIV'))
 

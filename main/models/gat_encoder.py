@@ -25,7 +25,7 @@ class GATEncoder(nn.Module):
 
         # Check if we can get edge weights
         features, edge_index = sub_graphs.ndata['feat'], torch.stack(sub_graphs.all_edges())
-
+        # TODO: if features is sparse; calling float might make it un sparse
         features = self.conv1(features.float(), edge_index)
         features = func.relu(features)
 

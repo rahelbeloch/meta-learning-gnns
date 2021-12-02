@@ -377,7 +377,6 @@ class GraphPreprocessor(GraphIO):
         print("\nCreating features for docs nodes...")
         start = time.time()
 
-        skipped_doc_keys = []
         features_docs = []
         feature_ids = {}
         feature_idx = 0
@@ -386,10 +385,6 @@ class GraphPreprocessor(GraphIO):
 
             # Use only 10k most common tokens
             indices = indices[indices < self.max_vocab]
-
-            if len(indices) == 0:
-                skipped_doc_keys.append(doc_key)
-                continue
 
             if self.feature_type == 'one-hot':
                 doc_feat = torch.zeros(self.max_vocab)
@@ -405,26 +400,7 @@ class GraphPreprocessor(GraphIO):
             feature_ids[doc_key] = feature_idx
             feature_idx += 1
 
-        doc_features = torch.stack(features_docs)  # .to(self._device)
-
-        # # have to update doc2id and user2id if this is the case
-        # print(f"\nUpdating doc2id and user2id because some documents do not have features: {skipped_doc_keys}")
-        # new_doc_idx = 0
-        # new_doc2id = {}
-        # if len(skipped_doc_keys) != 0:
-        #     for doc_key, doc_id in self.doc2id.items():
-        #         if doc_key in skipped_doc_keys:
-        #             continue
-        #         new_doc2id[doc_key] = new_doc_idx
-        #         new_doc_idx += 1
-        # # save_json_file(new_doc2id, self.data_complete_path(DOC_2_ID_FILE_NAME % self.top_k))
-        # self.doc2id = new_doc2id
-        #
-        # # subtract length of skipped docs from user ids
-        # self.user2id = {k: v - len(skipped_doc_keys) for k, v in self.user2id.items()}
-        # # TODO: save new doc2id and user2id?
-        # # TODO: update node type
-        # # TODO: update node2id
+        doc_features = torch.stack(features_docs)
 
         hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs")
