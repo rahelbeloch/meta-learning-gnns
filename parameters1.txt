@@ -1,6 +1,2 @@
---model prototypical --complete-dir complete --tsv-dir tsv --seed 82 --dataset gossipcop --feature-type glove-average
---model gat --complete-dir complete --tsv-dir tsv --seed 82 --dataset gossipcop --feature-type glove-average
---model prototypical --complete-dir complete --tsv-dir tsv --seed 82 --dataset twitterHateSpeech --feature-type one-hot
---model gat --complete-dir complete --tsv-dir tsv --seed 82 --dataset twitterHateSpeech --feature-type one-hot
---model prototypical --complete-dir complete --tsv-dir tsv --seed 82 --dataset gossipcop --feature-type one-hot --vocab-size 8000
---model gat --complete-dir complete --tsv-dir tsv --seed 82 --dataset gossipcop --feature-type one-hot --vocab-size 8000
+--model gat --complete-dir complete --tsv-dir tsv --seed 82 --lr 1e-4 --dataset gossipcop --feature-type one-hot --k-shot 2
+--model prototypical --complete-dir complete --tsv-dir tsv --seed 82 --lr 1e-4 --dataset gossipcop --feature-type one-hot --k-shot 2

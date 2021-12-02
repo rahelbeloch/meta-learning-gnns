@@ -21,6 +21,6 @@ cd $HOME/meta-learning-gnns/main
 # Activate your environment
 source activate meta-gnn-env
 
-PARAMETERS_FILE=../parameters-vocab-sizes.txt
+PARAMETERS_FILE=../parameters1.txt
 
 srun python -u train_gnn.py $(head -$SLURM_ARRAY_TASK_ID $PARAMETERS_FILE | tail -1)
