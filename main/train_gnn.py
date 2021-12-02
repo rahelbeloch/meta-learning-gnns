@@ -93,7 +93,7 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
         elapsed = end - start
         print(f'\nRequired time for training: {int(elapsed / 60)} minutes.\n')
 
-        # Load best checkpoint after training
+        # Load the best checkpoint after training
         model_path = trainer.checkpoint_callback.best_model_path
         print(f'Best model path: {model_path}')
     else:
@@ -104,7 +104,7 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
     model = model.load_from_checkpoint(model_path)
 
     # model was trained on another dataset --> reinitialize
-    if model_name == 'gat':
+    if model_name == 'gat' and data_eval is not None and data_eval != data_train:
         model.reset_classifier(len(labels[1]))
 
     evaluate(trainer, model, test_loader, test_val_loader)
@@ -245,7 +245,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset-train', dest='dataset_train', default='gossipcop', choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use for training. '
                              'If a checkpoint is provided we do not train again.')
-    parser.add_argument('--dataset-eval', dest='dataset_eval', default='twitterHateSpeech', choices=SUPPORTED_DATASETS,
+    parser.add_argument('--dataset-eval', dest='dataset_eval', default=None, choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use for evaluation.')
     parser.add_argument('--num-train-docs', dest='num_train_docs', type=int, default=num_nodes,
                         help="Inner gradient updates during meta learning.")

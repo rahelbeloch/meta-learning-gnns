@@ -25,8 +25,8 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, nr_train_doc
         Exception: if the data_name is not in SUPPORTED_DATASETS.
     """
 
-    if data_train not in SUPPORTED_DATASETS or data_eval not in SUPPORTED_DATASETS:
-        raise ValueError(f"Data with name '{data_train}' or '{data_eval}' is not supported.")
+    if data_train not in SUPPORTED_DATASETS:
+        raise ValueError(f"Data with name '{data_train}' is not supported.")
 
     num_workers = 6 if torch.cuda.is_available() else 0  # mac has 8 CPUs
 
@@ -35,16 +35,27 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, nr_train_doc
     train_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'train')
     train_val_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'val')
 
-    # creating a val and test loader from the eval dataset
-    graph_data_eval = DglGraphDataset(data_eval, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
-    test_loader = get_loader(graph_data_eval, model, hop_size, k_shot, num_workers, 'test')
-    test_val_loader = get_loader(graph_data_eval, model, hop_size, k_shot, num_workers, 'val')
+    eval_labels, test_val_loader = graph_data_train.labels, train_val_loader
 
-    assert graph_data_train.size[1] == graph_data_eval.size[1], \
-        "Number of features for train and eval data is not equal!"
+    if data_eval is None or data_train == data_eval:
+        print(f'Data eval and data train are equal, loading graph data only once.')
+        test_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'test')
+    else:
+        if data_eval not in SUPPORTED_DATASETS:
+            raise ValueError(f"Data with name '{data_eval}' is not supported.")
+
+        # creating a val and test loader from the eval dataset
+        graph_data_eval = DglGraphDataset(data_eval, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
+        test_loader = get_loader(graph_data_eval, model, hop_size, k_shot, num_workers, 'test')
+        test_val_loader = get_loader(graph_data_eval, model, hop_size, k_shot, num_workers, 'val')
+
+        assert graph_data_train.size[1] == graph_data_eval.size[1], \
+            "Number of features for train and eval data is not equal!"
+
+        eval_labels = graph_data_eval.labels
 
     loaders = (train_loader, train_val_loader, test_loader, test_val_loader)
-    labels = (graph_data_train.labels, graph_data_eval.labels)
+    labels = (graph_data_train.labels, eval_labels)
 
     return loaders, graph_data_train.size, labels, train_loader.batch_size
 
