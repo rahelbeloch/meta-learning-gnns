@@ -38,7 +38,7 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, nr_train_doc
     eval_labels, test_val_loader = graph_data_train.labels, train_val_loader
 
     if data_eval is None or data_train == data_eval:
-        print(f'Data eval and data train are equal, loading graph data only once.')
+        print(f'\nData eval and data train are equal, loading graph data only once.')
         test_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'test')
     else:
         if data_eval not in SUPPORTED_DATASETS:

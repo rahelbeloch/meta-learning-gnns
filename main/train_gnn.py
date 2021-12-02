@@ -47,7 +47,7 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
     loaders, graph_size, labels, b_size = get_data(data_train, data_eval, model_name, h_size, top_k, k_shot,
                                                    nr_train_docs, feature_type, vocab_size, dirs)
 
-    print(f"Graph size: \n num_features: {graph_size[1]}\n total_nodes: {graph_size[0]}")
+    print(f"\nGraph size: \n num_features: {graph_size[1]}\n total_nodes: {graph_size[0]}")
 
     optimizer_hparams = {
         "lr_cl": lr_cl,
@@ -119,7 +119,7 @@ def initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_out
 
     model_checkpoint = cb.ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_accuracy")
 
-    base = f'dtrain={data_train}_deval={data_eval}_seed={seed}_kshot={k_shot}_hops={h_size}_ftype={f_type}_lr={lr}'
+    base = f'dtrain={data_train}_deval={data_eval}_seed={seed}_shots={k_shot}_hops={h_size}_ftype={f_type}_lr={lr}'
     if model_name == 'gat':
         version_str = f'{base}_lr-cl={lr_cl}'
     elif model_name == 'prototypical':

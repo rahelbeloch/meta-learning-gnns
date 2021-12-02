@@ -32,11 +32,8 @@ FEAT_MATRIX_FILE_NAME = f'{FEAT_MATRIX_FILE}.npz'
 
 SPLIT_MASK_FILE_NAME = 'split_mask.json'
 
-# TOP_50_CONSTRAINT = 'top50'
-# TOP_10_CONSTRAINT = 'top10'
-
 DOC_2_LABELS_FILE_NAME = 'doc2labels.json'
 TRAIN_LABELS_FILE_NAME = 'labels_train_val.json'
 ALL_LABELS_FILE_NAME = 'labels_train_val_test.json'
 
-DGL_GRAPH_FILE = 'data=%s-trainDocs%s-ftype=%s-vsize=%s.dgl'
+DGL_GRAPH_FILE = 'dtrain=%s-deval=%s-ftype=%s-vsize=%s.dgl'
