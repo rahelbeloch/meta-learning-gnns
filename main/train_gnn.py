@@ -231,12 +231,13 @@ if __name__ == "__main__":
     parser.add_argument('--k-shot', dest='k_shot', type=int, default=5, help="Number of examples per task/batch.")
 
     parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
-    parser.add_argument('--lr-cl', dest='lr_cl', type=float, default=-1, help="Classifier learning rate for baseline.")
+    parser.add_argument('--lr-cl', dest='lr_cl', type=float, default=0.001,
+                        help="Classifier learning rate for baseline.")
 
     # META setup
 
-    parser.add_argument('--output-lr', dest='lr_output', type=float, default=1e-3)
-    parser.add_argument('--inner-lr', dest='lr_inner', type=float, default=0.0001)
+    parser.add_argument('--output-lr', dest='lr_output', type=float, default=0.01)
+    parser.add_argument('--inner-lr', dest='lr_inner', type=float, default=0.01)
     parser.add_argument('--n-updates', dest='n_updates', type=int, default=5,
                         help="Inner gradient updates during meta learning.")
 
