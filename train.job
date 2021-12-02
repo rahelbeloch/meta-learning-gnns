@@ -3,11 +3,11 @@
 #SBATCH --partition=gpu_titanrtx_shared
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=meta-gnn-job
-#SBATCH --ntasks=2
+#SBATCH --ntasks=1
 #SBATCH --cpus-per-task=6
 #SBATCH --time=24:00:00
 #SBATCH --mem=96G
-#SBATCH --array=1-2%2
+#SBATCH --array=1-6%2
 #SBATCH --output=logs/job_outputs/meta_gnn_%A_%a.out
 
 module purge
