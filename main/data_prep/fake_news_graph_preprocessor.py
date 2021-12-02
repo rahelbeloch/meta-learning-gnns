@@ -17,15 +17,15 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         self.load_doc_splits()
 
-        # if self.only_valid_users:
-        #    self.filter_valid_users()
+        if self.only_valid_users:
+           self.filter_valid_users()
         # self.create_user_splits(max_users)
         # self.create_doc_id_dicts()
         # self.filter_contexts()
-        self.create_feature_matrix()
-        self.create_adj_matrix()
-        self.create_labels()
-        self.create_split_masks()
+        # self.create_feature_matrix()
+        # self.create_adj_matrix()
+        # self.create_labels()
+        # self.create_split_masks()
 
     @property
     def labels(self):
@@ -46,17 +46,15 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
         user_stats = defaultdict(lambda: {'fake': 0, 'real': 0})
 
         used_docs = 0
-        for count, file_path in enumerate(self.data_tsv_path('engagements').glob('*')):
+        for file_path in self.data_tsv_path('engagements').glob('*'):
 
             # only restrict users interacting with this document ID if we actually use this doc in our splits
             doc_key = file_path.stem
             if not self.doc_used(doc_key):
                 continue
 
-            used_docs += 1
-
             try:
-                src_file = load_json_file(file_path)
+                users = load_json_file(file_path)['users']
             except UnicodeDecodeError:
                 # TODO: fix this error / keep track of files for which this happens
                 print(f"Exception for doc {doc_key}")
@@ -66,11 +64,10 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
                 print(f"Exception for doc {doc_key}")
                 continue
 
-            users = src_file['users']
+            used_docs += 1
 
             for u in users:
-                if doc_key in doc2labels:
-                    user_stats[u][self.labels[doc2labels[doc_key]]] += 1
+                user_stats[u][self.labels[doc2labels[doc_key]]] += 1
 
         super().filter_users(user_stats, used_docs)
 

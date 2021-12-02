@@ -34,7 +34,7 @@ class GraphPreprocessor(GraphIO):
         return doc_key in self.train_docs or doc_key in self.test_docs or doc_key in self.val_docs
 
     def load_doc_splits(self):
-        doc_splits = load_json_file(self.data_tsv_path(DOC_SPLITS_FILE_NAME % self.feature_type))
+        doc_splits = load_json_file(self.data_tsv_path(DOC_SPLITS_FILE_NAME % (self.feature_type, self.max_vocab)))
         self.train_docs = doc_splits['train_docs']
         self.test_docs = doc_splits['test_docs']
         self.val_docs = doc_splits['val_docs']
