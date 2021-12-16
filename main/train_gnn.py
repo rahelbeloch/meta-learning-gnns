@@ -44,8 +44,8 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
     # the data preprocessing
     print('\nLoading data ..........')
 
-    loaders, graph_size, labels, b_size = get_data(data_train, data_eval, model_name, h_size, top_k, k_shot,
-                                                   nr_train_docs, feature_type, vocab_size, dirs)
+    loaders, graph_size, labels, b_size, class_ratio = get_data(data_train, data_eval, model_name, h_size, top_k,
+                                                                k_shot, nr_train_docs, feature_type, vocab_size, dirs)
 
     print(f"\nGraph size: \n num_features: {graph_size[1]}\n total_nodes: {graph_size[0]}")
 
@@ -64,7 +64,8 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
         'cf_hid_dim': cf_hidden_dim,
         'input_dim': graph_size[1],
         'output_dim': len(labels[0]),
-        'proto_dim': proto_dim
+        'proto_dim': proto_dim,
+        'class_weight': class_ratio
     }
 
     print('\nInitializing trainer ..........\n')
@@ -202,17 +203,17 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
 
 
 if __name__ == "__main__":
-    # tsv_dir = TSV_small_DIR
-    # complete_dir = COMPLETE_small_DIR
-    # num_nodes = int(COMPLETE_small_DIR.split('-')[1])
+    tsv_dir = TSV_small_DIR
+    complete_dir = COMPLETE_small_DIR
+    num_nodes = int(COMPLETE_small_DIR.split('-')[1])
 
     # model_checkpoint = '../logs/gat/dname=gossipcop_seed=1234_lr-enc=0.01_lr-cl=-1/checkpoints/epoch=2-step=26-v4.ckpt'
     # model_checkpoint = '../logs/prototypical/dname=gossipcop_seed=1234_lr=0.01/checkpoints/epoch=0-step=8-v4.ckpt'
     model_checkpoint = None
 
-    tsv_dir = TSV_DIR
-    complete_dir = COMPLETE_DIR
-    num_nodes = -1
+    # tsv_dir = TSV_DIR
+    # complete_dir = COMPLETE_DIR
+    # num_nodes = -1
 
     # MAML setup
     # proto_dim = 64,
@@ -243,7 +244,7 @@ if __name__ == "__main__":
 
     # CONFIGURATION
 
-    parser.add_argument('--dataset-train', dest='dataset_train', default='gossipcop', choices=SUPPORTED_DATASETS,
+    parser.add_argument('--dataset-train', dest='dataset_train', default='twitterHateSpeech', choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use for training. '
                              'If a checkpoint is provided we do not train again.')
     parser.add_argument('--dataset-eval', dest='dataset_eval', default=None, choices=SUPPORTED_DATASETS,
@@ -259,7 +260,7 @@ if __name__ == "__main__":
                         help='Select the dataset you want to use.')
     parser.add_argument('--complete-dir', dest='complete_dir', default=complete_dir,
                         help='Select the dataset you want to use.')
-    parser.add_argument('--model', dest='model', default='prototypical', choices=SUPPORTED_MODELS,
+    parser.add_argument('--model', dest='model', default='gat', choices=SUPPORTED_MODELS,
                         help='Select the model you want to use.')
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--cf-hidden-dim', dest='cf_hidden_dim', type=int, default=512)

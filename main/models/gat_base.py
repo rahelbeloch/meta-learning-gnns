@@ -1,8 +1,9 @@
+import dgl
 import pytorch_lightning as pl
 import torch
 from torch import nn
 
-from models.gat_encoder import GATEncoder
+from models.gat_encoder import GATEncoder, GATLayer
 from models.train_utils import *
 
 
@@ -25,7 +26,8 @@ class GatBase(pl.LightningModule):
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace
         self.save_hyperparameters()
 
-        self.model = GATEncoder(model_hparams['input_dim'], hidden_dim=model_hparams['cf_hid_dim'], num_heads=2)
+        # self.model = GATEncoder(model_hparams['input_dim'], hidden_dim=model_hparams['cf_hid_dim'], num_heads=2)
+        self.model = GATLayer(c_in=model_hparams['input_dim'], c_out=model_hparams['cf_hid_dim'], num_heads=2)
 
         if checkpoint is not None:
             encoder = load_pretrained_encoder(checkpoint)
@@ -33,7 +35,7 @@ class GatBase(pl.LightningModule):
 
         self.classifier = self.get_classifier(model_hparams['output_dim'])
 
-        self.loss_module = nn.CrossEntropyLoss()
+        self.loss_module = nn.CrossEntropyLoss(weight=model_hparams["class_weight"])
 
     def reset_classifier(self, num_classes):
         self.classifier = self.get_classifier(num_classes)
@@ -97,7 +99,7 @@ class GatBase(pl.LightningModule):
     def training_step(self, batch, batch_idx):
 
         sub_graphs, targets = batch
-        out, _ = self.model(sub_graphs)
+        out = self.model(sub_graphs)
 
         # only predict for the center node
         out = out[sub_graphs.ndata['classification_mask']]

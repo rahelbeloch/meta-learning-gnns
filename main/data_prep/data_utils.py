@@ -1,6 +1,6 @@
 import torch.cuda
 
-from data_prep.graph_dataset import DGLSubGraphs, DglGraphDataset
+from data_prep.graph_dataset import DGLSubGraphs, DglGraphDataset, TorchGeomGraphDataset, TorchGeomSubGraphs
 from models.batch_sampler import FewShotSubgraphSampler
 from models.maml_batch_sampler import FewShotMamlSubgraphSampler
 
@@ -31,7 +31,9 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, nr_train_doc
     num_workers = 6 if torch.cuda.is_available() else 0  # mac has 8 CPUs
 
     # creating a train and val loader from the train dataset
-    graph_data_train = DglGraphDataset(data_train, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
+    # graph_data_train = DglGraphDataset(data_train, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
+    graph_data_train = TorchGeomGraphDataset(data_train, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
+
     train_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'train')
     train_val_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'val')
 
@@ -45,7 +47,9 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, nr_train_doc
             raise ValueError(f"Data with name '{data_eval}' is not supported.")
 
         # creating a val and test loader from the eval dataset
-        graph_data_eval = DglGraphDataset(data_eval, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
+        # graph_data_eval = DglGraphDataset(data_eval, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
+        graph_data_eval = TorchGeomGraphDataset(data_eval, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
+
         test_loader = get_loader(graph_data_eval, model, hop_size, k_shot, num_workers, 'test')
         test_val_loader = get_loader(graph_data_eval, model, hop_size, k_shot, num_workers, 'val')
 
@@ -57,11 +61,13 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, nr_train_doc
     loaders = (train_loader, train_val_loader, test_loader, test_val_loader)
     labels = (graph_data_train.labels, eval_labels)
 
-    return loaders, graph_data_train.size, labels, train_loader.batch_size
+    return loaders, graph_data_train.size, labels, train_loader.batch_size, graph_data_train.class_ratio
 
 
 def get_loader(graph_data, model, hop_size, k_shot, num_workers, mode):
-    graphs = DGLSubGraphs(graph_data, f'{mode}_mask', h_size=hop_size, meta=model != 'gat')
+    # graphs = DGLSubGraphs(graph_data, f'{mode}_mask', h_size=hop_size, meta=model != 'gat')
+    graphs = TorchGeomSubGraphs(graph_data, f'{mode}_mask', h_size=hop_size, meta=model != 'gat')
+
     n_classes = len(graph_data.labels)
 
     if model in ['gat', 'prototypical']:
