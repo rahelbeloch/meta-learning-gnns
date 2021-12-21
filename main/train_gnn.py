@@ -203,17 +203,17 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
 
 
 if __name__ == "__main__":
-    tsv_dir = TSV_small_DIR
-    complete_dir = COMPLETE_small_DIR
-    num_nodes = int(COMPLETE_small_DIR.split('-')[1])
+    # tsv_dir = TSV_small_DIR
+    # complete_dir = COMPLETE_small_DIR
+    # num_nodes = int(COMPLETE_small_DIR.split('-')[1])
 
     # model_checkpoint = '../logs/gat/dname=gossipcop_seed=1234_lr-enc=0.01_lr-cl=-1/checkpoints/epoch=2-step=26-v4.ckpt'
     # model_checkpoint = '../logs/prototypical/dname=gossipcop_seed=1234_lr=0.01/checkpoints/epoch=0-step=8-v4.ckpt'
     model_checkpoint = None
 
-    # tsv_dir = TSV_DIR
-    # complete_dir = COMPLETE_DIR
-    # num_nodes = -1
+    tsv_dir = TSV_DIR
+    complete_dir = COMPLETE_DIR
+    num_nodes = -1
 
     # MAML setup
     # proto_dim = 64,
@@ -244,14 +244,14 @@ if __name__ == "__main__":
 
     # CONFIGURATION
 
-    parser.add_argument('--dataset-train', dest='dataset_train', default='twitterHateSpeech', choices=SUPPORTED_DATASETS,
+    parser.add_argument('--dataset-train', dest='dataset_train', default='gossipcop', choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use for training. '
                              'If a checkpoint is provided we do not train again.')
     parser.add_argument('--dataset-eval', dest='dataset_eval', default=None, choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use for evaluation.')
     parser.add_argument('--num-train-docs', dest='num_train_docs', type=int, default=num_nodes,
                         help="Inner gradient updates during meta learning.")
-    parser.add_argument('--feature-type', dest='feature_type', type=str, default='one-hot',
+    parser.add_argument('--feature-type', dest='feature_type', type=str, default='oneone-hot',
                         help="Type of features used.")
     parser.add_argument('--vocab-size', dest='vocab_size', type=int, default=10000, help="Size of the vocabulary.")
     parser.add_argument('--data-dir', dest='data_dir', default='data',
