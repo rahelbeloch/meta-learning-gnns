@@ -251,7 +251,7 @@ if __name__ == "__main__":
                         help='Select the dataset you want to use for evaluation.')
     parser.add_argument('--num-train-docs', dest='num_train_docs', type=int, default=num_nodes,
                         help="Inner gradient updates during meta learning.")
-    parser.add_argument('--feature-type', dest='feature_type', type=str, default='oneone-hot',
+    parser.add_argument('--feature-type', dest='feature_type', type=str, default='one-hot',
                         help="Type of features used.")
     parser.add_argument('--vocab-size', dest='vocab_size', type=int, default=10000, help="Size of the vocabulary.")
     parser.add_argument('--data-dir', dest='data_dir', default='data',
