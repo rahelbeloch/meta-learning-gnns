@@ -1,7 +1,7 @@
 import torch.cuda
 
-from data_prep.graph_dataset import DGLSubGraphs, DglGraphDataset, TorchGeomGraphDataset, TorchGeomSubGraphs
-from models.batch_sampler import FewShotSubgraphSampler
+from data_prep.graph_dataset import TorchGeomGraphDataset
+from models.batch_sampler import FewShotSampler, KHopSampler
 from models.maml_batch_sampler import FewShotMamlSubgraphSampler
 
 SUPPORTED_DATASETS = ['gossipcop', 'twitterHateSpeech']
@@ -31,7 +31,6 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, nr_train_doc
     num_workers = 6 if torch.cuda.is_available() else 0  # mac has 8 CPUs
 
     # creating a train and val loader from the train dataset
-    # graph_data_train = DglGraphDataset(data_train, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
     graph_data_train = TorchGeomGraphDataset(data_train, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
 
     train_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'train')
@@ -47,7 +46,6 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, nr_train_doc
             raise ValueError(f"Data with name '{data_eval}' is not supported.")
 
         # creating a val and test loader from the eval dataset
-        # graph_data_eval = DglGraphDataset(data_eval, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
         graph_data_eval = TorchGeomGraphDataset(data_eval, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
 
         test_loader = get_loader(graph_data_eval, model, hop_size, k_shot, num_workers, 'test')
@@ -65,18 +63,26 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, nr_train_doc
 
 
 def get_loader(graph_data, model, hop_size, k_shot, num_workers, mode):
+    # Not needed anymore because handled by Saint Graph Sampler
     # graphs = DGLSubGraphs(graph_data, f'{mode}_mask', h_size=hop_size, meta=model != 'gat')
-    graphs = TorchGeomSubGraphs(graph_data, f'{mode}_mask', h_size=hop_size, meta=model != 'gat')
+    # graphs = TorchGeomSubGraphs(graph_data, f'{mode}_mask', h_size=hop_size, meta=model != 'gat')
 
     n_classes = len(graph_data.labels)
 
     if model in ['gat', 'prototypical']:
-        sampler = FewShotSubgraphSampler(graphs, n_way=n_classes, k_shot=k_shot, include_query=True)
+        batch_sampler = FewShotSampler(graph_data.data.y, graph_data.mask(f"{mode}_mask"), n_way=n_classes,
+                                       k_shot=k_shot, include_query=True)
+        sampler = KHopSampler(graph_data, model, batch_sampler, n_classes, k_shot, hop_size, num_workers=num_workers)
+
     elif model == 'gmeta':
-        sampler = FewShotMamlSubgraphSampler(graphs, n_way=n_classes, k_shot=k_shot, include_query=True)
+        # TODO
+        # sampler = FewShotMamlSubgraphSampler(graphs, n_way=n_classes, k_shot=k_shot, include_query=True)
+        sampler = FewShotMamlSubgraphSampler(graph_data, n_way=n_classes, k_shot=k_shot, include_query=True)
 
     else:
         raise ValueError(f"Model with name '{model}' is not supported.")
 
     print(f"\n{mode} sampler amount of batches: {len(sampler)}")
-    return graphs.as_dataloader(sampler, num_workers, sampler.get_collate_fn(model))
+
+    # no need to wrap it again in a dataloader
+    return sampler

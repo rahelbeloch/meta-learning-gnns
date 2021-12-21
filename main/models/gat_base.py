@@ -1,9 +1,9 @@
-import dgl
 import pytorch_lightning as pl
 import torch
 from torch import nn
+from torch_geometric.data import Batch
 
-from models.gat_encoder import GATEncoder, GATLayer
+from models.gat_encoder import GATLayer
 from models.train_utils import *
 
 
@@ -96,13 +96,33 @@ class GatBase(pl.LightningModule):
     def log_on_epoch(self, metric, value):
         self.log(metric, value, on_step=False, on_epoch=True, batch_size=self.hparams['batch_size'])
 
+    def forward(self, sub_graphs):
+
+        # we have a list of sub graphs with different nodes; make one big graph out of it for the forward pass
+        batch = Batch.from_data_list(sub_graphs)
+        out = self.model(batch).squeeze()
+
+        # out.size() --> [batch_size * num_nodes, feat_size]
+        # reshape as: .view(batch_size, num_nodes, -1)
+        # can only reshape that way if all your nodes in a batch have the same number of nodes.
+        # In case they do, you can use torch_geometric.utils.to_dense_batch.
+
+        # we don't have the same nodes for every subgraph
+        # we only want to classify the one center node
+        center_out = []
+        n_count = 0
+        for graph in sub_graphs:
+            n_nodes = graph.num_nodes
+            # get all node features for this respective graph & only the center node (we want to classify)
+            center_out += out[n_count:n_count + n_nodes][graph.mask]
+            n_count += n_nodes
+
+        return torch.stack(center_out, dim=0)
+
     def training_step(self, batch, batch_idx):
 
         sub_graphs, targets = batch
-        out = self.model(sub_graphs)
-
-        # only predict for the center node
-        out = out[sub_graphs.ndata['classification_mask']]
+        out = self.forward(sub_graphs)
         predictions = self.classifier(out)
         loss = self.loss_module(predictions, targets)
 
@@ -119,10 +139,7 @@ class GatBase(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
 
         sub_graphs, targets = batch
-        out, _ = self.model(sub_graphs)
-
-        # only predict for the center node
-        out = out[sub_graphs.ndata['classification_mask']]
+        out = self.forward(sub_graphs)
         predictions = self.classifier(out)
 
         self.log_on_epoch('val_accuracy', accuracy(predictions, targets))
@@ -132,9 +149,7 @@ class GatBase(pl.LightningModule):
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default logs it per epoch (weighted average over batches)
         sub_graphs, targets = batch
-        out, _ = self.model(sub_graphs)
-
-        out = out[sub_graphs.ndata['classification_mask']]
+        out = self.forward(sub_graphs)
         predictions = self.classifier(out)
 
         self.log_on_epoch('test_accuracy', accuracy(predictions, targets))

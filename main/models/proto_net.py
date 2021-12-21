@@ -1,9 +1,10 @@
+import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as func
 from torch import optim
 
-from models.gat_encoder import GATEncoder
+from models.gat_encoder import GATLayer
 from models.train_utils import *
 
 
@@ -18,7 +19,7 @@ class ProtoNet(pl.LightningModule):
         """
         super().__init__()
         self.save_hyperparameters()
-        self.model = GATEncoder(input_dim, hidden_dim=cf_hidden_dim, num_heads=4)
+        self.model = GATLayer(c_in=input_dim, c_out=cf_hidden_dim, num_heads=4)
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.lr)
@@ -43,7 +44,7 @@ class ProtoNet(pl.LightningModule):
         for c in classes:
             # get all node features for this class and average them
             # noinspection PyTypeChecker
-            p = features[torch.where(targets == c)[0]].mean(dim=0)
+            p = torch.from_numpy(np.array(features)[torch.where(targets == c)[0]]).mean(dim=0)
             prototypes.append(p)
         prototypes = torch.stack(prototypes, dim=0)
         # Return the 'classes' tensor to know which prototype belongs to which class
@@ -82,10 +83,19 @@ class ProtoNet(pl.LightningModule):
 
         support_graphs, query_graphs, support_targets, query_targets = batch
 
-        support_feats, _ = self.model(support_graphs)
+        support_feats = self.model(support_graphs)
+
+        # TODO: remove; filter targets for subgraphs with more than 1 node
+        actual_targets = []
+        for i, g in enumerate(support_graphs):
+            if g.num_nodes <= 1:
+                continue
+            actual_targets.append(support_targets[i])
+        support_targets = torch.stack(actual_targets)
+
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
-        query_feats, _ = self.model(query_graphs)
+        query_feats = self.model(query_graphs)
         query_feats = query_feats[query_graphs.ndata['classification_mask']]
         predictions, targets, acc = ProtoNet.classify_features(prototypes, classes, query_feats, query_targets)
 

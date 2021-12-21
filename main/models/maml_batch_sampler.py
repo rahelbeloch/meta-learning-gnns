@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import Sampler
 
-from models.batch_sampler import FewShotSubgraphSampler
+from models.batch_sampler import FewShotSampler
 
 
 class FewShotMamlSubgraphSampler(Sampler):
@@ -21,7 +21,7 @@ class FewShotMamlSubgraphSampler(Sampler):
                       iteration (for training)
         """
         super().__init__(None)
-        self.batch_sampler = FewShotSubgraphSampler(dataset_targets, n_way, k_shot, include_query, shuffle)
+        self.batch_sampler = FewShotSampler(dataset_targets, n_way, k_shot, include_query, shuffle)
         self.task_batch_size = batch_size
         self.local_batch_size = self.batch_sampler.batch_size
 

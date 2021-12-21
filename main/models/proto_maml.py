@@ -7,7 +7,7 @@ import torch.nn.functional as func
 from torch import optim
 
 from models.batch_sampler import split_list
-from models.gat_encoder import GATEncoder
+from models.gat_encoder import GATLayer
 from models.proto_net import ProtoNet
 from models.train_utils import f1
 
@@ -25,7 +25,8 @@ class ProtoMAML(pl.LightningModule):
         """
         super().__init__()
         self.save_hyperparameters()
-        self.model = GATEncoder(input_dim, hidden_dim=cf_hidden_dim, num_heads=4)
+        # self.model = GATEncoder(input_dim, hidden_dim=cf_hidden_dim, num_heads=4)
+        self.model = GATLayer(c_in=input_dim, c_out=cf_hidden_dim, num_heads=4)
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.opt_hparams['lr'])
