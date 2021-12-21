@@ -145,9 +145,8 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
                     doc_id = self.doc2id[doc_key]
                     user_id = self.user2id[user]
 
-                    # for DGL graph creation; edges are reversed later
                     edge_list.append((doc_id, user_id))
-                    # edge_list.append((user_id, doc_id))
+                    edge_list.append((user_id, doc_id))
 
                     adj_matrix[doc_id, user_id] = 1
                     adj_matrix[user_id, doc_id] = 1
@@ -182,9 +181,8 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
                     user_id1, user_id2 = self.user2id[user_id], self.user2id[follower]
 
-                    # for DGL graph creation; edges are reversed later
                     edge_list.append((user_id2, user_id1))
-                    # edge_list.append((user_id1, user_id2))
+                    edge_list.append((user_id1, user_id2))
 
                     adj_matrix[user_id1, user_id2] = 1
                     adj_matrix[user_id2, user_id1] = 1
@@ -214,13 +212,13 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
 
 if __name__ == '__main__':
-    # complete_dir = COMPLETE_small_DIR
-    # tsv_dir = TSV_small_DIR
-    # max_nr_users = 2000
+    complete_dir = COMPLETE_small_DIR
+    tsv_dir = TSV_small_DIR
+    max_nr_users = 2000
 
-    complete_dir = COMPLETE_DIR
-    tsv_dir = TSV_DIR
-    max_nr_users = None
+    # complete_dir = COMPLETE_DIR
+    # tsv_dir = TSV_DIR
+    # max_nr_users = None
 
     parser = argparse.ArgumentParser()
 

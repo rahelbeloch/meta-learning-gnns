@@ -368,7 +368,7 @@ class GraphPreprocessor(GraphIO):
         print(f"\nNr of docs = {len(self.doc2id)}")
         print(f"Nr of users = {len(self.user2id)}")
 
-        token2idx, feature_size, vectors = self.get_vocab_token2idx(all_texts)
+        vocabulary, feature_size = self.get_vocab_token2idx(all_texts)
 
         print("\nCreating features for docs nodes...")
         start = time.time()
@@ -377,14 +377,14 @@ class GraphPreprocessor(GraphIO):
         feature_ids = {}
         feature_idx = 0
         for doc_key, tokens in all_texts.items():
-            indices = self.as_vocab_indices(token2idx, tokens)
 
             if self.feature_type == 'one-hot':
+                indices = self.as_vocab_indices(vocabulary, tokens)
                 doc_feat = torch.zeros(self.max_vocab)
                 doc_feat[indices] = 1
             elif 'glove' in self.feature_type:
+                idx_vectors = torch.stack([vocabulary[token] for token in tokens])
                 # noinspection PyUnboundLocalVariable
-                idx_vectors = vectors[indices]
                 doc_feat = idx_vectors.mean(dim=0) if 'average' in self.feature_type else idx_vectors.sum(dim=0)
             else:
                 raise ValueError(f"Trying to create features of type {self.feature_type} which is not unknown!")

@@ -100,6 +100,10 @@ class GatBase(pl.LightningModule):
 
         # we have a list of sub graphs with different nodes; make one big graph out of it for the forward pass
         batch = Batch.from_data_list(sub_graphs)
+
+        if batch.edge_index.shape[1] == 0:
+            print("WARNING: Batch has no edges in any graph!")
+
         out = self.model(batch).squeeze()
 
         # out.size() --> [batch_size * num_nodes, feat_size]

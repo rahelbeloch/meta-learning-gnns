@@ -82,7 +82,7 @@ def get_loader(graph_data, model, hop_size, k_shot, num_workers, mode):
     else:
         raise ValueError(f"Model with name '{model}' is not supported.")
 
-    print(f"\n{mode} sampler amount of batches: {len(sampler)}")
+    print(f"\n{mode} sampler amount of episodes / batches: {len(sampler)}")
 
     # no need to wrap it again in a dataloader
     return sampler

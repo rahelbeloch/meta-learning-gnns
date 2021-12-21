@@ -81,18 +81,18 @@ class GraphIO:
         if self.feature_type == 'one-hot':
             # create own vocabulary from all data
             vocab = self.build_vocab(texts)
-            return vocab, len(vocab), None
+            return vocab, len(vocab)
         elif 'glove' in self.feature_type:
             feature_size = 200
             glove = GloVe(name='twitter.27B', dim=feature_size, max_vectors=self.max_vocab)
             # check if words are in the inflected form
-            return glove.stoi, feature_size, glove.vectors
+            return glove, feature_size
         else:
             raise ValueError(f"Trying to create features of type {self.feature_type} which is not unknown!")
 
     @staticmethod
-    def as_vocab_indices(token2idx, tokens):
-        return [token2idx[token] if token in token2idx else token2idx[NIV_IDX[1]] for token in tokens]
+    def as_vocab_indices(vocabulary, tokens):
+        return [vocabulary[token] if token in vocabulary else vocabulary[NIV_IDX[1]] for token in tokens]
 
     def build_vocab(self, all_text_tokens, max_count=-1, min_count=2):
 

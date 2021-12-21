@@ -85,7 +85,10 @@ class GATLayer(nn.Module):
         a_input = torch.cat([idx_select_1, idx_select_2], dim=-1)
 
         # Calculate attention MLP output (independent for each head)
-        attn_logits = torch.einsum('bhc,hc->bh', a_input, self.a)
+        try:
+            attn_logits = torch.einsum('bhc,hc->bh', a_input, self.a)
+        except RuntimeError:
+            print("error")
         attn_logits = self.leaky_relu(attn_logits)
 
         # Map list of attention values back into a matrix

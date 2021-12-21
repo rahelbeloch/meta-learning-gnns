@@ -203,17 +203,17 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
 
 
 if __name__ == "__main__":
-    # tsv_dir = TSV_small_DIR
-    # complete_dir = COMPLETE_small_DIR
-    # num_nodes = int(COMPLETE_small_DIR.split('-')[1])
+    tsv_dir = TSV_small_DIR
+    complete_dir = COMPLETE_small_DIR
+    num_nodes = int(COMPLETE_small_DIR.split('-')[1])
 
     # model_checkpoint = '../logs/gat/dname=gossipcop_seed=1234_lr-enc=0.01_lr-cl=-1/checkpoints/epoch=2-step=26-v4.ckpt'
     # model_checkpoint = '../logs/prototypical/dname=gossipcop_seed=1234_lr=0.01/checkpoints/epoch=0-step=8-v4.ckpt'
     model_checkpoint = None
 
-    tsv_dir = TSV_DIR
-    complete_dir = COMPLETE_DIR
-    num_nodes = -1
+    # tsv_dir = TSV_DIR
+    # complete_dir = COMPLETE_DIR
+    # num_nodes = -1
 
     # MAML setup
     # proto_dim = 64,

@@ -105,7 +105,7 @@ class KHopSampler(GraphSAINTSampler):
 
     def __init__(self, graph, model, batch_sampler, n_way: int, k_shots: int, k_hops: int = 1,
                  save_dir: Optional[str] = None, log: bool = True, **kwargs):
-        super().__init__(graph.data, n_way * k_shots, save_dir=save_dir, log=log, batch_sampler=batch_sampler, **kwargs)
+        super().__init__(graph.data, batch_size=n_way * k_shots, save_dir=save_dir, log=log, batch_sampler=batch_sampler, **kwargs)
 
         self.k_hops = k_hops
         self.edge_index = graph.edge_index
@@ -119,7 +119,7 @@ class KHopSampler(GraphSAINTSampler):
     def __getitem__(self, idx):
         node_idx = self.__sample_nodes__(idx).unique()
         adj, _ = self.adj.saint_subgraph(node_idx)
-        return node_idx, adj
+        return node_idx, adj, torch.where(node_idx == idx)[0].item()
 
     def __sample_nodes__(self, node_id):
         node_idx, edge_index, node_mapping_idx, edge_mask = k_hop_subgraph(node_id.unsqueeze(dim=0),
@@ -145,7 +145,7 @@ class KHopSampler(GraphSAINTSampler):
         data_list_collated = []
 
         # TODO
-        for node_idx, adj in data_list:
+        for node_idx, adj, center_node in data_list:
             # data_collated = super().__collate__(data)
 
             data = self.data.__class__()
@@ -171,8 +171,9 @@ class KHopSampler(GraphSAINTSampler):
             data.x = self.data.x[node_idx]
             data.y = self.data.y[node_idx]
             data.mask = self.batch_sampler.mask[node_idx]
+            data.center_idx = center_node
 
-            data_list_collated.append((data, data.y[data.mask].item()))
+            data_list_collated.append((data, data.y[data.center_idx].item()))
 
         if self.model_type == 'gat':
             sup_graphs, labels = list(map(list, zip(*data_list_collated)))
@@ -183,6 +184,9 @@ class KHopSampler(GraphSAINTSampler):
             supp_sub_graphs, query_sub_graphs = split_list(graphs)
             supp_labels, query_labels = split_list(labels)
             return supp_sub_graphs, query_sub_graphs, torch.LongTensor(supp_labels), torch.LongTensor(query_labels)
+
+    def __len__(self):
+        return len(self.batch_sampler)
 
     # @staticmethod
     # def get_collate_fn(model):
