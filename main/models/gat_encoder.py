@@ -56,7 +56,7 @@ class GATLayer(nn.Module):
         batch_size = 1
 
         # put the node features on the GPU
-        print(f"GatLater is on device {self.device}.")
+        print(f"GatLayer is on device {self.device}.")
         node_feats = node_feats.to(self.device)
 
         # Apply linear layer and sort nodes by head
@@ -83,9 +83,11 @@ class GATLayer(nn.Module):
         edge_indices_row = edges[:, 0] * num_nodes + edges[:, 1]
         edge_indices_col = edges[:, 0] * num_nodes + edges[:, 2]
 
+        # need to be on the same device (GPU if available) for index select
+        edge_indices_row = edge_indices_row.to(self.device)
+        edge_indices_col = edge_indices_col.to(self.device)
+
         # Index select returns a tensor with node_feats_flat being indexed at the desired positions along dim=0
-
-
         idx_select_1 = self.idx_select(node_feats_flat, edge_indices_row)
         idx_select_2 = self.idx_select(node_feats_flat, edge_indices_col)
         a_input = torch.cat([idx_select_1, idx_select_2], dim=-1)

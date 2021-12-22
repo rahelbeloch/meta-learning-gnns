@@ -104,7 +104,7 @@ class GatBase(pl.LightningModule):
         if batch.edge_index.shape[1] == 0:
             print("WARNING: Batch has no edges in any graph!")
 
-        print(f"Model is on device {self.model.device}.")
+        print(f"GatLayer is on device {self.model.device}.")
         # batch = batch.to(self.model.device)
         out = self.model(batch).squeeze()
 
