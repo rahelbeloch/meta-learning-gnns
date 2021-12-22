@@ -68,7 +68,7 @@ class GATLayer(nn.Module):
         node_feats = node_feats.view(batch_size, num_nodes, self.num_heads, -1)
 
         # Create adjacency matrix from the edge list
-        adj_matrix = torch.zeros((num_nodes, num_nodes)).to(torch.int64)
+        adj_matrix = torch.zeros((num_nodes, num_nodes)).to(torch.int64).to(device)
         for i, edge in enumerate(edge_index.T):
             adj_matrix[edge[0], edge[1]] = 1
 
