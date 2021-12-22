@@ -50,24 +50,17 @@ class GATLayer(nn.Module):
         num_nodes = subgraph_batch.num_nodes
         edge_index = subgraph_batch.edge_index
 
-        print(f"node_feats is on device {node_feats.device}.")
-        print(f"edge_index is on device {edge_index.device}.")
-
         assert node_feats.is_sparse, "Features vector is not sparse!"
         # assert isinstance(node_feats, SparseTensor), "Features vector is not sparse!"
         # assert adj_matrix.is_sparse, "Edge index vector is not sparse!"
 
         batch_size = 1
 
-        # put the node features on the GPU
-        print(f"GatLayer is on device {device}.")
-        # node_feats = node_feats.to(device)
-
         # Apply linear layer and sort nodes by head
         node_feats = self.projection(node_feats)
         node_feats = node_feats.view(batch_size, num_nodes, self.num_heads, -1)
 
-        # Create adjacency matrix from the edge list
+        # Create adjacency matrix from the edge list; MUST be on cuda if available!
         adj_matrix = torch.zeros((num_nodes, num_nodes)).to(torch.int64).to(device)
         for i, edge in enumerate(edge_index.T):
             adj_matrix[edge[0], edge[1]] = 1
@@ -88,11 +81,9 @@ class GATLayer(nn.Module):
         edge_indices_col = edges[:, 0] * num_nodes + edges[:, 2]
 
         # need to be on the same device (GPU if available) for index select
-        # edge_indices_row = edge_indices_row.to(self.device)
-        # edge_indices_col = edge_indices_col.to(self.device)
-        print(f"edge_indices_col is on device {edge_indices_col.device}.")
-        print(f"edge_indices_row is on device {edge_indices_row.device}.")
-        print(f"node_feats_flat is on device {node_feats_flat.device}.")
+        # print(f"edge_indices_col is on device {edge_indices_col.device}.")
+        # print(f"edge_indices_row is on device {edge_indices_row.device}.")
+        # print(f"node_feats_flat is on device {node_feats_flat.device}.")
 
         # Index select returns a tensor with node_feats_flat being indexed at the desired positions along dim=0
         idx_select_1 = self.idx_select(node_feats_flat, edge_indices_row)
