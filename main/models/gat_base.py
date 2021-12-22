@@ -107,7 +107,7 @@ class GatBase(pl.LightningModule):
             print("WARNING: Batch has no edges in any graph!")
 
         print(f"GatLayer is on device {device}.")
-        # batch = batch.to(device)
+        batch = batch.to(device)
         out = self.model(batch).squeeze()
 
         # out.size() --> [batch_size * num_nodes, feat_size]
