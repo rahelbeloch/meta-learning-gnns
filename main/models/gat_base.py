@@ -6,6 +6,8 @@ from torch_geometric.data import Batch
 from models.gat_encoder import GATLayer
 from models.train_utils import *
 
+device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+
 
 class GatBase(pl.LightningModule):
     """
@@ -104,8 +106,8 @@ class GatBase(pl.LightningModule):
         if batch.edge_index.shape[1] == 0:
             print("WARNING: Batch has no edges in any graph!")
 
-        print(f"GatLayer is on device {self.model.device}.")
-        # batch = batch.to(self.model.device)
+        print(f"GatLayer is on device {device}.")
+        # batch = batch.to(device)
         out = self.model(batch).squeeze()
 
         # out.size() --> [batch_size * num_nodes, feat_size]

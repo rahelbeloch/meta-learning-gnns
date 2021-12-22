@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as func
 from torch import nn
 
+device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
 # Gat Layer from Phillips Tutorial
 # (https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/tutorial7/GNN_overview.html?highlight=graph%20attention#Graph-Attention)
@@ -56,8 +57,8 @@ class GATLayer(nn.Module):
         batch_size = 1
 
         # put the node features on the GPU
-        print(f"GatLayer is on device {self.device}.")
-        # node_feats = node_feats.to(self.device)
+        print(f"GatLayer is on device {device}.")
+        # node_feats = node_feats.to(device)
 
         # Apply linear layer and sort nodes by head
         node_feats = self.projection(node_feats)
