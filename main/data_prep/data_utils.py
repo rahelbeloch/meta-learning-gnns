@@ -28,7 +28,7 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, nr_train_doc
     if data_train not in SUPPORTED_DATASETS:
         raise ValueError(f"Data with name '{data_train}' is not supported.")
 
-    num_workers = 6 if torch.cuda.is_available() else 0  # mac has 8 CPUs
+    num_workers = 2 if torch.cuda.is_available() else 0  # mac has 8 CPUs
 
     # creating a train and val loader from the train dataset
     graph_data_train = TorchGeomGraphDataset(data_train, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
