@@ -46,11 +46,13 @@ class GATLayer(nn.Module):
             print_attn_probs - If True, the attention weights are printed during the forward pass (for debugging)
         """
 
-        print(f"Batch is on device {subgraph_batch.dev}.")
+        print(f"Batch is on device {subgraph_batch.device}.")
 
         node_feats = subgraph_batch.x.float().to_sparse()
         num_nodes = subgraph_batch.num_nodes
         edge_index = subgraph_batch.edge_index
+
+        print(f"node_feats is on device {node_feats.device}.")
 
         assert node_feats.is_sparse, "Features vector is not sparse!"
         # assert isinstance(node_feats, SparseTensor), "Features vector is not sparse!"
@@ -89,6 +91,9 @@ class GATLayer(nn.Module):
         # need to be on the same device (GPU if available) for index select
         # edge_indices_row = edge_indices_row.to(self.device)
         # edge_indices_col = edge_indices_col.to(self.device)
+        print(f"edge_indices_col is on device {edge_indices_col.device}.")
+        print(f"edge_indices_row is on device {edge_indices_row.device}.")
+        print(f"node_feats_flat is on device {node_feats_flat.device}.")
 
         # Index select returns a tensor with node_feats_flat being indexed at the desired positions along dim=0
         idx_select_1 = self.idx_select(node_feats_flat, edge_indices_row)
