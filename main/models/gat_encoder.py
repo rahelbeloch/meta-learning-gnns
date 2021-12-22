@@ -46,6 +46,8 @@ class GATLayer(nn.Module):
             print_attn_probs - If True, the attention weights are printed during the forward pass (for debugging)
         """
 
+        print(f"Batch is on device {subgraph_batch.dev}.")
+
         node_feats = subgraph_batch.x.float().to_sparse()
         num_nodes = subgraph_batch.num_nodes
         edge_index = subgraph_batch.edge_index
