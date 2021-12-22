@@ -105,7 +105,8 @@ class KHopSampler(GraphSAINTSampler):
 
     def __init__(self, graph, model, batch_sampler, n_way: int, k_shots: int, k_hops: int = 1,
                  save_dir: Optional[str] = None, log: bool = True, **kwargs):
-        super().__init__(graph.data, batch_size=n_way * k_shots, save_dir=save_dir, log=log, batch_sampler=batch_sampler, **kwargs)
+        super().__init__(graph.data, batch_size=n_way * k_shots, save_dir=save_dir, log=log,
+                         batch_sampler=batch_sampler, **kwargs)
 
         self.k_hops = k_hops
         self.edge_index = graph.edge_index
@@ -115,6 +116,15 @@ class KHopSampler(GraphSAINTSampler):
     @property
     def __filename__(self):
         return f'{self.__class__.__name__.lower()}_{self.k_hops}_{self.sample_coverage}.pt'
+
+    @property
+    def b_size(self):
+        """
+        Can not use the fitting property name batch_size, because of the code structure of GraphSAINTSampler, therefore
+        using this property name. If the batch_sampler includes query and support set in one batch/episode, the
+        batch/episode size is 2 * k_shots * n_classes.
+        """
+        return self.__batch_size__ if not self.batch_sampler.include_query else self.__batch_size__ * 2
 
     def __getitem__(self, idx):
         node_idx = self.__sample_nodes__(idx).unique()

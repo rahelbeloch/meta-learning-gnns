@@ -59,7 +59,7 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, nr_train_doc
     loaders = (train_loader, train_val_loader, test_loader, test_val_loader)
     labels = (graph_data_train.labels, eval_labels)
 
-    return loaders, graph_data_train.size, labels, train_loader.batch_size, graph_data_train.class_ratio
+    return loaders, graph_data_train.size, labels, train_loader.b_size, graph_data_train.class_ratio
 
 
 def get_loader(graph_data, model, hop_size, k_shot, num_workers, mode):
