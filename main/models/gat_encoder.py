@@ -46,13 +46,12 @@ class GATLayer(nn.Module):
             print_attn_probs - If True, the attention weights are printed during the forward pass (for debugging)
         """
 
-        print(f"Batch is on device {subgraph_batch.device}.")
-
         node_feats = subgraph_batch.x.float().to_sparse()
         num_nodes = subgraph_batch.num_nodes
         edge_index = subgraph_batch.edge_index
 
         print(f"node_feats is on device {node_feats.device}.")
+        print(f"edge_index is on device {edge_index.device}.")
 
         assert node_feats.is_sparse, "Features vector is not sparse!"
         # assert isinstance(node_feats, SparseTensor), "Features vector is not sparse!"
