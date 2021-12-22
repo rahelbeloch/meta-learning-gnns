@@ -97,7 +97,7 @@ class GatBase(pl.LightningModule):
     def log_on_epoch(self, metric, value):
         self.log(metric, value, on_step=False, on_epoch=True)
 
-    def log(self, metric, value, on_step=False, on_epoch=False, **kwargs):
+    def log(self, metric, value, on_step=True, on_epoch=False, **kwargs):
         super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=self.hparams['batch_size'])
 
     def forward(self, sub_graphs):
