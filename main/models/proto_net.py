@@ -1,9 +1,10 @@
-import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as func
 from torch import optim
+from torch_geometric.data import Batch
 
+from models.gat_base import get_classify_node_features
 from models.gat_encoder import GATLayer
 from models.train_utils import *
 
@@ -44,7 +45,7 @@ class ProtoNet(pl.LightningModule):
         for c in classes:
             # get all node features for this class and average them
             # noinspection PyTypeChecker
-            p = torch.from_numpy(np.array(features)[torch.where(targets == c)[0]]).mean(dim=0)
+            p = features[torch.where(targets == c)[0]].mean(dim=0)
             prototypes.append(p)
         prototypes = torch.stack(prototypes, dim=0)
         # Return the 'classes' tensor to know which prototype belongs to which class
@@ -63,7 +64,7 @@ class ProtoNet(pl.LightningModule):
         """
         # Squared euclidean distance
         dist = torch.pow(prototypes[None, :] - feats[:, None], 2).sum(dim=2)
-        predictions = func.log_softmax(-dist, dim=1)
+        predictions = func.log_softmax(-dist, dim=1).to(torch.int64)
         # noinspection PyUnresolvedReferences
         labels = (classes[None, :] == targets[:, None]).long().argmax(dim=-1)
         return predictions, labels, accuracy(predictions, labels)
@@ -77,32 +78,33 @@ class ProtoNet(pl.LightningModule):
         :return:
         """
 
-        # sub_graphs, targets = batch
-        # features = self.model(sub_graphs)  # Encode all sub graphs of support and query set
-        # support_feats, query_feats, support_targets, query_targets = split_batch()
-
         support_graphs, query_graphs, support_targets, query_targets = batch
 
-        support_feats = self.model(support_graphs)
+        support_batch = Batch.from_data_list(support_graphs)
+        support_feats = self.model(support_batch).squeeze()
 
-        # TODO: remove; filter targets for subgraphs with more than 1 node
-        actual_targets = []
-        for i, g in enumerate(support_graphs):
-            if g.num_nodes <= 1:
-                continue
-            actual_targets.append(support_targets[i])
-        support_targets = torch.stack(actual_targets)
+        # select only the features for the nodes we actually want to classify and compute prototypes for these
+        support_feats = get_classify_node_features(support_graphs, support_feats)
+
+        assert support_feats.shape[0] == support_targets.shape[0], \
+            "Nr of features returned does not equal nr. of classification nodes!"
 
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
-        query_feats = self.model(query_graphs)
-        query_feats = query_feats[query_graphs.ndata['classification_mask']]
+        query_batch = Batch.from_data_list(query_graphs)
+        query_feats = self.model(query_batch).squeeze()
+
+        query_feats = get_classify_node_features(query_graphs, query_feats)
+
+        assert query_feats.shape[0] == query_targets.shape[0], \
+            "Nr of features returned does not equal nr. of classification nodes!"
+
         predictions, targets, acc = ProtoNet.classify_features(prototypes, classes, query_feats, query_targets)
 
         meta_loss = func.cross_entropy(predictions, targets)
 
         if mode == 'train':
-            self.log(f"{mode}_loss", meta_loss, batch_size=self.hparams['batch_size'])
+            self.log(f"{mode}_loss", meta_loss)
 
         self.log_on_epoch(f"{mode}_accuracy", acc)
         self.log_on_epoch(f"{mode}_f1_macro", f1(predictions, targets, average='macro'))
@@ -111,7 +113,10 @@ class ProtoNet(pl.LightningModule):
         return meta_loss
 
     def log_on_epoch(self, metric, value):
-        self.log(metric, value, on_step=False, on_epoch=True, batch_size=self.hparams['batch_size'])
+        self.log(metric, value, on_step=False, on_epoch=True)
+
+    def log(self, metric, value, on_step=False, on_epoch=False, **kwargs):
+        super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=self.hparams['batch_size'])
 
     def training_step(self, batch, batch_idx):
         return self.calculate_loss(batch, mode="train")

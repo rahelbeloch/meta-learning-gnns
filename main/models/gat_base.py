@@ -28,7 +28,6 @@ class GatBase(pl.LightningModule):
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace
         self.save_hyperparameters()
 
-        # self.model = GATEncoder(model_hparams['input_dim'], hidden_dim=model_hparams['cf_hid_dim'], num_heads=2)
         self.model = GATLayer(c_in=model_hparams['input_dim'], c_out=model_hparams['cf_hid_dim'], num_heads=2)
 
         if checkpoint is not None:
@@ -96,7 +95,10 @@ class GatBase(pl.LightningModule):
         return [optimizer], []
 
     def log_on_epoch(self, metric, value):
-        self.log(metric, value, on_step=False, on_epoch=True, batch_size=self.hparams['batch_size'])
+        self.log(metric, value, on_step=False, on_epoch=True)
+
+    def log(self, metric, value, on_step=False, on_epoch=False, **kwargs):
+        super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=self.hparams['batch_size'])
 
     def forward(self, sub_graphs):
 
@@ -106,7 +108,7 @@ class GatBase(pl.LightningModule):
         if batch.edge_index.shape[1] == 0:
             print("WARNING: Batch has no edges in any graph!")
 
-        out = self.model(batch).squeeze()
+        feats = self.model(batch).squeeze()
 
         # out.size() --> [batch_size * num_nodes, feat_size]
         # reshape as: .view(batch_size, num_nodes, -1)
@@ -115,15 +117,11 @@ class GatBase(pl.LightningModule):
 
         # we don't have the same nodes for every subgraph
         # we only want to classify the one center node
-        center_out = []
-        n_count = 0
-        for graph in sub_graphs:
-            n_nodes = graph.num_nodes
-            # get all node features for this respective graph & only the center node (we want to classify)
-            center_out += out[n_count:n_count + n_nodes][graph.mask]
-            n_count += n_nodes
+        feats = get_classify_node_features(sub_graphs, feats)
 
-        return torch.stack(center_out, dim=0)
+        assert len(feats) == len(sub_graphs), "Nr of features returned does not equal nr. of classification nodes!"
+
+        return feats
 
     def training_step(self, batch, batch_idx):
 
@@ -135,7 +133,7 @@ class GatBase(pl.LightningModule):
         self.log_on_epoch('train_accuracy', accuracy(predictions, targets))
         self.log_on_epoch('train_f1_macro', f1(predictions, targets, average='macro'))
         self.log_on_epoch('train_f1_micro', f1(predictions, targets, average='micro'))
-        self.log('train_loss', loss, batch_size=self.hparams['batch_size'])
+        self.log('train_loss', loss)
 
         # TODO: add scheduler
         # logging in optimizer step does not work, therefore here
@@ -181,3 +179,11 @@ def load_pretrained_encoder(checkpoint_path):
             encoder_state_dict[new_layer] = param
 
     return encoder_state_dict
+
+
+def get_classify_node_features(graphs, features):
+    cl_n_indices, n_count = [], 0
+    for graph in graphs:
+        cl_n_indices.append(n_count + graph.center_idx)
+        n_count += graph.num_nodes
+    return features[cl_n_indices]

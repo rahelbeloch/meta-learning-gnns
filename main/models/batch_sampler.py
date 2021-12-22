@@ -129,6 +129,7 @@ class KHopSampler(GraphSAINTSampler):
     def __getitem__(self, idx):
         node_idx = self.__sample_nodes__(idx).unique()
         adj, _ = self.adj.saint_subgraph(node_idx)
+        # noinspection PyTypeChecker
         return node_idx, adj, torch.where(node_idx == idx)[0].item()
 
     def __sample_nodes__(self, node_id):
@@ -189,9 +190,9 @@ class KHopSampler(GraphSAINTSampler):
             sup_graphs, labels = list(map(list, zip(*data_list_collated)))
             return sup_graphs, torch.LongTensor(labels)
         elif self.model_type == 'prototypical':
-            graphs, labels = list(map(list, zip(*data_list_collated)))
+            sup_graphs, labels = list(map(list, zip(*data_list_collated)))
 
-            supp_sub_graphs, query_sub_graphs = split_list(graphs)
+            supp_sub_graphs, query_sub_graphs = split_list(sup_graphs)
             supp_labels, query_labels = split_list(labels)
             return supp_sub_graphs, query_sub_graphs, torch.LongTensor(supp_labels), torch.LongTensor(query_labels)
 
