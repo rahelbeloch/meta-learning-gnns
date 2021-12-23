@@ -196,7 +196,6 @@ if __name__ == '__main__':
     parser.add_argument('--data_complete_dir', type=str, default=complete_dir,
                         help='Dataset folder path that contains the folders to the complete data.')
 
-
     parser.add_argument('--data_tsv_dir', type=str, default=tsv_dir,
                         help='Dataset folder path that contains the folders to the intermediate data.')
 
