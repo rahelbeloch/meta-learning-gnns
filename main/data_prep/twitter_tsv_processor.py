@@ -15,8 +15,8 @@ class TSVPreprocessor(DataPreprocessor):
         - TSV files for twitter hate speech.
     """
 
-    def __init__(self, dataset, f_type, vocab_size, data_dir, tsv_dir, comp_dir, content_file):
-        super().__init__(dataset, f_type, vocab_size, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=comp_dir)
+    def __init__(self, dataset, f_type, max_vocab, data_dir, tsv_dir, comp_dir, content_file):
+        super().__init__(dataset, f_type, max_vocab, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=comp_dir)
 
         self.content_file = content_file
 
@@ -70,9 +70,9 @@ if __name__ == '__main__':
     # complete_dir = COMPLETE_small_DIR
     # num_train_nodes = int(COMPLETE_small_DIR.split('-')[1])
 
-    feature_type = 'one-hot'
-    max_vocab = 10000
+    feature_type = 'glove-average'
     test_size, val_size = 0.75, 0.25
+    max_vocab = 10000
 
     tsv_dir = TSV_DIR
     complete_dir = COMPLETE_DIR

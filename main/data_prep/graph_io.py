@@ -12,7 +12,9 @@ from data_prep.data_preprocess_utils import *
 from data_prep.config import *
 
 FEATURE_TYPES = ['one-hot', 'glove-sum', 'glove-average']
-NIV_IDX = (0, 'NIV')
+
+# -1 because index 0 is not free in the Glove vocabulary
+NIV_IDX = (-1, 'NIV')
 
 
 class GraphIO:

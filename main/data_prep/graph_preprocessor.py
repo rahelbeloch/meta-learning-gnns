@@ -31,13 +31,13 @@ class GraphPreprocessor(GraphIO):
         self.valid_users = None
 
     def doc_used(self, doc_key):
-        return doc_key in self.train_docs or doc_key in self.test_docs or doc_key in self.val_docs
+        return doc_key in self.train_docs or doc_key in self.val_docs or doc_key in self.test_docs
 
     def load_doc_splits(self):
         doc_splits = load_json_file(self.data_tsv_path(DOC_SPLITS_FILE_NAME % (self.feature_type, self.max_vocab)))
-        self.train_docs = doc_splits['train_docs']
-        self.test_docs = doc_splits['test_docs']
-        self.val_docs = doc_splits['val_docs']
+        self.train_docs = doc_splits['train_docs'] if 'train_docs' in doc_splits else []
+        self.val_docs = doc_splits['val_docs'] if 'val_docs' in doc_splits else []
+        self.test_docs = doc_splits['test_docs'] if 'test_docs' in doc_splits else []
 
     def maybe_load_valid_users(self):
         if self.valid_users is None:
@@ -379,8 +379,8 @@ class GraphPreprocessor(GraphIO):
         for doc_key, tokens in all_texts.items():
 
             if self.feature_type == 'one-hot':
-                indices = self.as_vocab_indices(vocabulary, tokens)
-                doc_feat = torch.zeros(self.max_vocab)
+                indices = [vocabulary[token] for token in tokens if token in vocabulary]
+                doc_feat = torch.zeros(feature_size)
                 doc_feat[indices] = 1
             elif 'glove' in self.feature_type:
                 idx_vectors = torch.stack([vocabulary[token] for token in tokens])
@@ -416,7 +416,6 @@ class GraphPreprocessor(GraphIO):
         start = time.time()
         total = doc_features.shape[0] + user_features.shape[0]
 
-        # TODO: use torch.sparse matrix
         feature_matrix = lil_matrix((total, feature_size))
         print(f"Size of feature matrix = {feature_matrix.shape}")
 

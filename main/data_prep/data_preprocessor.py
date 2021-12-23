@@ -6,7 +6,6 @@ from collections import defaultdict
 import nltk
 import numpy as np
 import pandas as pd
-import torch
 
 from data_prep.config import *
 from data_prep.data_preprocess_utils import save_json_file, sanitize_text, print_label_distribution, split_data
@@ -137,19 +136,16 @@ class DataPreprocessor(GraphIO):
 
             if self.feature_type == 'one-hot':
                 indices = self.as_vocab_indices(vocabulary, tokens)
-                if all(v == NIV_IDX[0] for v in indices):
-                    # if only NIV tokens for this document, skip it
-                    invalid_only_niv[doc_key] = tokens
-                    continue
             elif 'glove' in self.feature_type:
-                # TODO: fix this
-                indices = [vocabulary.stoi[token] if token in vocabulary else 0 for token in tokens]
-                if all(v == NIV_IDX[0] for v in indices):
-                    # if only NIV tokens for this document, skip it
-                    invalid_only_niv[doc_key] = tokens
-                    continue
+                vocab_stoi = defaultdict(lambda: NIV_IDX[0], vocabulary.stoi)
+                indices = [vocab_stoi[token] for token in tokens]
             else:
                 raise ValueError(f"Trying to create features of type {self.feature_type} which is not unknown!")
+
+            if all(v == NIV_IDX[0] for v in indices):
+                # if only NIV tokens for this document, skip it
+                invalid_only_niv[doc_key] = tokens
+                continue
 
             x_data.append(tokens)
             y_data.append(doc_data[1])
