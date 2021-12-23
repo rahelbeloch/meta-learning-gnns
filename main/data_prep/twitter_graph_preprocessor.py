@@ -212,7 +212,7 @@ if __name__ == '__main__':
     parser.add_argument('--valid_users', type=bool, default=True, help='Flag if only top K and users not sharing '
                                                                        'more than X% of any class should be used.')
 
-    parser.add_argument('--feature_type', type=str, default='glove-average', help='The type of features to use.',
+    parser.add_argument('--feature_type', type=str, default='one-hot', help='The type of features to use.',
                         choices=FEATURE_TYPES)
 
     parser.add_argument('--max_vocab', type=int, default=10000, help='Size of the vocabulary used (if one-hot).')
