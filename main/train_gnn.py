@@ -79,7 +79,8 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
     elif model_name == 'prototypical':
         model = ProtoNet(model_params['input_dim'], model_params['cf_hid_dim'], optimizer_hparams['lr'], b_size)
     elif model_name == 'gmeta':
-        model = ProtoMAML(model_params['input_dim'], model_params['cf_hid_dim'], optimizer_hparams, n_inner_updates)
+        model = ProtoMAML(model_params['input_dim'], model_params['cf_hid_dim'], optimizer_hparams, n_inner_updates,
+                          b_size)
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 
@@ -244,7 +245,8 @@ if __name__ == "__main__":
 
     # CONFIGURATION
 
-    parser.add_argument('--dataset-train', dest='dataset_train', default='gossipcop', choices=SUPPORTED_DATASETS,
+    parser.add_argument('--dataset-train', dest='dataset_train', default='gossipcop',
+                        choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use for training. '
                              'If a checkpoint is provided we do not train again.')
     parser.add_argument('--dataset-eval', dest='dataset_eval', default=None, choices=SUPPORTED_DATASETS,
