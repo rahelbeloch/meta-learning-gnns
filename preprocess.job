@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=6
 #SBATCH --time=24:00:00
 #SBATCH --mem=50G
-#SBATCH --array=1-4
+#SBATCH --array=1-8%2
 #SBATCH --output=logs/job_outputs/meta_gnn_preprocess_%A_%a.out
 
 module purge
