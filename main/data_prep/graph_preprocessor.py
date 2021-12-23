@@ -359,7 +359,11 @@ class GraphPreprocessor(GraphIO):
 
         all_texts = {}
         for split in ['test', 'train', 'val']:
-            reader = csv.DictReader(open(split_path / f'{split}.tsv', encoding='utf-8'), delimiter='\t')
+            try:
+                reader = csv.DictReader(open(split_path / f'{split}.tsv', encoding='utf-8'), delimiter='\t')
+            except FileNotFoundError:
+                print(f"No split file found for split: {split}.")
+                continue
             for row in reader:
                 all_texts[row['id']] = row['text'].split(' ')
 
