@@ -85,7 +85,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_tsv_dir', type=str, default=tsv_dir,
                         help='Dataset folder path that contains the folders to the intermediate data.')
 
-    parser.add_argument('--data', type=str, default='twitterHateSpeech',
+    parser.add_argument('--data', type=str, default='gossipcop',
                         help='The name of the dataset we want to process.')
 
     parser.add_argument('--top_k', type=int, default=30, help='Number (in K) of top users.')
@@ -103,6 +103,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_vocab', type=int, default=10000, help='Size of the vocabulary used (if one-hot).')
 
     args, unparsed = parser.parse_known_args()
+    args = args.__dict__
 
     preprocessor = TSVPreprocessor(args['data'], args['feature_type'], args['max_vocab'], args['data_dir'],
                                    args['data_tsv_dir'], args['data_complete_dir'])

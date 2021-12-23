@@ -1,7 +1,9 @@
+import argparse
 import csv
 
 from data_prep.config import *
 from data_prep.data_preprocessor import DataPreprocessor
+from data_prep.graph_io import FEATURE_TYPES
 
 LABELS = {0: 'racism', 1: 'sexism', 2: 'none'}
 
@@ -78,9 +80,39 @@ if __name__ == '__main__':
     complete_dir = COMPLETE_DIR
     num_train_nodes = None
 
-    data = 'twitterHateSpeech'
-    preprocessor = TSVPreprocessor(data, feature_type, max_vocab, 'data', tsv_dir, complete_dir,
-                                   'twitter_data_waseem_hovy.csv')
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--data_dir', type=str, default='data',
+                        help='Dataset folder path that contains the folders to the raw data.')
+
+    parser.add_argument('--data_complete_dir', type=str, default=complete_dir,
+                        help='Dataset folder path that contains the folders to the complete data.')
+
+    parser.add_argument('--data_tsv_dir', type=str, default=tsv_dir,
+                        help='Dataset folder path that contains the folders to the intermediate data.')
+
+    parser.add_argument('--data', type=str, default='twitterHateSpeech',
+                        help='The name of the dataset we want to process.')
+
+    parser.add_argument('--top_k', type=int, default=30, help='Number (in K) of top users.')
+
+    parser.add_argument('--user_doc_threshold', type=float, default=0.3, help='Threshold defining how many articles '
+                                                                              'of any class users may max have shared '
+                                                                              'to be included in the graph.')
+
+    parser.add_argument('--valid_users', type=bool, default=True, help='Flag if only top K and users not sharing '
+                                                                       'more than X% of any class should be used.')
+
+    parser.add_argument('--feature_type', type=str, default='one-hot', help='The type of features to use.',
+                        choices=FEATURE_TYPES)
+
+    parser.add_argument('--max_vocab', type=int, default=10000, help='Size of the vocabulary used (if one-hot).')
+
+    args, unparsed = parser.parse_known_args()
+    args = args.__dict__
+
+    preprocessor = TSVPreprocessor(args['data'], args['feature_type'], args['max_vocab'], args['data_dir'],
+                                   args['data_tsv_dir'], args['data_complete_dir'], 'twitter_data_waseem_hovy.csv')
 
     preprocessor.corpus_to_tsv()
     preprocessor.create_data_splits(test_size=test_size, val_size=val_size, num_train_nodes=num_train_nodes,
