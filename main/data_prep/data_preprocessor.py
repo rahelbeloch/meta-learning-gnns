@@ -6,6 +6,7 @@ from collections import defaultdict
 import nltk
 import numpy as np
 import pandas as pd
+import torch
 
 from data_prep.config import *
 from data_prep.data_preprocess_utils import save_json_file, sanitize_text, print_label_distribution, split_data
@@ -125,7 +126,7 @@ class DataPreprocessor(GraphIO):
                     invalid_min_length.append(doc_key)
 
         # Get the vocab we would have from these texts
-        token2idx, _, _ = self.get_vocab_token2idx({key: value[0] for (key, value) in data_dict.items()})
+        vocabulary, _ = self.get_vocab_token2idx({key: value[0] for (key, value) in data_dict.items()})
 
         # Filter out documents for which we do not have features any ways
         invalid_only_niv = {}
@@ -134,11 +135,21 @@ class DataPreprocessor(GraphIO):
         for doc_key, doc_data in data_dict.items():
             tokens = doc_data[0]
 
-            indices = self.as_vocab_indices(token2idx, tokens)
-            if all(v == NIV_IDX[0] for v in indices):
-                # if only NIV tokens for this document, skip it
-                invalid_only_niv[doc_key] = tokens
-                continue
+            if self.feature_type == 'one-hot':
+                indices = self.as_vocab_indices(vocabulary, tokens)
+                if all(v == NIV_IDX[0] for v in indices):
+                    # if only NIV tokens for this document, skip it
+                    invalid_only_niv[doc_key] = tokens
+                    continue
+            elif 'glove' in self.feature_type:
+                # TODO: fix this
+                indices = [vocabulary.stoi[token] if token in vocabulary else 0 for token in tokens]
+                if all(v == NIV_IDX[0] for v in indices):
+                    # if only NIV tokens for this document, skip it
+                    invalid_only_niv[doc_key] = tokens
+                    continue
+            else:
+                raise ValueError(f"Trying to create features of type {self.feature_type} which is not unknown!")
 
             x_data.append(tokens)
             y_data.append(doc_data[1])

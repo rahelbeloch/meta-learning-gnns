@@ -1,12 +1,13 @@
 from copy import deepcopy
 
-import dgl
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as func
 from torch import optim
+from torch_geometric.data import Batch
 
 from models.batch_sampler import split_list
+from models.gat_base import get_classify_node_features
 from models.gat_encoder import GATLayer
 from models.proto_net import ProtoNet
 from models.train_utils import f1
@@ -15,7 +16,7 @@ from models.train_utils import f1
 class ProtoMAML(pl.LightningModule):
 
     # noinspection PyUnusedLocal
-    def __init__(self, input_dim, cf_hidden_dim, opt_hparams, n_inner_updates):
+    def __init__(self, input_dim, cf_hidden_dim, opt_hparams, n_inner_updates, batch_size):
         """
         Inputs
             lr - Learning rate of the outer loop Adam optimizer
@@ -35,8 +36,12 @@ class ProtoMAML(pl.LightningModule):
 
     def adapt_few_shot(self, support_graphs, support_targets):
 
+        support_batch = Batch.from_data_list(support_graphs)
+
         # Determine prototype initialization
-        support_feats, _ = self.model(support_graphs)
+        support_feats = self.model(support_batch).squeeze()
+        support_feats = get_classify_node_features(support_graphs, support_feats)
+
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
         support_labels = self.get_labels(classes, support_targets)
 
@@ -96,10 +101,6 @@ class ProtoMAML(pl.LightningModule):
             support_graphs, query_graphs = split_list(graphs)
             support_targets, query_targets = split_list(targets)
 
-            # TODO: move the dgl batching to the collate function (to not do it again for the same batches)
-            support_graphs = dgl.batch(support_graphs)
-            query_graphs = dgl.batch(query_graphs)
-
             # Perform inner loop adaptation
             local_model, output_weight, output_bias, classes = self.adapt_few_shot(support_graphs, support_targets)
 
@@ -113,7 +114,7 @@ class ProtoMAML(pl.LightningModule):
                 loss.backward()
 
                 for p_global, p_local in zip(self.model.parameters(), local_model.parameters()):
-                    p_global.grad += p_local.grad  # First-order approx. -> add gradients of fine tuned and base model
+                    p_global.grad += p_local.grad  # First-order approx. -> add gradients of fine-tuned and base model
 
             accuracies.append(acc.mean().detach())
             f1_macros.append(f1_macro)
@@ -132,6 +133,12 @@ class ProtoMAML(pl.LightningModule):
         self.log_on_epoch(f"{mode}_f1_macro", sum(f1_macros) / len(f1_macros))
         self.log_on_epoch(f"{mode}_f1_micro", sum(f1_micros) / len(f1_micros))
 
+    def log_on_epoch(self, metric, value):
+        self.log(metric, value, on_step=False, on_epoch=True)
+
+    def log(self, metric, value, on_step=True, on_epoch=False, **kwargs):
+        super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=self.hparams['batch_size'])
+
     def training_step(self, batch, batch_idx):
         self.outer_loop(batch, mode="train")
 
@@ -145,19 +152,21 @@ class ProtoMAML(pl.LightningModule):
         torch.set_grad_enabled(False)
 
 
-def run_model(local_model, output_weight, output_bias, query_graphs, query_targets):
+def run_model(local_model, output_weight, output_bias, graphs, targets):
     """
     Execute a model with given output layer weights and inputs.
     """
 
-    query_feats, _ = local_model(query_graphs)
-    query_feats = query_feats[query_graphs.ndata['classification_mask']]
-    predictions = func.linear(query_feats, output_weight, output_bias)
+    batch = Batch.from_data_list(graphs)
+    feats = local_model(batch).squeeze()
+    feats = get_classify_node_features(graphs, feats)
 
-    loss = func.cross_entropy(predictions, query_targets)
+    predictions = func.linear(feats, output_weight, output_bias)
+
+    loss = func.cross_entropy(predictions, targets)
     # noinspection PyUnresolvedReferences
-    accuracy = (predictions.argmax(dim=1) == query_targets).float()
-    f1_macro = f1(predictions, query_targets, average='macro')
-    f1_micro = f1(predictions, query_targets, average='micro')
+    accuracy = (predictions.argmax(dim=1) == targets).float()
+    f1_macro = f1(predictions, targets, average='macro')
+    f1_micro = f1(predictions, targets, average='micro')
 
     return loss, predictions, accuracy, f1_macro, f1_micro

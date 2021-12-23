@@ -1,8 +1,9 @@
 import torch.cuda
 
 from data_prep.graph_dataset import TorchGeomGraphDataset
-from models.batch_sampler import FewShotSampler, KHopSampler
-from models.maml_batch_sampler import FewShotMamlSubgraphSampler
+from models.batch_sampler import FewShotSampler
+from models.graph_sampler import KHopSampler
+from models.maml_batch_sampler import FewShotMamlSampler
 
 SUPPORTED_DATASETS = ['gossipcop', 'twitterHateSpeech']
 
@@ -72,15 +73,14 @@ def get_loader(graph_data, model, hop_size, k_shot, num_workers, mode):
     if model in ['gat', 'prototypical']:
         batch_sampler = FewShotSampler(graph_data.data.y, graph_data.mask(f"{mode}_mask"), n_way=n_classes,
                                        k_shot=k_shot, include_query=True)
-        sampler = KHopSampler(graph_data, model, batch_sampler, n_classes, k_shot, hop_size, num_workers=num_workers)
-
     elif model == 'gmeta':
-        # TODO
-        # sampler = FewShotMamlSubgraphSampler(graphs, n_way=n_classes, k_shot=k_shot, include_query=True)
-        sampler = FewShotMamlSubgraphSampler(graph_data, n_way=n_classes, k_shot=k_shot, include_query=True)
+        batch_sampler = FewShotMamlSampler(graph_data.data.y, graph_data.mask(f"{mode}_mask"), n_way=n_classes,
+                                           k_shot=k_shot, include_query=True)
 
     else:
         raise ValueError(f"Model with name '{model}' is not supported.")
+
+    sampler = KHopSampler(graph_data, model, batch_sampler, n_classes, k_shot, hop_size, num_workers=num_workers)
 
     print(f"\n{mode} sampler amount of episodes / batches: {len(sampler)}")
 

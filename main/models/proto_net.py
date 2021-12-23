@@ -64,7 +64,7 @@ class ProtoNet(pl.LightningModule):
         """
         # Squared euclidean distance
         dist = torch.pow(prototypes[None, :] - feats[:, None], 2).sum(dim=2)
-        predictions = func.log_softmax(-dist, dim=1).to(torch.int64)
+        predictions = func.log_softmax(-dist, dim=1)
         # noinspection PyUnresolvedReferences
         labels = (classes[None, :] == targets[:, None]).long().argmax(dim=-1)
         return predictions, labels, accuracy(predictions, labels)
