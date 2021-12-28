@@ -21,6 +21,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         self._verbose = verbose
 
         self.top_k = top_k
+        self.feature_type = feature_type
         self.class_ratio = None
         self.train_size, self.val_size, self.test_size = split_size
         self._data = None
@@ -32,8 +33,11 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         self.split_masks = None
         self.vocab_size = None
 
-        self.read_files(feature_type)
+        self.read_files()
         self.initialize_graph()
+
+    def get_file_name(self, file):
+        return file % (self.top_k, self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
 
     def read_files(self, feature_type):
         """
@@ -48,9 +52,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         self.print_step("Reading files for Torch Geometric Graph")
 
-        file_name = FEAT_MATRIX_FILE_NAME % \
-                    (self.top_k, feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
-        feat_matrix_file = self.data_complete_path(file_name)
+        feat_matrix_file = self.data_complete_path(self.get_file_name(FEAT_MATRIX_FILE_NAME))
         if not feat_matrix_file.exists():
             raise ValueError(f"Feature matrix file does not exist: {feat_matrix_file}")
         self.x_data = torch.from_numpy(load_npz(feat_matrix_file).toarray())
