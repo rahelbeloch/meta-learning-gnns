@@ -346,12 +346,13 @@ class GraphPreprocessor(GraphIO):
         print(f"\nEdge type construction done! Saving in  {edge_type_file}")
         save_npz(edge_type_file, edge_type.tocsr())
 
-        rows, cols = adj_matrix.nonzero()
-        edge_index = np.vstack((np.array(rows), np.array(cols)))
-        print("Edge index shape = ", edge_index.shape)
-        edge_index_file = self.data_complete_path(self.get_file_name(EDGE_INDEX_FILE_NAME))
-        print("saving edge_index format in :  ", edge_index_file)
-        np.save(edge_index_file, edge_index, allow_pickle=True)
+        # Not needed
+        # rows, cols = adj_matrix.nonzero()
+        # edge_index = np.vstack((np.array(rows), np.array(cols)))
+        # print("Edge index shape = ", edge_index.shape)
+        # edge_index_file = self.data_complete_path(self.get_file_name(EDGE_INDEX_FILE_NAME))
+        # print("saving edge_index format in :  ", edge_index_file)
+        # np.save(edge_index_file, edge_index, allow_pickle=True)
 
         edge_type = edge_type[edge_type.nonzero()].toarray().squeeze(0)
         print("edge_type shape = ", edge_type.shape)
@@ -507,9 +508,9 @@ class GraphPreprocessor(GraphIO):
         assert len(train_labels) == len(self.doc2id.keys()) - len(self.test_docs)
         print(f"\nLen of (train) labels = {len(train_labels)}")
 
-        labels_file = self.data_complete_path(self.get_file_name(TRAIN_LABELS_FILE_NAME))
-        print(f"\nLabels list construction done! Saving in : {labels_file}")
-        save_json_file({'labels_list': list(train_labels)}, labels_file, converter=self.np_converter)
+        # labels_file = self.data_complete_path(self.get_file_name(TRAIN_LABELS_FILE_NAME))
+        # print(f"\nLabels list construction done! Saving in : {labels_file}")
+        # save_json_file({'labels_list': list(train_labels)}, labels_file, converter=self.np_converter)
 
         print("\nSum of all labels = ", int(sum(all_labels)))
         print("Len of all labels = ", len(all_labels))
