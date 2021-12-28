@@ -5,7 +5,6 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=6
 #SBATCH --time=24:00:00
-#SBATCH --mem=50G
 #SBATCH --array=1-8%2
 #SBATCH --output=logs/job_outputs/meta_gnn_preprocess_%A_%a.out
 
@@ -14,11 +13,11 @@ module load 2019
 module load Python/3.7.5-foss-2019b
 
 # Your job starts in the directory where you call sbatch
-cd $HOME/meta-learning-gnns/main
+cd $HOME/meta-learning-gnns/
 
 # Activate your environment
 source activate meta-gnn-env
 
-PARAMETERS_FILE=../job_parameters/parameters_preprocess_split_sizes.txt
+PARAMETERS_FILE=job_parameters/parameters_preprocess_split_sizes.txt
 
 srun $(head -$SLURM_ARRAY_TASK_ID $PARAMETERS_FILE | tail -1)
