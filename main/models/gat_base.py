@@ -103,6 +103,15 @@ class GatBase(pl.LightningModule):
     def forward(self, sub_graphs):
 
         # we have a list of sub graphs with different nodes; make one big graph out of it for the forward pass
+        print(f'len sub graphs {str(len(sub_graphs))}')
+        for i, g in enumerate(sub_graphs):
+            print(f"Graph {i}")
+            print(f"x device: {str(g.x.device)}")
+            print(f"edge_index device: {str(g.edge_index.device)}")
+            print(f"edge_attr device: {str(g.edge_attr.device)}")
+            print(f"y device: {str(g.y.device)}")
+            print(f"pos device: {str(g.pos.device)}")
+
         batch = Batch.from_data_list(sub_graphs)
 
         if batch.edge_index.shape[1] == 0:
