@@ -184,7 +184,7 @@ class DataPreprocessor(GraphIO):
 
         return x_data[sampled_indices], y_data[sampled_indices], doc_names[sampled_indices]
 
-    def create_data_splits(self, test_size, val_size, num_train_nodes=None, min_length=None, splits=1,
+    def create_data_splits(self, train_size, test_size, val_size, num_train_nodes=None, min_length=None, splits=1,
                            duplicate_stats=False):
         """
         Creates train, val and test splits via random splitting of the dataset in a stratified fashion to ensure
@@ -268,8 +268,7 @@ class DataPreprocessor(GraphIO):
 
             doc_names_split_dict[f'{split}_docs'] = name_list
 
-        file_name = DOC_SPLITS_FILE_NAME % \
-                    (self.feature_type, self.max_vocab, 1 - val_size - test_size, val_size, test_size)
+        file_name = DOC_SPLITS_FILE_NAME % (self.feature_type, self.max_vocab, train_size, val_size, test_size)
         doc_splits_file = self.data_tsv_path(file_name)
         print("\nWriting doc splits in : ", doc_splits_file)
         save_json_file(doc_names_split_dict, doc_splits_file, converter=self.np_converter)
