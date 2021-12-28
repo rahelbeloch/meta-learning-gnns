@@ -1,10 +1,9 @@
 import pytorch_lightning as pl
 import torch
 from torch import nn
-
-# from models.gat_encoder import GATLayer
 from torch_geometric.data import Batch
 
+# from models.gat_encoder import GATLayer
 from models.gat_encoder_sparse import GATLayer
 from models.train_utils import *
 
@@ -39,6 +38,7 @@ class GatBase(pl.LightningModule):
         self.classifier = self.get_classifier(model_hparams['output_dim'])
 
         self.loss_module = nn.CrossEntropyLoss(weight=model_hparams["class_weight"])
+
 
     def reset_classifier(self, num_classes):
         self.classifier = self.get_classifier(num_classes)
@@ -130,6 +130,16 @@ class GatBase(pl.LightningModule):
             g.x = g.x.float().to_sparse()
 
         batch = Batch.from_data_list(sub_graphs)
+
+        if not batch.x.is_sparse:
+            batch.x = batch.x.float().to_sparse()
+
+        if batch.edge_attr is not None:
+            batch.edge_attr = None
+
+        if batch.y is not None:
+            batch.y = None
+
         feats = self.model(batch).squeeze()
         feats = get_classify_node_features(sub_graphs, feats)
 
