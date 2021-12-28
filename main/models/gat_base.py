@@ -106,11 +106,11 @@ class GatBase(pl.LightningModule):
 
         for graph in sub_graphs:
             graph.x = graph.x.float().to_sparse()
-            if graph.num_nodes <= 1:
-                print("graph has 1 node or less, skipping it.")
-                out = torch.zeros(self.hparams['model_hparams']['cf_hid_dim'])
-            else:
-                out = self.model(graph).squeeze()[graph.center_idx]
+            # if graph.num_nodes <= 1:
+            #     print("graph has 1 node or less, skipping it.")
+            #     out = torch.zeros(self.hparams['model_hparams']['cf_hid_dim'])
+            # else:
+            out = self.model(graph).squeeze()[graph.center_idx]
 
             print(f"Device of out {out.device}.")
 
