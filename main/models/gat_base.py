@@ -108,9 +108,9 @@ class GatBase(pl.LightningModule):
             print(f"Graph {i}")
 
             g.edge_attr = None
-            g.x = g.x.float().to_sparse()
-            g.y = g.y.float().to_sparse()
-            g.edge_index = g.edge_index.float().to_sparse()
+            # g.x = g.x.float().to_sparse()
+            # g.y = g.y.float().to_sparse()
+            # g.edge_index = g.edge_index.float().to_sparse()
 
             print(f"x device: {str(g.x.device)}")
             print(f"x is sparse: {str(g.x.is_sparse)}")
