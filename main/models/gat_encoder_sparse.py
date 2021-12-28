@@ -31,8 +31,10 @@ class GATLayer(nn.Module):
 
         for att in self.attentions:
             if torch.cuda.is_available():
-                assert att.W.device == torch.device("cuda:0")
-                assert att.a.device == torch.device("cuda:0")
+                print(str(att.W.device))
+                print(str(att.a.device))
+                # assert att.W.device == torch.device("cuda:0")
+                # assert att.a.device == torch.device("cuda:0")
 
         self.leaky_relu = nn.LeakyReLU(alpha)
 
