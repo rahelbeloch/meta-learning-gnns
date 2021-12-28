@@ -120,9 +120,9 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         if self._verbose:
             print(f"No. of edges in graph = {self._data.num_edges}")
-            print(f"\nNo.of train instances = {self._data.train_mask.sum().item()}")
-            print(f"No.of val instances = {self._data.val_mask.sum().item()}", )
-            print(f"No.of test instances = {self._data.test_mask.sum().item()}")
+            print(f"\nNo. of train instances = {self._data.train_mask.sum().item()}")
+            print(f"No. of val instances = {self._data.val_mask.sum().item()}", )
+            print(f"No. of test instances = {self._data.test_mask.sum().item()}")
 
     # def get_hop_subgraph(self, node_id, hop_size):
     #     """
