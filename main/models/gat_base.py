@@ -104,14 +104,12 @@ class GatBase(pl.LightningModule):
 
         # we have a list of sub graphs with different nodes; make one big graph out of it for the forward pass
         print(f'\nlen sub graphs {str(len(sub_graphs))}\n')
-        for i, g in enumerate(sub_graphs):
-            # print(f"Graph {i}")
-
+        for g in sub_graphs:
             g.edge_attr = None
 
             # edge index can not be made sparse, because Batch.from_data_list internally makes operations which can not
             # be done with this matrix being sparse
-            # g.edge_index = g.edge_index.float().to_sparse()
+            # g.edge_index = g.edge_index.to_sparse()
 
             g.x = g.x.float().to_sparse()
             g.y = g.y.float().to_sparse()
@@ -126,10 +124,6 @@ class GatBase(pl.LightningModule):
             # print(f"y is sparse: {str(g.y.is_sparse)}")
 
         batch = Batch.from_data_list(sub_graphs)
-
-        if batch.edge_index.shape[1] == 0:
-            print("WARNING: Batch has no edges in any graph!")
-
         feats = self.model(batch).squeeze()
 
         # out.size() --> [batch_size * num_nodes, feat_size]

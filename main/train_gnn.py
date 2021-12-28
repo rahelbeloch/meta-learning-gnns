@@ -11,6 +11,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from data_prep.config import *
 from data_prep.data_utils import SUPPORTED_DATASETS
 from data_prep.data_utils import get_data
+from models.gat_base import GatBase
 from models.proto_maml import ProtoMAML
 from models.proto_net import ProtoNet
 from models.spy_gat_encoder import SpyGATLayer
@@ -78,8 +79,8 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
                                  data_eval, k_shot, h_size, feature_type, checkpoint)
 
     if model_name == 'gat':
-        model = SpyGATLayer(model_params, optimizer_hparams, b_size, checkpoint)
-        # model = GatBase(model_params, optimizer_hparams, b_size, checkpoint)
+        # model = SpyGATLayer(model_params, optimizer_hparams, b_size, checkpoint)
+        model = GatBase(model_params, optimizer_hparams, b_size, checkpoint)
     elif model_name == 'prototypical':
         model = ProtoNet(model_params['input_dim'], model_params['cf_hid_dim'], optimizer_hparams['lr'], b_size)
     elif model_name == 'gmeta':

@@ -49,7 +49,7 @@ class SpyGATLayer(pl.LightningModule):
                                              alpha=alpha,
                                              concat=False)
 
-        self.classifier = self.get_classifier(n_classes)
+        self.loss_module = nn.CrossEntropyLoss(weight=model_hparams["class_weight"])
 
     def configure_optimizers(self):
         """
@@ -92,23 +92,11 @@ class SpyGATLayer(pl.LightningModule):
 
         return [optimizer], []
 
-    def get_classifier(self, num_classes):
-        cf_hidden_dim = self.hparams['model_hparams']['cf_hid_dim']
-        return nn.Sequential(
-            # TODO: maybe
-            # nn.Dropout(config["dropout"]),
-            # WHY??
-            # nn.Linear(3 * cf_hidden_dim, cf_hidden_dim),
-            nn.Linear(cf_hidden_dim, cf_hidden_dim),
-            nn.ReLU(),
-            nn.Linear(cf_hidden_dim, num_classes)
-        )
-
     def training_step(self, batch, batch_idx):
 
         sub_graphs, targets = batch
-        out = self.forward(sub_graphs)
-        predictions = self.classifier(out)
+        predictions = self.forward(sub_graphs)
+
         loss = self.loss_module(predictions, targets)
 
         self.log_on_epoch('train_accuracy', accuracy(predictions, targets))
@@ -176,8 +164,8 @@ class SpyGATLayer(pl.LightningModule):
         feats = get_classify_node_features(sub_graphs, x)
 
         assert len(feats) == len(sub_graphs), "Nr of features returned does not equal nr. of classification nodes!"
-
-        return func.log_softmax(feats, dim=1)
+        return feats
+        # return func.log_softmax(feats, dim=1)
 
 
 class SpGraphAttentionLayer(nn.Module):

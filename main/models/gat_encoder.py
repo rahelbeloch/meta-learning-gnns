@@ -47,13 +47,11 @@ class GATLayer(nn.Module):
             print_attn_probs - If True, the attention weights are printed during the forward pass (for debugging)
         """
 
-        node_feats = subgraph_batch.x.float().to_sparse()
+        node_feats = subgraph_batch.x
         num_nodes = subgraph_batch.num_nodes
         edge_index = subgraph_batch.edge_index
 
         assert node_feats.is_sparse, "Features vector is not sparse!"
-        # assert isinstance(node_feats, SparseTensor), "Features vector is not sparse!"
-        # assert adj_matrix.is_sparse, "Edge index vector is not sparse!"
 
         batch_size = 1
 
@@ -68,9 +66,6 @@ class GATLayer(nn.Module):
 
         # we consider the whole graph (containing multiple sub graphs) because we have as one batch
         adj_matrix = adj_matrix.unsqueeze(dim=0)
-
-        # TODO: make this sparse!
-        # assert adj_matrix.is_sparse, "Adjacency vector is not sparse!"
 
         # Calculate attention logits for every edge in the adjacency matrix
         # Doing this on all possible combinations of nodes is very expensive
