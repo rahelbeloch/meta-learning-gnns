@@ -93,11 +93,17 @@ class GATLayer(nn.Module):
         # Calculate attention MLP output (independent for each head)
         attn_logits = torch.einsum('bhc,hc->bh', a_input, self.a)
         attn_logits = self.leaky_relu(attn_logits)
+        print(f'Attn logits shape {str(attn_logits.shape)}')
 
         # Map list of attention values back into a matrix
         attn_matrix = attn_logits.new_zeros(adj_matrix.shape + (self.num_heads,)).fill_(-9e15)
+        print(f'Attn matrix shape {str(attn_matrix.shape)}')
+
         head_mask = adj_matrix[..., None].repeat(1, 1, 1, self.num_heads) == 1
+        print(f'Head mask shape {str(head_mask.shape)}')
+
         attn_matrix[head_mask] = attn_logits.reshape(-1)
+        print(f'Head mask shape {str(attn_matrix.shape)}')
 
         # Weighted average of attention
         attn_probs = func.softmax(attn_matrix, dim=2)
