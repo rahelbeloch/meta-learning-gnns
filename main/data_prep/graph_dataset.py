@@ -39,7 +39,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
     def get_file_name(self, file):
         return file % (self.top_k, self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
 
-    def read_files(self, feature_type):
+    def read_files(self):
         """
         Reads all the files necessary for the graph. These are:
             - adjacency matrix (edge index) & edge type
