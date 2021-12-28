@@ -32,7 +32,7 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, split_size, 
     if data_eval not in SUPPORTED_DATASETS:
         raise ValueError(f"Eval data with name '{data_eval}' is not supported.")
 
-    num_workers = 8 if torch.cuda.is_available() else 0  # mac has 8 CPUs
+    num_workers = 6 if torch.cuda.is_available() else 0  # mac has 8 CPUs
 
     # creating a train and val loader from the train dataset
     graph_data_train = TorchGeomGraphDataset(data_train, top_k, feature_type, vocab_size, split_size, *dirs)
