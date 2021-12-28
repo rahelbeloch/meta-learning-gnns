@@ -85,10 +85,12 @@ class KHopSampler(GraphSAINTSampler):
             #         data.node_norm = self.node_norm[node_idx]
             #         data.edge_norm = self.edge_norm[edge_idx]
 
-            data.x = self.data.x[node_idx]
-            data.y = self.data.y[node_idx]
-            data.mask = self.batch_sampler.mask[node_idx]
+            data.x = self.data.x[node_idx].float().to_sparse()
+            data.y = self.data.y[node_idx].to_sparse()
+            data.mask = self.batch_sampler.mask[node_idx].to_sparse()
             data.center_idx = center_node
+            data.edge_index = data.edge_index.to_sparse()
+            data.edge_attr = data.edge_attr.to_sparse()
 
             data_list_collated.append((data, data.y[data.center_idx].item()))
 
