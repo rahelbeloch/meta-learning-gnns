@@ -204,7 +204,7 @@ class SpGraphAttentionLayer(nn.Module):
         # edge: 2*D x E
 
         edge_e = torch.exp(-self.leakyrelu(self.a.mm(edge_h).squeeze()))
-        assert not torch.isnan(edge_e).any()
+        # assert not torch.isnan(edge_e).any()
         # edge_e: E
 
         edge = edge.to(dv)
@@ -218,7 +218,7 @@ class SpGraphAttentionLayer(nn.Module):
             # edge_e: E
 
         h_prime = self.special_spmm(edge, edge_e, torch.Size([N, N]), h)
-        assert not torch.isnan(h_prime).any()
+        # assert not torch.isnan(h_prime).any()
         # h_prime: N x out
 
         h_prime = h_prime.div(e_row_sum)
