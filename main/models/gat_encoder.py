@@ -102,8 +102,10 @@ class GATLayer(nn.Module):
         head_mask = adj_matrix[..., None].repeat(1, 1, 1, self.num_heads) == 1
         print(f'Head mask shape {str(head_mask.shape)}')
 
+        print(f'Attn logits min {str(attn_logits.min())}')
+        print(f'Attn logits max {str(attn_logits.max())}')
+
         attn_matrix[head_mask] = attn_logits.reshape(-1)
-        print(f'Head mask shape {str(attn_matrix.shape)}')
 
         # Weighted average of attention
         attn_probs = func.softmax(attn_matrix, dim=2)
