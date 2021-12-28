@@ -22,18 +22,16 @@ RESTRICTED_USERS = 'restricted_users_%s.json'
 ADJACENCY_MATRIX_FILE = 'adj_matrix_top%s_train'
 ADJACENCY_MATRIX_FILE_NAME = f'{ADJACENCY_MATRIX_FILE}.npz'
 
-EDGE_TYPE_FILE = 'edge_type_top%s'
+EDGE_TYPE_FILE = 'edge_type_top%s_type=%s_vsize=%s_train=%s_val=%s_test=%s'
 EDGE_TYPE_FILE_NAME = f'{EDGE_TYPE_FILE}.npz'
 EDGE_INDEX_FILE_NAME = EDGE_TYPE_FILE + '_edge.npy'
-EDGE_LIST_FILE_NAME = 'edge_list_top%s.json'
+EDGE_LIST_FILE_NAME = 'edge_list_top%s_type=%s_vsize=%s_train=%s_val=%s_test=%s.json'
 
-FEAT_MATRIX_FILE = 'feat_matrix_train_top%s_type=%s_vsize=%s'
+FEAT_MATRIX_FILE = 'feat_matrix_train_top%s_type=%s_vsize=%s_train=%s_val=%s_test=%s'
 FEAT_MATRIX_FILE_NAME = f'{FEAT_MATRIX_FILE}.npz'
 
-SPLIT_MASK_FILE_NAME = 'split_mask.json'
+SPLIT_MASK_FILE_NAME = 'split_mask_top%s_type=%s_vsize=%s_train=%s_val=%s_test=%s.json'
 
 DOC_2_LABELS_FILE_NAME = 'doc2labels.json'
 TRAIN_LABELS_FILE_NAME = 'labels_train_val.json'
-ALL_LABELS_FILE_NAME = 'labels_train_val_test.json'
-
-DGL_GRAPH_FILE = 'dtrain=%s-deval=%s-ftype=%s-vsize=%s.dgl'
+ALL_LABELS_FILE_NAME = 'labels_train_val_test_top%s_type=%s_vsize=%s_train=%s_val=%s_test=%s.json'

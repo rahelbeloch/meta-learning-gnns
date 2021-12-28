@@ -15,7 +15,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
     Parent class for graph datasets. It loads the graph from respective files.
     """
 
-    def __init__(self, corpus, top_k, feature_type, max_vocab, nr_train_docs, data_dir, tsv_dir, complete_dir,
+    def __init__(self, corpus, top_k, feature_type, max_vocab, split_size, data_dir, tsv_dir, complete_dir,
                  verbose=True):
         super().__init__(corpus, feature_type, max_vocab, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir)
 
@@ -24,6 +24,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         self.top_k = top_k
         self.class_ratio = None
+        self.train_size, self.val_size, self.test_size = split_size
         self._data = None
         self._labels = None
 
@@ -49,14 +50,13 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         self.print_step("Reading files for Torch Geometric Graph")
 
-        feat_matrix_file = self.data_complete_path(
-            FEAT_MATRIX_FILE_NAME % (self.top_k, feature_type, self.max_vocab))
+        feat_matrix_file = self.data_complete_path(self.get_file_name(FEAT_MATRIX_FILE_NAME))
         if not feat_matrix_file.exists():
             raise ValueError(f"Feature matrix file does not exist: {feat_matrix_file}")
         self.x_data = torch.from_numpy(load_npz(feat_matrix_file).toarray())
         num_nodes, self.vocab_size = self.x_data.shape
 
-        labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME)
+        labels_file = self.data_complete_path(self.get_file_name(ALL_LABELS_FILE_NAME))
         if not labels_file.exists():
             raise ValueError(f"Labels file does not exist: {labels_file}")
         self.y_data = torch.LongTensor(load_json_file(labels_file)['all_labels'])
@@ -69,13 +69,13 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         # load edge index and edge type
         # edge_index_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k)
         # self.edge_index = torch.from_numpy(load_npz(edge_index_file).toarray()).long()
-        edge_list_file = self.data_complete_path(EDGE_LIST_FILE_NAME % self.top_k)
+        edge_list_file = self.data_complete_path(self.get_file_name(EDGE_LIST_FILE_NAME))
         if not edge_list_file.exists():
             raise ValueError(f"Edge list file does not exist: {edge_list_file}")
         edge_list = load_json_file(edge_list_file)
         self.edge_index = torch.tensor(edge_list).t().contiguous()
 
-        edge_type_file = self.data_complete_path(EDGE_TYPE_FILE_NAME % self.top_k)
+        edge_type_file = self.data_complete_path(self.get_file_name(EDGE_TYPE_FILE_NAME))
         self.edge_type = torch.from_numpy(load_npz(edge_type_file).toarray())
 
         # load node2id and node type
@@ -88,7 +88,8 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         # If your dataset is a node classification dataset, you will need to assign
         # masks indicating whether a node belongs to training, validation, and test set.
-        split_mask_file = self.data_complete_path(SPLIT_MASK_FILE_NAME)
+
+        split_mask_file = self.data_complete_path(self.get_file_name(SPLIT_MASK_FILE_NAME))
         if not split_mask_file.exists():
             raise ValueError(f"Split masks file does not exist: {split_mask_file}")
         self.split_masks = load_json_file(split_mask_file)

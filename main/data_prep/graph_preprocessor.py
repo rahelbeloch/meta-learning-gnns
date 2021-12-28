@@ -38,8 +38,7 @@ class GraphPreprocessor(GraphIO):
         return doc_key in self.train_docs or doc_key in self.val_docs or doc_key in self.test_docs
 
     def load_doc_splits(self):
-        file_name = DOC_SPLITS_FILE_NAME % (
-        self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
+        file_name = self.get_file_name(DOC_SPLITS_FILE_NAME)
         doc_splits = load_json_file(self.data_tsv_path(file_name))
         self.train_docs = doc_splits['train_docs'] if 'train_docs' in doc_splits else []
         self.val_docs = doc_splits['val_docs'] if 'val_docs' in doc_splits else []
@@ -315,7 +314,7 @@ class GraphPreprocessor(GraphIO):
 
         adj_matrix, edge_type, edge_list, not_used = self.users_to_adj(adj_matrix, edge_type, edge_list)
 
-        edge_list_file = self.data_complete_path(EDGE_LIST_FILE_NAME % self.top_k)
+        edge_list_file = self.data_complete_path(self.get_file_name(EDGE_LIST_FILE_NAME))
         print("\nSaving edge list in :", edge_list_file)
         save_json_file(edge_list, edge_list_file)
 
@@ -337,22 +336,22 @@ class GraphPreprocessor(GraphIO):
         print(f"\nMatrix construction done! Saving in  {adj_file}")
         save_npz(adj_file, adj_matrix.tocsr())
 
-        edge_type_file = self.data_complete_path(EDGE_TYPE_FILE_NAME % self.top_k)
+        edge_type_file = self.data_complete_path(self.get_file_name(EDGE_TYPE_FILE_NAME))
         print(f"\nEdge type construction done! Saving in  {edge_type_file}")
         save_npz(edge_type_file, edge_type.tocsr())
 
         rows, cols = adj_matrix.nonzero()
         edge_index = np.vstack((np.array(rows), np.array(cols)))
         print("Edge index shape = ", edge_index.shape)
-        edge_index_file = self.data_complete_path(EDGE_INDEX_FILE_NAME % self.top_k)
+        edge_index_file = self.data_complete_path(self.get_file_name(EDGE_INDEX_FILE_NAME))
         print("saving edge_index format in :  ", edge_index_file)
         np.save(edge_index_file, edge_index, allow_pickle=True)
 
         edge_type = edge_type[edge_type.nonzero()].toarray().squeeze(0)
         print("edge_type shape = ", edge_type.shape)
-        edge_type_file = self.data_complete_path(EDGE_TYPE_FILE_NAME % self.top_k)
-        print("saving edge_type list format in :  ", edge_type_file)
-        np.save(edge_type_file, edge_index, allow_pickle=True)
+        edge_list_type = self.data_complete_path(self.get_file_name(EDGE_LIST_FILE_NAME))
+        print("saving edge_type list format in :  ", edge_list_type)
+        np.save(edge_list_type, edge_list_type, allow_pickle=True)
 
     def create_feature_matrix(self):
 
@@ -440,9 +439,12 @@ class GraphPreprocessor(GraphIO):
             feature_matrix = feature_matrix >= 1
             feature_matrix = feature_matrix.astype(int)
 
-        filename = self.data_complete_path(FEAT_MATRIX_FILE_NAME % (self.top_k, self.feature_type, self.max_vocab))
+        filename = self.data_complete_path(self.get_file_name(FEAT_MATRIX_FILE_NAME))
         print(f"\nMatrix construction done! Saving in: {filename}")
         save_npz(filename, feature_matrix.tocsr())
+
+    def get_file_name(self, file):
+        return file % (self.top_k, self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
 
     @abc.abstractmethod
     def docs_to_adj(self, adj_matrix, edge_type):
@@ -504,7 +506,7 @@ class GraphPreprocessor(GraphIO):
         print("\nSum of all labels = ", int(sum(all_labels)))
         print("Len of all labels = ", len(all_labels))
 
-        all_labels_file = self.data_complete_path(ALL_LABELS_FILE_NAME)
+        all_labels_file = self.data_complete_path(self.get_file_name(ALL_LABELS_FILE_NAME))
         print(f"\nAll labels list construction done! Saving in : {all_labels_file}")
         save_json_file({'all_labels': list(all_labels)}, all_labels_file, converter=self.np_converter)
 
@@ -533,6 +535,6 @@ class GraphPreprocessor(GraphIO):
         print("test_mask sum = ", int(sum(test_mask)))
 
         mask_dict = {'train_mask': list(train_mask), 'val_mask': list(val_mask), 'test_mask': list(test_mask)}
-        split_mask_file = self.data_complete_path(SPLIT_MASK_FILE_NAME)
+        split_mask_file = self.data_complete_path(self.get_file_name(SPLIT_MASK_FILE_NAME))
         print("\nWriting split mask file in : ", split_mask_file)
         save_json_file(mask_dict, split_mask_file)

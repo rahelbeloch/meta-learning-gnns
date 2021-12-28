@@ -20,7 +20,8 @@ LOG_PATH = "../logs/"
 
 
 def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, lr_inner, lr_output, cf_hidden_dim,
-          proto_dim, data_train, data_eval, dirs, checkpoint, train_docs, feature_type, vocab_size, n_inner_updates):
+          proto_dim, data_train, data_eval, dirs, checkpoint, train_docs, split_size, feature_type, vocab_size,
+          n_inner_updates):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     if model_name not in SUPPORTED_MODELS:
@@ -48,7 +49,7 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
     evaluation = checkpoint is not None and Path(checkpoint).exists()
 
     loaders, graph_size, labels, b_size, train_class_ratio = get_data(data_train, data_eval, model_name, h_size, top_k,
-                                                                      k_shot, nr_train_docs, feature_type, vocab_size,
+                                                                      k_shot, split_size, feature_type, vocab_size,
                                                                       dirs)
 
     optimizer_hparams = {
@@ -272,6 +273,10 @@ if __name__ == "__main__":
                         help='Flag for doing hyper parameter search (and freezing half of roberta layers) '
                              'or doing full fine tuning.')
 
+    parser.add_argument('--train-size', dest='train_size', type=float, default=0.875)
+    parser.add_argument('--val-size', dest='val_size', type=float, default=0.125)
+    parser.add_argument('--test-size', dest='test_size', type=float, default=0.0)
+
     params = vars(parser.parse_args())
 
     train(
@@ -293,6 +298,7 @@ if __name__ == "__main__":
         dirs=(params["data_dir"], params["tsv_dir"], params["complete_dir"]),
         checkpoint=params["checkpoint"],
         train_docs=params["num_train_docs"],
+        split_size=(params["train_size"], params["val_size"], params["test_size"]),
         feature_type=params["feature_type"],
         vocab_size=params["vocab_size"],
         n_inner_updates=params["n_updates"]
