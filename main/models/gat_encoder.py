@@ -76,14 +76,14 @@ class GATLayer(nn.Module):
         edge_indices_row = edges[:, 0] * num_nodes + edges[:, 1]
         edge_indices_col = edges[:, 0] * num_nodes + edges[:, 2]
 
+        edge_indices_col = edge_indices_col.to(device)
+        edge_indices_row = edge_indices_row.to(device)
+        node_feats_flat = node_feats_flat.to(device)
+
         # need to be on the same device (GPU if available) for index select
         print(f"edge_indices_col is on device {edge_indices_col.device}.")
         print(f"edge_indices_row is on device {edge_indices_row.device}.")
         print(f"node_feats_flat is on device {node_feats_flat.device}.")
-
-        edge_indices_col = edge_indices_col.to(device)
-        edge_indices_row = edge_indices_row.to(device)
-        node_feats_flat = node_feats_flat.to(device)
 
         # Index select returns a tensor with node_feats_flat being indexed at the desired positions along dim=0
         idx_select_1 = self.idx_select(node_feats_flat, edge_indices_row)
@@ -105,7 +105,10 @@ class GATLayer(nn.Module):
         print(f'Attn logits min {str(attn_logits.min())}')
         print(f'Attn logits max {str(attn_logits.max())}')
 
-        attn_matrix[head_mask] = attn_logits.reshape(-1)
+        attn_logits_reshaped = attn_logits.reshape(-1)
+        print(f'Attn logits reshaped size {str(attn_logits_reshaped.shape)}')
+
+        attn_matrix[head_mask] = attn_logits_reshaped
 
         # Weighted average of attention
         attn_probs = func.softmax(attn_matrix, dim=2)
