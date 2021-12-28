@@ -67,10 +67,6 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, nr_train_doc
     test_val_loader = get_loader(graph_data_eval, model, hop_size, k_shot, num_workers, 'val')
     eval_labels = graph_data_eval.labels
 
-    if graph_data_train is not None and graph_data_eval is not None:
-        assert graph_train_size[1] == graph_data_eval.size[1], \
-            "Number of features for train and eval data is not equal!"
-
     loaders = (train_loader, train_val_loader, test_loader, test_val_loader)
     labels = (train_labels, eval_labels)
 
