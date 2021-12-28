@@ -116,7 +116,6 @@ class SparseMultiplyFunction(torch.autograd.Function):
     # noinspection PyMethodOverriding
     @staticmethod
     def backward(ctx, grad_output):
-        print(f"Backward called for sparse tensors.")
         a, b = ctx.saved_tensors
         grad_values = grad_b = None
         if ctx.needs_input_grad[1]:
