@@ -51,9 +51,9 @@ class GraphPreprocessor(GraphIO):
 
     def maybe_load_id_mappings(self):
         if self.user2id is None:
-            self.user2id = self.load_if_exists(self.data_complete_path(USER_2_ID_FILE_NAME % self.top_k))
+            self.user2id = self.load_if_exists(self.data_complete_path(self.get_file_name(USER_2_ID_FILE_NAME)))
         if self.doc2id is None:
-            self.doc2id = self.load_if_exists(self.data_complete_path(DOC_2_ID_FILE_NAME % self.top_k))
+            self.doc2id = self.load_if_exists(self.data_complete_path(self.get_file_name(DOC_2_ID_FILE_NAME)))
         self.n_nodes = len(self.user2id) + len(self.doc2id)
 
     def is_restricted(self, statistics):
@@ -118,7 +118,7 @@ class GraphPreprocessor(GraphIO):
             assert len(all_users) <= self.top_k * 1000, \
                 f"Total nr of users for all splits is greater than top K {self.top_k}!"
 
-        user_splits_file = self.data_complete_path(USER_SPLITS_FILE_NAME)
+        user_splits_file = self.data_complete_path(self.get_file_name(USER_SPLITS_FILE_NAME))
         print("User splits stored in : ", user_splits_file)
         temp_dict = {'train_users': list(train_users), 'val_users': list(val_users), 'test_users': list(test_users)}
         save_json_file(temp_dict, user_splits_file)
@@ -154,12 +154,12 @@ class GraphPreprocessor(GraphIO):
         assert len(set(doc2id.values())) == len(doc2id), "Doc2ID contains duplicate IDs!!"
         assert len(doc2id) == (n_val + n_train + n_test), "Doc2id does not contain all documents!"
         print("New doc2id len including test docs = ", len(doc2id))
-        doc2id_file = self.data_complete_path(DOC_2_ID_FILE_NAME % self.top_k)
+        doc2id_file = self.data_complete_path(self.get_file_name(DOC_2_ID_FILE_NAME))
         print("Saving doc2id_train in : ", doc2id_file)
         save_json_file(doc2id, doc2id_file)
         self.doc2id = doc2id
 
-        splits = load_json_file(self.data_complete_path(USER_SPLITS_FILE_NAME))
+        splits = load_json_file(self.data_complete_path(self.get_file_name(USER_SPLITS_FILE_NAME)))
         train_users, val_users, test_users = splits['train_users'], splits['val_users'], splits['test_users']
         all_users = list(set(train_users + val_users + test_users))
 
@@ -181,7 +181,7 @@ class GraphPreprocessor(GraphIO):
         assert len(set(user2id.values())) == len(user2id), "User2ID contains duplicate IDs!!"
 
         print("\nUser2id size = ", len(user2id))
-        user2id_train_file = self.data_complete_path(USER_2_ID_FILE_NAME % self.top_k)
+        user2id_train_file = self.data_complete_path(self.get_file_name(USER_2_ID_FILE_NAME))
         print("Saving user2id_train in : ", user2id_train_file)
         save_json_file(user2id, user2id_train_file)
         self.user2id = user2id
@@ -225,7 +225,7 @@ class GraphPreprocessor(GraphIO):
     def filter_contexts(self):
         self.print_step("Creating filtered follower-following")
 
-        all_users = load_json_file(self.data_complete_path(USER_2_ID_FILE_NAME % self.top_k))
+        all_users = load_json_file(self.data_complete_path(self.get_file_name(USER_2_ID_FILE_NAME)))
         print("Total users in this dataset = ", len(all_users))
 
         print_iter = int(20000 / 10)
@@ -333,9 +333,10 @@ class GraphPreprocessor(GraphIO):
 
         # SAVING everything
 
-        adj_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k)
-        print(f"\nMatrix construction done! Saving in  {adj_file}")
-        save_npz(adj_file, adj_matrix.tocsr())
+        # No need to save it, is created from edge list in torch geom
+        # adj_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k)
+        # print(f"\nMatrix construction done! Saving in  {adj_file}")
+        # save_npz(adj_file, adj_matrix.tocsr())
 
         edge_type_file = self.data_complete_path(self.get_file_name(EDGE_TYPE_FILE_NAME))
         print(f"\nEdge type construction done! Saving in  {edge_type_file}")
@@ -502,7 +503,7 @@ class GraphPreprocessor(GraphIO):
         assert len(train_labels) == len(self.doc2id.keys()) - len(self.test_docs)
         print(f"\nLen of (train) labels = {len(train_labels)}")
 
-        labels_file = self.data_complete_path(TRAIN_LABELS_FILE_NAME)
+        labels_file = self.data_complete_path(self.get_file_name(TRAIN_LABELS_FILE_NAME))
         print(f"\nLabels list construction done! Saving in : {labels_file}")
         save_json_file({'labels_list': list(train_labels)}, labels_file, converter=self.np_converter)
 
