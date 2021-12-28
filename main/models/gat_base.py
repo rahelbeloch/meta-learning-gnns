@@ -103,13 +103,17 @@ class GatBase(pl.LightningModule):
     def forward(self, sub_graphs):
 
         # we have a list of sub graphs with different nodes; make one big graph out of it for the forward pass
-        print(f'len sub graphs {str(len(sub_graphs))}')
+        print(f'\nlen sub graphs {str(len(sub_graphs))}\n')
         for i, g in enumerate(sub_graphs):
             print(f"Graph {i}")
             print(f"x device: {str(g.x.device)}")
+            print(f"x is sparse: {str(g.x.is_sparse)}")
             print(f"edge_index device: {str(g.edge_index.device)}")
+            print(f"edge_index is sparse: {str(g.edge_index.is_sparse)}")
             print(f"edge_attr device: {str(g.edge_attr.device)}")
+            print(f"edge_attr is sparse: {str(g.edge_attr.is_sparse)}")
             print(f"y device: {str(g.y.device)}")
+            print(f"y is sparse: {str(g.y.is_sparse)}")
 
         batch = Batch.from_data_list(sub_graphs)
 
