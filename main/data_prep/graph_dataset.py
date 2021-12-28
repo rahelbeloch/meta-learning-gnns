@@ -1,5 +1,3 @@
-import abc
-
 import torch
 from scipy.sparse import load_npz
 from torch_geometric.data import Data
@@ -50,7 +48,9 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         self.print_step("Reading files for Torch Geometric Graph")
 
-        feat_matrix_file = self.data_complete_path(self.get_file_name(FEAT_MATRIX_FILE_NAME))
+        file_name = FEAT_MATRIX_FILE_NAME % \
+                    (self.top_k, feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
+        feat_matrix_file = self.data_complete_path(file_name)
         if not feat_matrix_file.exists():
             raise ValueError(f"Feature matrix file does not exist: {feat_matrix_file}")
         self.x_data = torch.from_numpy(load_npz(feat_matrix_file).toarray())
@@ -153,7 +153,6 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
     def mask(self, mask_name):
         return torch.BoolTensor(self.split_masks[mask_name])
-
 
 # class SubGraphs(GeometricDataset):
 #     """
