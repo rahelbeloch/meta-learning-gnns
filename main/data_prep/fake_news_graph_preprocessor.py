@@ -17,8 +17,8 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         self.load_doc_splits()
 
-        if self.only_valid_users:
-            self.filter_valid_users()
+        # if self.only_valid_users:
+        #     self.filter_valid_users()
         self.create_user_splits(max_users)
         self.create_doc_id_dicts()
         self.filter_contexts()
