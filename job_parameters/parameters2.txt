@@ -1,10 +1,6 @@
---model gat --seed 82 --lr 1e-4 --dataset-train gossipcop --feature-type one-hot --k-shot 2
+--model gat --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --train-size 0.6 --val-size 0.2
 --model prototypical --seed 82 --lr 1e-4 --dataset-train gossipcop --feature-type one-hot --k-shot 2
 --model gmeta --seed 82 --lr 1e-4 --dataset-train gossipcop --feature-type one-hot --k-shot 2
 --model gat --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --train-size 0.875 --val-size 0.125
 --model prototypical  --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2
 --model gmeta --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2
-
---model gat --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --train-size 0.875 --val-size 0.125
---model gat --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --train-size 0.75 --val-size 0.25
---model gat --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --train-size 0.6 --val-size 0.4
