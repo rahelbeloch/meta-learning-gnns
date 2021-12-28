@@ -116,7 +116,7 @@ if __name__ == '__main__':
 
     # preprocessor.aggregate_user_contexts()
     # preprocessor.corpus_to_tsv()
-    preprocessor.create_data_splits(test_size=test_size,
-                                    val_size=val_size,
+    preprocessor.create_data_splits(test_size=args['test_size'],
+                                    val_size=args['val_size'],
                                     num_train_nodes=num_train_nodes,
                                     min_length=min_len)
