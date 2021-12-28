@@ -4,6 +4,7 @@ from torch import nn
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
+
 # Gat Layer from Phillips Tutorial
 # (https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/tutorial7/GNN_overview.html?highlight=graph%20attention#Graph-Attention)
 # Extended with torch sparse vectors
@@ -46,12 +47,13 @@ class GATLayer(nn.Module):
             print_attn_probs - If True, the attention weights are printed during the forward pass (for debugging)
         """
 
-        node_feats = subgraph_batch.x#.float().to_sparse()
+        node_feats = subgraph_batch.x.float().to_sparse()
         num_nodes = subgraph_batch.num_nodes
         edge_index = subgraph_batch.edge_index
 
         assert node_feats.is_sparse, "Features vector is not sparse!"
-        assert not edge_index.is_sparse, "Edge index vector may not be sparse!"
+        # assert isinstance(node_feats, SparseTensor), "Features vector is not sparse!"
+        # assert adj_matrix.is_sparse, "Edge index vector is not sparse!"
 
         batch_size = 1
 
@@ -79,27 +81,15 @@ class GATLayer(nn.Module):
         edge_indices_row = edges[:, 0] * num_nodes + edges[:, 1]
         edge_indices_col = edges[:, 0] * num_nodes + edges[:, 2]
 
-        # edge_indices_col = edge_indices_col.to_sparse().to(device)
-        # edge_indices_row = edge_indices_row.to_sparse().to(device)
-        node_feats_flat = node_feats_flat.to(torch.device("cpu"))
-
         # need to be on the same device (GPU if available) for index select
-        # print(f"edge_indices_col is on device {edge_indices_col.device}.")
-        # print(f"edge_indices_row is on device {edge_indices_row.device}.")
-        # print(f"node_feats_flat is on device {node_feats_flat.device}.")
-        #
-        # print(f"node_feats_flat sparse {node_feats_flat.is_sparse}.")
-        # print(f"edge_indices_row sparse {edge_indices_row.is_sparse}.")
-        # print(f"edge_indices_col sparse {edge_indices_col.is_sparse}.")
+        print(f"edge_indices_col is on device {edge_indices_col.device}.")
+        print(f"edge_indices_row is on device {edge_indices_row.device}.")
+        print(f"node_feats_flat is on device {node_feats_flat.device}.")
 
         # Index select returns a tensor with node_feats_flat being indexed at the desired positions along dim=0
         idx_select_1 = self.idx_select(node_feats_flat, edge_indices_row)
         idx_select_2 = self.idx_select(node_feats_flat, edge_indices_col)
         a_input = torch.cat([idx_select_1, idx_select_2], dim=-1)
-
-        a_input = a_input.to(device)
-        print(f"a_input device {a_input.device}.")
-        print(f"a_input sparse {a_input.is_sparse}.")
 
         # Calculate attention MLP output (independent for each head)
         attn_logits = torch.einsum('bhc,hc->bh', a_input, self.a)
@@ -127,3 +117,41 @@ class GATLayer(nn.Module):
     @staticmethod
     def idx_select(node_feats, edge_indices):
         return torch.index_select(input=node_feats, index=edge_indices, dim=0)
+
+    # def index_select_sparse(groups, mask_index):
+    #
+    #     index = groups._indices()
+    #     newrowindex = -1
+    #
+    #     for ind in mask_index:
+    #         try:
+    #             newrowindex = newrowindex + 1
+    #         except NameError:
+    #             newrowindex = 0
+    #
+    #         keptindex = torch.squeeze((index[0] == ind).nonzero())
+    #
+    #         if len(keptindex.size()) == 0:
+    #             # Get column values from mask, create new row idx
+    #             try:
+    #                 newidx = torch.cat((newidx, torch.tensor([newrowindex])), 0)
+    #                 newcolval = torch.cat((newcolval, torch.tensor([index[1][keptindex.item()]])), 0)
+    #             except NameError:
+    #                 newidx = torch.tensor([newrowindex])
+    #                 newcolval = torch.tensor([index[1][keptindex.item()]])
+    #
+    #         else:
+    #             # Get column values from mask, create new row idx
+    #             # Add newrowindex eee.size() time to list
+    #             for i in range(list(keptindex.size())[0]):
+    #                 try:
+    #                     newidx = torch.cat((newidx, torch.tensor([newrowindex])), 0)
+    #                     newcolval = torch.cat((newcolval, torch.tensor([index[1][keptindex.tolist()[i]]])), 0)
+    #                 except NameError:
+    #                     newidx = torch.tensor([newrowindex])
+    #                     newcolval = torch.tensor([index[1][keptindex.tolist()[i]]])
+    #
+    #     groups = torch.sparse_coo_tensor(indices=torch.stack((newidx, newcolval), dim=0),
+    #                                      values=torch.ones(newidx.shape[0], dtype=torch.float),
+    #                                      size=(len(mask_index), groups.shape[1]))
+    #     return groups

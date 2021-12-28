@@ -11,9 +11,9 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from data_prep.config import *
 from data_prep.data_utils import SUPPORTED_DATASETS
 from data_prep.data_utils import get_data
-from models.gat_base import GatBase
 from models.proto_maml import ProtoMAML
 from models.proto_net import ProtoNet
+from models.spy_gat_encoder import SpyGATLayer
 
 SUPPORTED_MODELS = ['gat', 'prototypical', 'gmeta']
 LOG_PATH = "../logs/"
@@ -78,7 +78,8 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
                                  data_eval, k_shot, h_size, feature_type, checkpoint)
 
     if model_name == 'gat':
-        model = GatBase(model_params, optimizer_hparams, b_size, checkpoint)
+        model = SpyGATLayer(model_params, optimizer_hparams, b_size, checkpoint)
+        # model = GatBase(model_params, optimizer_hparams, b_size, checkpoint)
     elif model_name == 'prototypical':
         model = ProtoNet(model_params['input_dim'], model_params['cf_hid_dim'], optimizer_hparams['lr'], b_size)
     elif model_name == 'gmeta':
@@ -207,17 +208,17 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
 
 
 if __name__ == "__main__":
-    # tsv_dir = TSV_small_DIR
-    # complete_dir = COMPLETE_small_DIR
-    # num_nodes = int(COMPLETE_small_DIR.split('-')[1])
+    tsv_dir = TSV_small_DIR
+    complete_dir = COMPLETE_small_DIR
+    num_nodes = int(COMPLETE_small_DIR.split('-')[1])
 
     # model_checkpoint = '../logs/gat/dtrain=gossipcop_deval=None_seed=82_shots=2_hops=2_ftype=one-hot_lr=0.0001_lr-cl=0.001/checkpoints/epoch=16-step=27488.ckpt'
     # model_checkpoint = '../logs/prototypical/dname=gossipcop_seed=1234_lr=0.01/checkpoints/epoch=0-step=8-v4.ckpt'
     model_checkpoint = None
 
-    tsv_dir = TSV_DIR
-    complete_dir = COMPLETE_DIR
-    num_nodes = -1
+    # tsv_dir = TSV_DIR
+    # complete_dir = COMPLETE_DIR
+    # num_nodes = -1
 
     # MAML setup
     # proto_dim = 64,

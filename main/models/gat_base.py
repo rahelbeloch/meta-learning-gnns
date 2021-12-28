@@ -120,6 +120,8 @@ class GatBase(pl.LightningModule):
             # print(f"x is sparse: {str(g.x.is_sparse)}")
             # print(f"edge_index device: {str(g.edge_index.device)}")
             # print(f"edge_index is sparse: {str(g.edge_index.is_sparse)}")
+            # # print(f"edge_attr device: {str(g.edge_attr.device)}")
+            # # print(f"edge_attr is sparse: {str(g.edge_attr.is_sparse)}")
             # print(f"y device: {str(g.y.device)}")
             # print(f"y is sparse: {str(g.y.is_sparse)}")
 
