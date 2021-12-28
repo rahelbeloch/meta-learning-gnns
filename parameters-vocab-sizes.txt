@@ -1,2 +1,0 @@
---model gat --complete-dir complete --tsv-dir tsv --seed 82 --dataset gossipcop --feature-type one-hot --vocab-size 5000
---model gat --complete-dir complete --tsv-dir tsv --seed 82 --dataset gossipcop --feature-type one-hot --vocab-size 3000

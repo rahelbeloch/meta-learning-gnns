@@ -47,8 +47,6 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
     # if we only want to evaluate, model should be initialized with nr of labels from evaluation data
     evaluation = checkpoint is not None and Path(checkpoint).exists()
 
-    data_train = data_train if evaluation is False else None
-
     loaders, graph_size, labels, b_size, train_class_ratio = get_data(data_train, data_eval, model_name, h_size, top_k,
                                                                       k_shot, nr_train_docs, feature_type, vocab_size,
                                                                       dirs)

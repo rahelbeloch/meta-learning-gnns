@@ -26,37 +26,31 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, nr_train_doc
         Exception: if the data_name is not in SUPPORTED_DATASETS.
     """
 
+    if data_train not in SUPPORTED_DATASETS:
+        raise ValueError(f"Train data with name '{data_train}' is not supported.")
+
+    if data_eval not in SUPPORTED_DATASETS:
+        raise ValueError(f"Eval data with name '{data_eval}' is not supported.")
+
     num_workers = 2 if torch.cuda.is_available() else 0  # mac has 8 CPUs
 
-    graph_data_train, graph_data_eval = None, None
-    train_loader, train_val_loader, train_labels, graph_train_size, = None, None, [], [0, 0]
-    train_b_size, graph_train_class_ratio = 0, [0, 0]
+    # creating a train and val loader from the train dataset
+    graph_data_train = TorchGeomGraphDataset(data_train, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
 
-    if data_train is not None:
-        if data_train not in SUPPORTED_DATASETS:
-            raise ValueError(f"Data with name '{data_train}' is not supported.")
+    train_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'train')
+    train_val_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'val')
 
-        # creating a train and val loader from the train dataset
-        graph_data_train = TorchGeomGraphDataset(data_train, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
+    train_labels = graph_data_train.labels
+    graph_train_size = graph_data_train.size
+    graph_train_class_ratio = graph_data_train.class_ratio
+    train_b_size = train_loader.b_size
 
-        train_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'train')
-        train_val_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'val')
+    print(f"\nTrain graph size: \n num_features: {graph_train_size[1]}\n total_nodes: {graph_train_size[0]}")
 
-        train_labels = graph_data_train.labels
-        graph_train_size = graph_data_train.size
-        graph_train_class_ratio = graph_data_train.class_ratio
-        train_b_size = train_loader.b_size
-
-        print(f"\nTrain graph size: \n num_features: {graph_train_size[1]}\n total_nodes: {graph_train_size[0]}")
-
-    if data_train == data_eval or data_eval is None:
+    if data_train == data_eval:
         print(f'\nData eval and data train are equal, loading graph data only once.')
         graph_data_eval = graph_data_train
-
-    if data_eval is not None or data_eval != data_train:
-        if data_eval not in SUPPORTED_DATASETS:
-            raise ValueError(f"Data with name '{data_eval}' is not supported.")
-
+    else:
         # creating a val and test loader from the eval dataset
         graph_data_eval = TorchGeomGraphDataset(data_eval, top_k, feature_type, vocab_size, nr_train_docs, *dirs)
 
@@ -70,10 +64,7 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, nr_train_doc
     loaders = (train_loader, train_val_loader, test_loader, test_val_loader)
     labels = (train_labels, eval_labels)
 
-    # return the size of the train graph if present, otherwise evaluation graph
-    size = graph_train_size if graph_data_train is not None else graph_data_eval.size
-
-    return loaders, size, labels, train_b_size, graph_train_class_ratio
+    return loaders, graph_train_size, labels, train_b_size, graph_train_class_ratio
 
 
 def get_loader(graph_data, model, hop_size, k_shot, num_workers, mode):
