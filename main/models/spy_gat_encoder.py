@@ -4,6 +4,7 @@ import torch.nn.functional as func
 from torch import nn
 from torch_geometric.data import Batch
 
+from models.gat_base import get_classify_node_features
 from models.train_utils import *
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
@@ -48,6 +49,8 @@ class SpyGATLayer(pl.LightningModule):
                                              alpha=alpha,
                                              concat=False)
 
+        self.classifier = self.get_classifier(n_classes)
+
     def configure_optimizers(self):
         """
         Configures the AdamW optimizer and enables training with different learning rates for encoder and classifier.
@@ -88,6 +91,18 @@ class SpyGATLayer(pl.LightningModule):
         #                                           max_iters=self.hparams.optimizer_hparams['max_iters'])
 
         return [optimizer], []
+
+    def get_classifier(self, num_classes):
+        cf_hidden_dim = self.hparams['model_hparams']['cf_hid_dim']
+        return nn.Sequential(
+            # TODO: maybe
+            # nn.Dropout(config["dropout"]),
+            # WHY??
+            # nn.Linear(3 * cf_hidden_dim, cf_hidden_dim),
+            nn.Linear(cf_hidden_dim, cf_hidden_dim),
+            nn.ReLU(),
+            nn.Linear(cf_hidden_dim, num_classes)
+        )
 
     def training_step(self, batch, batch_idx):
 
@@ -155,7 +170,14 @@ class SpyGATLayer(pl.LightningModule):
         x = torch.cat([att(x, adj) for att in self.attentions], dim=1)
         # x = func.dropout(x, self.dropout, training=self.training)
         x = func.elu(self.out_att(x, adj))
-        return func.log_softmax(x, dim=1)
+
+        # we don't have the same nodes for every subgraph
+        # we only want to classify the one center node
+        feats = get_classify_node_features(sub_graphs, x)
+
+        assert len(feats) == len(sub_graphs), "Nr of features returned does not equal nr. of classification nodes!"
+
+        return func.log_softmax(feats, dim=1)
 
 
 class SpGraphAttentionLayer(nn.Module):
@@ -189,7 +211,9 @@ class SpGraphAttentionLayer(nn.Module):
 
         h = torch.mm(input, self.W)
         # h: N x out
-        assert not torch.isnan(h).any()
+
+        # TODO
+        # assert not torch.isnan(h).any()
 
         # Self-attention on the nodes - Shared attention mechanism
         edge_h = torch.cat((h[edge[0, :], :], h[edge[1, :], :]), dim=1).t()
@@ -199,8 +223,11 @@ class SpGraphAttentionLayer(nn.Module):
         assert not torch.isnan(edge_e).any()
         # edge_e: E
 
-        e_rowsum = self.special_spmm(edge, edge_e, torch.Size([N, N]), torch.ones(size=(N, 1), device=dv))
-        # e_rowsum: N x 1
+        edge = edge.to(dv)
+        edge_e = edge_e.to(dv)
+
+        e_row_sum = self.special_spmm(edge, edge_e, torch.Size([N, N]), torch.ones(size=(N, 1), device=dv))
+        # e_row_sum: N x 1
 
         if self.dropout is not None:
             edge_e = self.dropout(edge_e)
@@ -210,7 +237,7 @@ class SpGraphAttentionLayer(nn.Module):
         assert not torch.isnan(h_prime).any()
         # h_prime: N x out
 
-        h_prime = h_prime.div(e_rowsum)
+        h_prime = h_prime.div(e_row_sum)
         # h_prime: N x out
 
         # TODO
@@ -229,11 +256,13 @@ class SpGraphAttentionLayer(nn.Module):
 
 class SpecialSpmm(nn.Module):
     def forward(self, indices, values, shape, b):
+        assert indices.device == values.device, \
+            f"backend of indices ({indices.device}) must match backend of values ({values.device})"
         return SpecialSpmmFunction.apply(indices, values, shape, b)
 
 
 class SpecialSpmmFunction(torch.autograd.Function):
-    """Special function for only sparse region backpropataion layer."""
+    """Special function for only sparse region backpropagation layer."""
 
     @staticmethod
     def forward(ctx, indices, values, shape, b):
