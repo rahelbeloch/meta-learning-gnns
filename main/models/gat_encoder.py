@@ -46,13 +46,12 @@ class GATLayer(nn.Module):
             print_attn_probs - If True, the attention weights are printed during the forward pass (for debugging)
         """
 
-        node_feats = subgraph_batch.x.float().to_sparse()
+        node_feats = subgraph_batch.x#.float().to_sparse()
         num_nodes = subgraph_batch.num_nodes
         edge_index = subgraph_batch.edge_index
 
         assert node_feats.is_sparse, "Features vector is not sparse!"
-        # assert isinstance(node_feats, SparseTensor), "Features vector is not sparse!"
-        # assert adj_matrix.is_sparse, "Edge index vector is not sparse!"
+        assert not edge_index.is_sparse, "Edge index vector may not be sparse!"
 
         batch_size = 1
 
@@ -80,21 +79,30 @@ class GATLayer(nn.Module):
         edge_indices_row = edges[:, 0] * num_nodes + edges[:, 1]
         edge_indices_col = edges[:, 0] * num_nodes + edges[:, 2]
 
+        # edge_indices_col = edge_indices_col.to_sparse().to(device)
+        # edge_indices_row = edge_indices_row.to_sparse().to(device)
+        node_feats_flat = node_feats_flat.to(torch.device("cpu"))
+
         # need to be on the same device (GPU if available) for index select
-        print(f"edge_indices_col is on device {edge_indices_col.device}.")
-        print(f"edge_indices_row is on device {edge_indices_row.device}.")
-        print(f"node_feats_flat is on device {node_feats_flat.device}.")
+        # print(f"edge_indices_col is on device {edge_indices_col.device}.")
+        # print(f"edge_indices_row is on device {edge_indices_row.device}.")
+        # print(f"node_feats_flat is on device {node_feats_flat.device}.")
+        #
+        # print(f"node_feats_flat sparse {node_feats_flat.is_sparse}.")
+        # print(f"edge_indices_row sparse {edge_indices_row.is_sparse}.")
+        # print(f"edge_indices_col sparse {edge_indices_col.is_sparse}.")
 
         # Index select returns a tensor with node_feats_flat being indexed at the desired positions along dim=0
         idx_select_1 = self.idx_select(node_feats_flat, edge_indices_row)
         idx_select_2 = self.idx_select(node_feats_flat, edge_indices_col)
         a_input = torch.cat([idx_select_1, idx_select_2], dim=-1)
 
+        a_input = a_input.to(device)
+        print(f"a_input device {a_input.device}.")
+        print(f"a_input sparse {a_input.is_sparse}.")
+
         # Calculate attention MLP output (independent for each head)
-        try:
-            attn_logits = torch.einsum('bhc,hc->bh', a_input, self.a)
-        except RuntimeError:
-            print("error")
+        attn_logits = torch.einsum('bhc,hc->bh', a_input, self.a)
         attn_logits = self.leaky_relu(attn_logits)
 
         # Map list of attention values back into a matrix

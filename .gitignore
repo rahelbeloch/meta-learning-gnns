@@ -139,3 +139,4 @@ main/.vector_cache
 
 # Mac Stuff
 .DS_STORE
+._.DS_Store
