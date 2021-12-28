@@ -79,8 +79,8 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
                                  data_eval, k_shot, h_size, feature_type, checkpoint)
 
     if model_name == 'gat':
-        # model = SpyGATLayer(model_params, optimizer_hparams, b_size, checkpoint)
-        model = GatBase(model_params, optimizer_hparams, b_size, checkpoint)
+        model = SpyGATLayer(model_params, optimizer_hparams, b_size, checkpoint)
+        # model = GatBase(model_params, optimizer_hparams, b_size, checkpoint)
     elif model_name == 'prototypical':
         model = ProtoNet(model_params['input_dim'], model_params['cf_hid_dim'], optimizer_hparams['lr'], b_size)
     elif model_name == 'gmeta':
