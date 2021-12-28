@@ -110,7 +110,6 @@ class GatBase(pl.LightningModule):
             print(f"edge_index device: {str(g.edge_index.device)}")
             print(f"edge_attr device: {str(g.edge_attr.device)}")
             print(f"y device: {str(g.y.device)}")
-            print(f"pos device: {str(g.pos.device)}")
 
         batch = Batch.from_data_list(sub_graphs)
 

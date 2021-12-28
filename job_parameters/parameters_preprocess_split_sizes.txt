@@ -1,3 +1,8 @@
-python -u -m data_prep.fake_news_graph_preprocessor --feature_type one-hot --train_size 0.6 --val_size 0.4 --test_size 0.0
 python -u -m data_prep.fake_news_tsv_processor --feature_type one-hot --train_size 0.6 --val_size 0.2 --test_size 0.0
-python -u -m data_prep.twitter_graph_preprocessor --feature_type one-hot
+python -u -m data_prep.fake_news_tsv_processor --feature_type one-hot --train_size 0.6 --val_size 0.4 --test_size 0.0
+python -u -m data_prep.fake_news_tsv_processor --feature_type one-hot --train_size 0.75 --val_size 0.25 --test_size 0.0
+python -u -m data_prep.fake_news_tsv_processor --feature_type glove-average
+python -u -m data_prep.fake_news_graph_preprocessor --feature_type one-hot --train_size 0.6 --val_size 0.2 --test_size 0.0
+python -u -m data_prep.fake_news_graph_preprocessor --feature_type one-hot --train_size 0.6 --val_size 0.4 --test_size 0.0
+python -u -m data_prep.fake_news_graph_preprocessor --feature_type one-hot --train_size 0.75 --val_size 0.25 --test_size 0.0
+python -u -m data_prep.fake_news_graph_preprocessor --feature_type glove-average
