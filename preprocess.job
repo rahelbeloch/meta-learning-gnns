@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --p=short
+#SBATCH --partition=short
 #SBATCH --job-name=meta-gnn-preprocess-job
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=6
