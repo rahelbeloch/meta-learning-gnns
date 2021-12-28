@@ -14,7 +14,6 @@ from data_prep.data_utils import get_data
 from models.gat_base import GatBase
 from models.proto_maml import ProtoMAML
 from models.proto_net import ProtoNet
-from models.spy_gat_encoder import SpyGATLayer
 
 SUPPORTED_MODELS = ['gat', 'prototypical', 'gmeta']
 LOG_PATH = "../logs/"

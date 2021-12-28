@@ -1,9 +1,9 @@
 import torch.cuda
 
 from data_prep.graph_dataset import TorchGeomGraphDataset
-from models.batch_sampler import FewShotSampler
-from models.graph_sampler import KHopSampler
-from models.maml_batch_sampler import FewShotMamlSampler
+from samplers.batch_sampler import FewShotSampler
+from samplers.graph_sampler import KHopSampler
+from samplers.maml_batch_sampler import FewShotMamlSampler
 
 SUPPORTED_DATASETS = ['gossipcop', 'twitterHateSpeech']
 
@@ -18,7 +18,7 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, split_size, 
         hop_size (int): Number of hops used to create sub graphs.
         top_k (int): Number of top users to be used in graph.
         k_shot (int): Number of examples used per task/batch.
-        nr_train_docs (str): Number of total documents used for test/train/val.
+        split_size (tuple): Floats defining the size of test/train/val.
         feature_type (int): Type of features that should be used.
         vocab_size (int): Size of the vocabulary.
         dirs (str): Path to the data (full & complete) to be used to create the graph (feature file, edge file etc.)

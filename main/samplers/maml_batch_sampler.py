@@ -1,6 +1,4 @@
-from torch.utils.data import Sampler
-
-from models.batch_sampler import FewShotSampler
+from samplers.batch_sampler import FewShotSampler
 
 
 # class FewShotMamlSampler(Sampler):

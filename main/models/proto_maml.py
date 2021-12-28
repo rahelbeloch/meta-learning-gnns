@@ -6,7 +6,7 @@ import torch.nn.functional as func
 from torch import optim
 from torch_geometric.data import Batch
 
-from models.batch_sampler import split_list
+from samplers.batch_sampler import split_list
 from models.gat_base import get_classify_node_features
 from models.gat_encoder import GATLayer
 from models.proto_net import ProtoNet
