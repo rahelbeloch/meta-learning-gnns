@@ -245,7 +245,8 @@ class DataPreprocessor(GraphIO):
 
         print("\nWriting train-val-test files...\n")
 
-        split_path = self.data_tsv_path(f'splits-{self.feature_type}-{self.max_vocab}')
+        folder_name = DOC_SPLITS_FOLDER_NAME % (self.feature_type, self.max_vocab, train_size, val_size, test_size)
+        split_path = self.data_tsv_path(folder_name)
 
         doc_names_split_dict = {}
         for split, data in split_dict.items():

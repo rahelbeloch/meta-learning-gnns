@@ -38,7 +38,8 @@ class GraphPreprocessor(GraphIO):
         return doc_key in self.train_docs or doc_key in self.val_docs or doc_key in self.test_docs
 
     def load_doc_splits(self):
-        file_name = DOC_SPLITS_FILE_NAME % (self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
+        file_name = DOC_SPLITS_FILE_NAME % (
+            self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
         doc_splits = load_json_file(self.data_tsv_path(file_name))
         self.train_docs = doc_splits['train_docs'] if 'train_docs' in doc_splits else []
         self.val_docs = doc_splits['val_docs'] if 'val_docs' in doc_splits else []
@@ -360,7 +361,9 @@ class GraphPreprocessor(GraphIO):
         self.print_step("Creating feature matrix")
 
         # load all texts for test, train and val documents
-        split_path = self.data_tsv_path(f'splits-{self.feature_type}-{self.max_vocab}')
+        folder_name = DOC_SPLITS_FOLDER_NAME % \
+                      (self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
+        split_path = self.data_tsv_path(folder_name)
 
         all_texts = {}
         for split in ['test', 'train', 'val']:
