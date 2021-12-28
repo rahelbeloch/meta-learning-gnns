@@ -120,7 +120,8 @@ if __name__ == '__main__':
                                    args['data_tsv_dir'], args['data_complete_dir'], 'twitter_data_waseem_hovy.csv')
 
     preprocessor.corpus_to_tsv()
-    preprocessor.create_data_splits(test_size=args['test_size'],
+    preprocessor.create_data_splits(train_size=args['train_size'],
+                                    test_size=args['test_size'],
                                     val_size=args['val_size'],
                                     num_train_nodes=num_train_nodes,
                                     min_length=6)
