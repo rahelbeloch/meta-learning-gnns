@@ -81,6 +81,10 @@ class GATLayer(nn.Module):
         print(f"edge_indices_row is on device {edge_indices_row.device}.")
         print(f"node_feats_flat is on device {node_feats_flat.device}.")
 
+        edge_indices_col = edge_indices_col.to(device)
+        edge_indices_row = edge_indices_row.to(device)
+        node_feats_flat = node_feats_flat.to(device)
+
         # Index select returns a tensor with node_feats_flat being indexed at the desired positions along dim=0
         idx_select_1 = self.idx_select(node_feats_flat, edge_indices_row)
         idx_select_2 = self.idx_select(node_feats_flat, edge_indices_col)
