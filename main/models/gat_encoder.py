@@ -48,10 +48,13 @@ class GATLayer(nn.Module):
         """
 
         node_feats = subgraph_batch.x
-        num_nodes = subgraph_batch.num_nodes
-        edge_index = subgraph_batch.edge_index
-
         assert node_feats.is_sparse, "Features vector is not sparse!"
+
+        num_nodes = subgraph_batch.num_nodes
+
+        # make dense because we want to iterate over it
+        edge_index = subgraph_batch.edge_index.T
+        assert not edge_index.is_sparse, "Edge index vector is sparse although it should not!"
 
         batch_size = 1
 
@@ -59,19 +62,13 @@ class GATLayer(nn.Module):
         node_feats = self.projection(node_feats)
         node_feats = node_feats.view(batch_size, num_nodes, self.num_heads, -1)
 
-        # Create adjacency matrix from the edge list; MUST be on cuda if available!
-        adj_matrix = torch.zeros((num_nodes, num_nodes)).to(torch.int64)
-        for i, edge in enumerate(edge_index.T):
-            adj_matrix[edge[0], edge[1]] = 1
-
-        # we consider the whole graph (containing multiple sub graphs) because we have as one batch
-        adj_matrix = adj_matrix.unsqueeze(dim=0)
+        batch_idx = torch.zeros((edge_index.shape[0], 1)).to(torch.int64).to(device)
+        edges = torch.cat((batch_idx, edge_index), dim=1)
 
         # Calculate attention logits for every edge in the adjacency matrix
         # Doing this on all possible combinations of nodes is very expensive
         # => Create a tensor of [W*h_i||W*h_j] with i and j being the indices of all edges
         # Returns indices where the adjacency matrix is not 0 => edges
-        edges = adj_matrix.nonzero(as_tuple=False)
         node_feats_flat = node_feats.view(batch_size * num_nodes, self.num_heads, -1)
         edge_indices_row = edges[:, 0] * num_nodes + edges[:, 1]
         edge_indices_col = edges[:, 0] * num_nodes + edges[:, 2]
@@ -81,9 +78,9 @@ class GATLayer(nn.Module):
         node_feats_flat = node_feats_flat.to(device)
 
         # need to be on the same device (GPU if available) for index select
-        print(f"edge_indices_col is on device {edge_indices_col.device}.")
-        print(f"edge_indices_row is on device {edge_indices_row.device}.")
-        print(f"node_feats_flat is on device {node_feats_flat.device}.")
+        # print(f"edge_indices_col is on device {edge_indices_col.device}.")
+        # print(f"edge_indices_row is on device {edge_indices_row.device}.")
+        # print(f"node_feats_flat is on device {node_feats_flat.device}.")
 
         # Index select returns a tensor with node_feats_flat being indexed at the desired positions along dim=0
         idx_select_1 = self.idx_select(node_feats_flat, edge_indices_row)
@@ -93,26 +90,28 @@ class GATLayer(nn.Module):
         # Calculate attention MLP output (independent for each head)
         attn_logits = torch.einsum('bhc,hc->bh', a_input, self.a)
         attn_logits = self.leaky_relu(attn_logits)
-        print(f'Attn logits shape {str(attn_logits.shape)}')
+        # print(f'Attn logits shape {str(attn_logits.shape)}')
+
+        adj_matrix = torch.zeros((num_nodes, num_nodes)).to(torch.int64).to(device)
+        for i, edge in enumerate(edge_index):
+            adj_matrix[edge[0], edge[1]] = 1
+
+        # we consider the whole graph (containing multiple sub graphs) because we have as one batch
+        adj_matrix = adj_matrix.unsqueeze(dim=0)
+
+        # adj_matrix_shape = (1, num_nodes, num_nodes)
 
         # Map list of attention values back into a matrix
         attn_matrix = attn_logits.new_zeros(adj_matrix.shape + (self.num_heads,)).fill_(-9e15)
-        print(f'Attn matrix shape {str(attn_matrix.shape)}')
+        # print(f'Attn matrix shape {str(attn_matrix.shape)}')
 
         head_mask = adj_matrix[..., None].repeat(1, 1, 1, self.num_heads) == 1
-        print(f'Head mask shape {str(head_mask.shape)}')
+        # print(f'Head mask shape {str(head_mask.shape)}')
+        #
+        # print(f'Attn logits min {str(attn_logits.min())}')
+        # print(f'Attn logits max {str(attn_logits.max())}')
 
-        print(f'Attn logits min {str(attn_logits.min())}')
-        print(f'Attn logits max {str(attn_logits.max())}')
-
-        attn_logits_reshaped = attn_logits.reshape(-1)
-        print(f'Attn logits reshaped size {str(attn_logits_reshaped.shape)}')
-
-        att_matrix_head_masked = attn_matrix[head_mask]
-        print(f'Attn matrix head masked size {str(att_matrix_head_masked.shape)}')
-
-        att_matrix_head_masked = attn_logits_reshaped
-        attn_matrix = att_matrix_head_masked
+        attn_matrix[head_mask] = attn_logits.reshape(-1)
 
         # Weighted average of attention
         attn_probs = func.softmax(attn_matrix, dim=2)

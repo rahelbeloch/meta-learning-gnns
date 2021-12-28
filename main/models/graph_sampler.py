@@ -70,15 +70,15 @@ class KHopSampler(GraphSAINTSampler):
             row, col, edge_idx = adj.coo()
             data.edge_index = torch.stack([row, col], dim=0)
 
-            for key, item in self.data:
-                if key in ['edge_index', 'num_nodes']:
-                    continue
-                if isinstance(item, torch.Tensor) and item.size(0) == self.N:
-                    data[key] = item[node_idx]
-                elif isinstance(item, torch.Tensor) and item.size(0) == self.E:
-                    data[key] = item[edge_idx]
-                else:
-                    data[key] = item
+            # for key, item in self.data:
+            #     if key in ['edge_index', 'num_nodes']:
+            #         continue
+            #     if isinstance(item, torch.Tensor) and item.size(0) == self.N:
+            #         data[key] = item[node_idx]
+            #     elif isinstance(item, torch.Tensor) and item.size(0) == self.E:
+            #         data[key] = item[edge_idx]
+            #     else:
+            #         data[key] = item
 
             # TODO: normalization
             #     if self.sample_coverage > 0:
@@ -86,11 +86,14 @@ class KHopSampler(GraphSAINTSampler):
             #         data.edge_norm = self.edge_norm[edge_idx]
 
             data.x = self.data.x[node_idx]
-            data.y = self.data.y[node_idx]
             data.mask = self.batch_sampler.mask[node_idx]
             data.center_idx = center_node
+            data.y = None
+            data.edge_attr = None
 
-            data_list_collated.append((data, data.y[data.center_idx].item()))
+            target = self.data.y[data.center_idx].item()
+
+            data_list_collated.append((data, target))
 
         if self.model_type == 'gat':
             sup_graphs, labels = list(map(list, zip(*data_list_collated)))

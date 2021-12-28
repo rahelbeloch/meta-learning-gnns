@@ -138,9 +138,7 @@ class SpyGATLayer(pl.LightningModule):
     def forward(self, sub_graphs):
 
         for g in sub_graphs:
-            g.edge_attr = None
             g.x = g.x.float().to_sparse()
-            g.y = g.y.float().to_sparse()
 
         batch = Batch.from_data_list(sub_graphs)
 
@@ -165,7 +163,6 @@ class SpyGATLayer(pl.LightningModule):
 
         assert len(feats) == len(sub_graphs), "Nr of features returned does not equal nr. of classification nodes!"
         return feats
-        # return func.log_softmax(feats, dim=1)
 
 
 class SpGraphAttentionLayer(nn.Module):
