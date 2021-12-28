@@ -25,6 +25,10 @@ class GATLayer(nn.Module):
 
         self.attentions = [SparseAttention(c_in, c_out, alpha) for _ in range(num_heads)]
 
+        # register the attention layers so that lightning can find them
+        for i, attention in enumerate(self.attentions):
+            self.add_module('attention_{}'.format(i), attention)
+
         for att in self.attentions:
             if torch.cuda.is_available():
                 assert att.W.device == torch.device("cuda:0")
