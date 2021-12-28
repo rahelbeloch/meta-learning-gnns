@@ -102,17 +102,21 @@ class GatBase(pl.LightningModule):
 
     def forward(self, sub_graphs):
 
-        out = []
+        outs = []
 
         for graph in sub_graphs:
             graph.x = graph.x.float().to_sparse()
             if graph.num_nodes <= 1:
-                out.append(torch.zeros(self.hparams['model_hparams']['cf_hid_dim']))
+                print("graph has 1 node or less, skipping it.")
+                out = torch.zeros(self.hparams['model_hparams']['cf_hid_dim'])
             else:
-                feats = self.model(graph).squeeze()
-                out.append(feats[graph.center_idx])
+                out = self.model(graph).squeeze()[graph.center_idx]
 
-        return torch.stack(out)
+            print(f"Device of out {out.device}.")
+
+            outs.append(out)
+
+        return torch.stack(outs)
 
         # # we have a list of sub graphs with different nodes; make one big graph out of it for the forward pass
         # print(f'\nlen sub graphs {str(len(sub_graphs))}\n')
