@@ -73,7 +73,6 @@ if __name__ == '__main__':
     # num_train_nodes = int(COMPLETE_small_DIR.split('-')[1])
 
     feature_type = 'glove-average'
-    test_size, val_size = 0.75, 0.25
     max_vocab = 10000
 
     tsv_dir = TSV_DIR
@@ -108,6 +107,12 @@ if __name__ == '__main__':
 
     parser.add_argument('--max_vocab', type=int, default=10000, help='Size of the vocabulary used (if one-hot).')
 
+    parser.add_argument('--train_size', type=float, default=0.0, help='Size of train split.')
+
+    parser.add_argument('--val_size', type=float, default=0.25, help='Size of validation split.')
+
+    parser.add_argument('--test_size', type=float, default=0.75, help='Size of train split.')
+
     args, unparsed = parser.parse_known_args()
     args = args.__dict__
 
@@ -115,5 +120,7 @@ if __name__ == '__main__':
                                    args['data_tsv_dir'], args['data_complete_dir'], 'twitter_data_waseem_hovy.csv')
 
     preprocessor.corpus_to_tsv()
-    preprocessor.create_data_splits(test_size=test_size, val_size=val_size, num_train_nodes=num_train_nodes,
+    preprocessor.create_data_splits(test_size=args['test_size'],
+                                    val_size=args['val_size'],
+                                    num_train_nodes=num_train_nodes,
                                     min_length=6)

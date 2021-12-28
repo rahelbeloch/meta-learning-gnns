@@ -102,9 +102,9 @@ if __name__ == '__main__':
 
     parser.add_argument('--max_vocab', type=int, default=10000, help='Size of the vocabulary used (if one-hot).')
 
-    parser.add_argument('--val_size', type=float, default=0.125, help='Size of validation split.')
-
     parser.add_argument('--train_size', type=float, default=0.875, help='Size of train split.')
+
+    parser.add_argument('--val_size', type=float, default=0.125, help='Size of validation split.')
 
     parser.add_argument('--test_size', type=float, default=0.0, help='Size of train split.')
 
