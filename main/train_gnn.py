@@ -18,6 +18,9 @@ from models.proto_net import ProtoNet
 SUPPORTED_MODELS = ['gat', 'prototypical', 'gmeta']
 LOG_PATH = "../logs/"
 
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
+
 
 def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, lr_inner, lr_output, cf_hidden_dim,
           proto_dim, data_train, data_eval, dirs, checkpoint, train_docs, split_size, feature_type, vocab_size,
