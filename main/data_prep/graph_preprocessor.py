@@ -118,7 +118,9 @@ class GraphPreprocessor(GraphIO):
             assert len(all_users) <= self.top_k * 1000, \
                 f"Total nr of users for all splits is greater than top K {self.top_k}!"
 
-        user_splits_file = self.data_complete_path(self.get_file_name(USER_SPLITS_FILE_NAME))
+        file_name = USER_SPLITS_FILE_NAME % \
+                    (self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
+        user_splits_file = self.data_complete_path(file_name)
         print("User splits stored in : ", user_splits_file)
         temp_dict = {'train_users': list(train_users), 'val_users': list(val_users), 'test_users': list(test_users)}
         save_json_file(temp_dict, user_splits_file)
@@ -159,7 +161,9 @@ class GraphPreprocessor(GraphIO):
         save_json_file(doc2id, doc2id_file)
         self.doc2id = doc2id
 
-        splits = load_json_file(self.data_complete_path(self.get_file_name(USER_SPLITS_FILE_NAME)))
+        file_name = USER_SPLITS_FILE_NAME % \
+                    (self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
+        splits = load_json_file(self.data_complete_path(file_name))
         train_users, val_users, test_users = splits['train_users'], splits['val_users'], splits['test_users']
         all_users = list(set(train_users + val_users + test_users))
 
