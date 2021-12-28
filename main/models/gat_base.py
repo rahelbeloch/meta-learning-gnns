@@ -108,6 +108,8 @@ class GatBase(pl.LightningModule):
             print(f"Graph {i}")
 
             g.edge_attr = None
+            # can not be made sparse, because Batch.from_data_list internally makes operations which can not
+            # be done with sparse matrices
             # g.x = g.x.float().to_sparse()
             # g.y = g.y.float().to_sparse()
             # g.edge_index = g.edge_index.float().to_sparse()
@@ -120,7 +122,6 @@ class GatBase(pl.LightningModule):
             # print(f"edge_attr is sparse: {str(g.edge_attr.is_sparse)}")
             print(f"y device: {str(g.y.device)}")
             print(f"y is sparse: {str(g.y.is_sparse)}")
-
 
         batch = Batch.from_data_list(sub_graphs)
 
