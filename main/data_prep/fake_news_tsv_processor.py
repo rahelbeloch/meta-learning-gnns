@@ -72,7 +72,7 @@ if __name__ == '__main__':
     complete_dir = COMPLETE_DIR
     num_train_nodes = None
 
-    val_size, test_size, min_len = 0.125, 0.0, 25
+    min_len = 25
 
     parser = argparse.ArgumentParser()
 
@@ -102,14 +102,20 @@ if __name__ == '__main__':
 
     parser.add_argument('--max_vocab', type=int, default=10000, help='Size of the vocabulary used (if one-hot).')
 
+    parser.add_argument('--val_size', type=float, default=0.125, help='Size of validation split.')
+
+    parser.add_argument('--train_size', type=float, default=0.0, help='Size of train split.')
+
+    parser.add_argument('--test_size', type=float, default=0.875, help='Size of train split.')
+
     args, unparsed = parser.parse_known_args()
     args = args.__dict__
 
     preprocessor = TSVPreprocessor(args['data'], args['feature_type'], args['max_vocab'], args['data_dir'],
                                    args['data_tsv_dir'], args['data_complete_dir'])
 
-    preprocessor.aggregate_user_contexts()
-    preprocessor.corpus_to_tsv()
+    # preprocessor.aggregate_user_contexts()
+    # preprocessor.corpus_to_tsv()
     preprocessor.create_data_splits(test_size=test_size,
                                     val_size=val_size,
                                     num_train_nodes=num_train_nodes,

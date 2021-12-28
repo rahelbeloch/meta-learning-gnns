@@ -25,6 +25,10 @@ class GraphPreprocessor(GraphIO):
         self.top_k = config['top_k']
         self.user_doc_threshold = config['user_doc_threshold']
 
+        self.train_size = config['train_size']
+        self.val_size = config['val_size']
+        self.test_size = config['test_size']
+
         # temporary attributes for data which has been loaded and will be reused
         self.doc2id, self.user2id = None, None
         self.train_docs, self.test_docs, self.val_docs, self.n_nodes = None, None, None, None
@@ -34,7 +38,9 @@ class GraphPreprocessor(GraphIO):
         return doc_key in self.train_docs or doc_key in self.val_docs or doc_key in self.test_docs
 
     def load_doc_splits(self):
-        doc_splits = load_json_file(self.data_tsv_path(DOC_SPLITS_FILE_NAME % (self.feature_type, self.max_vocab)))
+        file_name = DOC_SPLITS_FILE_NAME % (
+        self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
+        doc_splits = load_json_file(self.data_tsv_path(file_name))
         self.train_docs = doc_splits['train_docs'] if 'train_docs' in doc_splits else []
         self.val_docs = doc_splits['val_docs'] if 'val_docs' in doc_splits else []
         self.test_docs = doc_splits['test_docs'] if 'test_docs' in doc_splits else []
