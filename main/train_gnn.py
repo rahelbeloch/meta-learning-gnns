@@ -44,10 +44,14 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
     # the data preprocessing
     print('\nLoading data ..........')
 
-    loaders, graph_size, labels, b_size, class_ratio = get_data(data_train, data_eval, model_name, h_size, top_k,
-                                                                k_shot, nr_train_docs, feature_type, vocab_size, dirs)
+    # if we only want to evaluate, model should be initialized with nr of labels from evaluation data
+    evaluation = checkpoint is not None and Path(checkpoint).exists()
 
-    print(f"\nGraph size: \n num_features: {graph_size[1]}\n total_nodes: {graph_size[0]}")
+    data_train = data_train if evaluation is False else None
+
+    loaders, graph_size, labels, b_size, train_class_ratio = get_data(data_train, data_eval, model_name, h_size, top_k,
+                                                                      k_shot, nr_train_docs, feature_type, vocab_size,
+                                                                      dirs)
 
     optimizer_hparams = {
         "lr_cl": lr_cl,
@@ -56,23 +60,20 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
         'lr_output': lr_output
     }
 
-    # if we only want to evaluate, model should be initialized with nr of labels from evaluation data
-    evaluation = checkpoint is not None and Path(checkpoint).exists()
-
     model_params = {
         'model': model_name,
         'cf_hid_dim': cf_hidden_dim,
         'input_dim': graph_size[1],
         'output_dim': len(labels[0]),
         'proto_dim': proto_dim,
-        'class_weight': class_ratio
+        'class_weight': train_class_ratio
     }
+
+    train_loader, train_val_loader, test_loader, test_val_loader = loaders
 
     print('\nInitializing trainer ..........\n')
     trainer = initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_output, seed, data_train,
                                  data_eval, k_shot, h_size, feature_type, checkpoint)
-
-    train_loader, train_val_loader, test_loader, test_val_loader = loaders
 
     if model_name == 'gat':
         model = GatBase(model_params, optimizer_hparams, b_size, checkpoint)
@@ -208,9 +209,9 @@ if __name__ == "__main__":
     # complete_dir = COMPLETE_small_DIR
     # num_nodes = int(COMPLETE_small_DIR.split('-')[1])
 
-    # model_checkpoint = '../logs/gat/dname=gossipcop_seed=1234_lr-enc=0.01_lr-cl=-1/checkpoints/epoch=2-step=26-v4.ckpt'
+    model_checkpoint = '../logs/gat/dtrain=gossipcop_deval=None_seed=82_shots=2_hops=2_ftype=one-hot_lr=0.0001_lr-cl=0.001/checkpoints/epoch=16-step=27488.ckpt'
     # model_checkpoint = '../logs/prototypical/dname=gossipcop_seed=1234_lr=0.01/checkpoints/epoch=0-step=8-v4.ckpt'
-    model_checkpoint = None
+    # model_checkpoint = None
 
     tsv_dir = TSV_DIR
     complete_dir = COMPLETE_DIR
@@ -245,11 +246,10 @@ if __name__ == "__main__":
 
     # CONFIGURATION
 
-    parser.add_argument('--dataset-train', dest='dataset_train', default='gossipcop',
-                        choices=SUPPORTED_DATASETS,
+    parser.add_argument('--dataset-train', dest='dataset_train', default='gossipcop', choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use for training. '
                              'If a checkpoint is provided we do not train again.')
-    parser.add_argument('--dataset-eval', dest='dataset_eval', default=None, choices=SUPPORTED_DATASETS,
+    parser.add_argument('--dataset-eval', dest='dataset_eval', default='twitterHateSpeech', choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use for evaluation.')
     parser.add_argument('--num-train-docs', dest='num_train_docs', type=int, default=num_nodes,
                         help="Inner gradient updates during meta learning.")
