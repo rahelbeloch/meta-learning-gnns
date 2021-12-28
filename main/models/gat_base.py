@@ -38,6 +38,7 @@ class GatBase(pl.LightningModule):
 
         self.loss_module = nn.CrossEntropyLoss(weight=model_hparams["class_weight"])
 
+
     def reset_classifier(self, num_classes):
         self.classifier = self.get_classifier(num_classes)
 
@@ -107,7 +108,7 @@ class GatBase(pl.LightningModule):
         for graph in sub_graphs:
             graph.x = graph.x.float().to_sparse()
             if graph.num_nodes <= 1:
-                print("graph has 1 node or less, skipping it.")
+                # print("graph has 1 node or less, skipping it.") # TODO: filter out nodes that don't have any edges
                 out = torch.zeros(self.hparams['model_hparams']['cf_hid_dim']).to(device)
             else:
                 out = self.model(graph).squeeze()[graph.center_idx]
@@ -149,6 +150,9 @@ class GatBase(pl.LightningModule):
         # return feats
 
     def training_step(self, batch, batch_idx):
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         sub_graphs, targets = batch
         out = self.forward(sub_graphs)

@@ -32,11 +32,11 @@ class SpyGATLayer(pl.LightningModule):
         n_classes = len(model_hparams['class_weight'])
         n_heads = 2
         alpha = 0.2
-        dropout = None
+        self.dropout = 0.6
 
         self.attentions = [SpGraphAttentionLayer(n_features,
                                                  n_hidden,
-                                                 dropout=dropout,
+                                                 dropout=self.dropout,
                                                  alpha=alpha,
                                                  concat=True) for _ in range(n_heads)]
 
@@ -45,7 +45,7 @@ class SpyGATLayer(pl.LightningModule):
 
         self.out_att = SpGraphAttentionLayer(n_hidden * n_heads,
                                              n_classes,
-                                             dropout=dropout,
+                                             dropout=self.dropout,
                                              alpha=alpha,
                                              concat=False)
 
@@ -149,7 +149,6 @@ class SpyGATLayer(pl.LightningModule):
         for i, edge in enumerate(batch.edge_index.T):
             adj[edge[0], edge[1]] = 1
 
-        # TODO
         # if self.dropout is not None:
         #     x = func.dropout(x, self.dropout, training=self.training)
 

@@ -146,7 +146,8 @@ def initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_out
     #     mode='max'
     # )
 
-    trainer = pl.Trainer(log_every_n_steps=1,
+    trainer = pl.Trainer(move_metrics_to_cpu=True,
+                         log_every_n_steps=1,
                          logger=logger,
                          enable_checkpointing=True,
                          gpus=1 if torch.cuda.is_available() else 0,
