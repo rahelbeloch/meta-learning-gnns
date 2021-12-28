@@ -233,7 +233,7 @@ if __name__ == "__main__":
     parser.add_argument('--patience', dest='patience', type=int, default=10)
     parser.add_argument('--hop-size', dest='hop_size', type=int, default=2)
     parser.add_argument('--top-k', dest='top_k', type=int, default=30)
-    parser.add_argument('--k-shot', dest='k_shot', type=int, default=2, help="Number of examples per task/batch.")
+    parser.add_argument('--k-shot', dest='k_shot', type=int, default=5, help="Number of examples per task/batch.")
 
     parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
     parser.add_argument('--lr-cl', dest='lr_cl', type=float, default=0.001,
