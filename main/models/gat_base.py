@@ -1,9 +1,9 @@
 import pytorch_lightning as pl
 import torch
 from torch import nn
-from torch_geometric.data import Batch
 
-from models.gat_encoder import GATLayer
+# from models.gat_encoder import GATLayer
+from models.gat_encoder_sparse import GATLayer
 from models.train_utils import *
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
@@ -37,7 +37,6 @@ class GatBase(pl.LightningModule):
         self.classifier = self.get_classifier(model_hparams['output_dim'])
 
         self.loss_module = nn.CrossEntropyLoss(weight=model_hparams["class_weight"])
-
 
     def reset_classifier(self, num_classes):
         self.classifier = self.get_classifier(num_classes)
