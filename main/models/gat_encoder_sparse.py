@@ -29,13 +29,6 @@ class GATLayer(nn.Module):
         for i, attention in enumerate(self.attentions):
             self.add_module('attention_{}'.format(i), attention)
 
-        for att in self.attentions:
-            if torch.cuda.is_available():
-                print(str(att.W.device))
-                print(str(att.a.device))
-                # assert att.W.device == torch.device("cuda:0")
-                # assert att.a.device == torch.device("cuda:0")
-
         self.leaky_relu = nn.LeakyReLU(alpha)
 
     def forward(self, subgraph_batch):
