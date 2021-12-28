@@ -20,6 +20,6 @@ cd $HOME/meta-learning-gnns/main
 # Activate your environment
 source activate meta-gnn-env
 
-PARAMETERS_FILE=../parameters_preprocess_split_sizes.txt.txt
+PARAMETERS_FILE=../parameters_preprocess_split_sizes.txt
 
 srun $(head -$SLURM_ARRAY_TASK_ID $PARAMETERS_FILE | tail -1)
