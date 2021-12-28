@@ -5,7 +5,7 @@ from torch import optim
 from torch_geometric.data import Batch
 
 from models.gat_base import get_classify_node_features
-from models.gat_encoder import GATLayer
+from models.gat_encoder_sparse import GATLayer
 from models.train_utils import *
 
 
@@ -81,6 +81,8 @@ class ProtoNet(pl.LightningModule):
         support_graphs, query_graphs, support_targets, query_targets = batch
 
         support_batch = Batch.from_data_list(support_graphs)
+        support_batch.x = support_batch.x.float().to_sparse()
+
         support_feats = self.model(support_batch).squeeze()
 
         # select only the features for the nodes we actually want to classify and compute prototypes for these
@@ -92,6 +94,7 @@ class ProtoNet(pl.LightningModule):
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
         query_batch = Batch.from_data_list(query_graphs)
+        query_batch.x = query_batch.x.float().to_sparse()
         query_feats = self.model(query_batch).squeeze()
 
         query_feats = get_classify_node_features(query_graphs, query_feats)
