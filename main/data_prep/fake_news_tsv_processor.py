@@ -64,13 +64,13 @@ class TSVPreprocessor(DataPreprocessor):
 
 
 if __name__ == '__main__':
-    # tsv_dir = TSV_small_DIR
-    # complete_dir = COMPLETE_small_DIR
-    # num_train_nodes = int(COMPLETE_small_DIR.split('-')[1])
+    tsv_dir = TSV_small_DIR
+    complete_dir = COMPLETE_small_DIR
+    num_train_nodes = int(COMPLETE_small_DIR.split('-')[1])
 
-    tsv_dir = TSV_DIR
-    complete_dir = COMPLETE_DIR
-    num_train_nodes = None
+    # tsv_dir = TSV_DIR
+    # complete_dir = COMPLETE_DIR
+    # num_train_nodes = None
 
     min_len = 25
 
