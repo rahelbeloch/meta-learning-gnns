@@ -111,8 +111,8 @@ class GatBase(pl.LightningModule):
             # can not be made sparse, because Batch.from_data_list internally makes operations which can not
             # be done with sparse matrices
             # g.x = g.x.float().to_sparse()
-            # g.y = g.y.float().to_sparse()
             # g.edge_index = g.edge_index.float().to_sparse()
+            g.y = g.y.float().to_sparse()
 
             print(f"x device: {str(g.x.device)}")
             print(f"x is sparse: {str(g.x.is_sparse)}")
