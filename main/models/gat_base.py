@@ -103,46 +103,38 @@ class GatBase(pl.LightningModule):
 
     def forward(self, sub_graphs):
 
-        # outs = []
-        #
-        # for graph in sub_graphs:
-        #     graph.x = graph.x.float().to_sparse()
-        #     if graph.num_nodes <= 1:
-        #         # print("graph has 1 node or less, skipping it.") # TODO: filter out nodes that don't have any edges
-        #         out = torch.zeros(self.hparams['model_hparams']['cf_hid_dim']).to(device)
-        #     else:
-        #         out = self.model(graph).squeeze()[graph.center_idx]
-        #
-        #     # print(f"Device of out {out.device}")
-        #
-        #     outs.append(out)
-        #
-        # return torch.stack(outs)
+        # OPTION 1: Push each single subgraph through the model
+        outputs = []
+
+        for graph in sub_graphs:
+            graph.x = graph.x.float().to_sparse()
+            if graph.num_nodes <= 1:
+                # TODO: filter out nodes that don't have any edges
+                # print("graph has 1 node or less, skipping it.")
+                out = torch.zeros(self.hparams['model_hparams']['cf_hid_dim']).to(device)
+            else:
+                out = self.model(graph).squeeze()[graph.center_idx]
+            outputs.append(out)
+
+        return torch.stack(outputs)
+
+        # OPTION 2: make a batch out of all sub graphs and push the batch through the model
 
         # we have a list of sub graphs with different nodes; make one big graph out of it for the forward pass
-        print(f'\nlen sub graphs {str(len(sub_graphs))}\n')
-        for g in sub_graphs:
-            # edge index can not be made sparse, because Batch.from_data_list internally makes operations which can not
-            # be done with this matrix being sparse
-            # g.edge_index = g.edge_index.to_sparse()
-
-            g.x = g.x.float().to_sparse()
-
-        batch = Batch.from_data_list(sub_graphs)
-        feats = self.model(batch).squeeze()
-
-        # out.size() --> [batch_size * num_nodes, feat_size]
-        # reshape as: .view(batch_size, num_nodes, -1)
-        # can only reshape that way if all your nodes in a batch have the same number of nodes.
-        # In case they do, you can use torch_geometric.utils.to_dense_batch.
-
-        # we don't have the same nodes for every subgraph
-        # we only want to classify the one center node
-        feats = get_classify_node_features(sub_graphs, feats)
-
-        assert len(feats) == len(sub_graphs), "Nr of features returned does not equal nr. of classification nodes!"
-
-        return feats
+        # for g in sub_graphs:
+        #     # edge index can not be made sparse, because Batch.from_data_list internally makes operations which can not
+        #     # be done with this matrix being sparse
+        #     # g.edge_index = g.edge_index.to_sparse()
+        #
+        #     g.x = g.x.float().to_sparse()
+        #
+        # batch = Batch.from_data_list(sub_graphs)
+        # feats = self.model(batch).squeeze()
+        # feats = get_classify_node_features(sub_graphs, feats)
+        #
+        # assert len(feats) == len(sub_graphs), "Nr of features returned does not equal nr. of classification nodes!"
+        #
+        # return feats
 
     def training_step(self, batch, batch_idx):
 

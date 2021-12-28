@@ -184,7 +184,7 @@ class SpGraphAttentionLayer(nn.Module):
 
         self.dropout = nn.Dropout(dropout) if dropout is not None else None
 
-        self.leakyrelu = nn.LeakyReLU(self.alpha)
+        self.leaky_relu = nn.LeakyReLU(self.alpha)
         self.special_spmm = SpecialSpmm()
 
     def forward(self, input, adj):
@@ -203,7 +203,7 @@ class SpGraphAttentionLayer(nn.Module):
         edge_h = torch.cat((h[edge[0, :], :], h[edge[1, :], :]), dim=1).t()
         # edge: 2*D x E
 
-        edge_e = torch.exp(-self.leakyrelu(self.a.mm(edge_h).squeeze()))
+        edge_e = torch.exp(-self.leaky_relu(self.a.mm(edge_h).squeeze()))
         # assert not torch.isnan(edge_e).any()
         # edge_e: E
 
@@ -246,16 +246,20 @@ class SpecialSpmm(nn.Module):
 
 
 class SpecialSpmmFunction(torch.autograd.Function):
-    """Special function for only sparse region backpropagation layer."""
+    """
+    Special function for only sparse region backpropagation layer.
+    """
 
+    # noinspection PyMethodOverriding
     @staticmethod
     def forward(ctx, indices, values, shape, b):
-        assert indices.requires_grad == False
+        assert indices.requires_grad is False
         a = torch.sparse_coo_tensor(indices, values, shape)
         ctx.save_for_backward(a, b)
         ctx.N = shape[0]
         return torch.matmul(a, b)
 
+    # noinspection PyMethodOverriding
     @staticmethod
     def backward(ctx, grad_output):
         a, b = ctx.saved_tensors
