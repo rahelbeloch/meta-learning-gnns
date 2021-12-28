@@ -108,7 +108,11 @@ class GATLayer(nn.Module):
         attn_logits_reshaped = attn_logits.reshape(-1)
         print(f'Attn logits reshaped size {str(attn_logits_reshaped.shape)}')
 
-        attn_matrix[head_mask] = attn_logits_reshaped
+        att_matrix_head_masked = attn_matrix[head_mask]
+        print(f'Attn matrix head masked size {str(att_matrix_head_masked.shape)}')
+
+        att_matrix_head_masked = attn_logits_reshaped
+        attn_matrix = att_matrix_head_masked
 
         # Weighted average of attention
         attn_probs = func.softmax(attn_matrix, dim=2)
