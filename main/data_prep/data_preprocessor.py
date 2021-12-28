@@ -271,7 +271,7 @@ class DataPreprocessor(GraphIO):
         file_name = DOC_SPLITS_FILE_NAME % \
                     (self.feature_type, self.max_vocab, 1 - val_size - test_size, val_size, test_size)
         doc_splits_file = self.data_tsv_path(file_name)
-        print("\nWriting doc_splits in : ", doc_splits_file)
+        print("\nWriting doc splits in : ", doc_splits_file)
         save_json_file(doc_names_split_dict, doc_splits_file, converter=self.np_converter)
 
     def store_doc2labels(self, doc2labels):

@@ -256,6 +256,4 @@ if __name__ == '__main__':
 
     args, unparsed = parser.parse_known_args()
 
-    config = args.__dict__
-
-    preprocessor = FakeNewsGraphPreprocessor(config, max_nr_users)
+    preprocessor = FakeNewsGraphPreprocessor(args.__dict__, max_nr_users)
