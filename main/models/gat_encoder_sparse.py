@@ -24,6 +24,11 @@ class GATLayer(nn.Module):
             c_out = c_out // num_heads
 
         self.attentions = [SparseAttention(c_in, c_out, alpha) for _ in range(num_heads)]
+
+        for att in self.attentions:
+            if torch.cuda.is_available():
+                assert att.device == torch.device("cuda:0")
+
         self.leaky_relu = nn.LeakyReLU(alpha)
 
     def forward(self, subgraph_batch):
@@ -120,6 +125,7 @@ class SparseMultiplyFunction(torch.autograd.Function):
         grad_values = grad_b = None
         if ctx.needs_input_grad[1]:
             grad_a_dense = grad_output.matmul(b.t())
+            # noinspection PyProtectedMember
             edge_idx = a._indices()[0, :] * ctx.N + a._indices()[1, :]
             grad_values = grad_a_dense.view(-1)[edge_idx]
         if ctx.needs_input_grad[3]:
