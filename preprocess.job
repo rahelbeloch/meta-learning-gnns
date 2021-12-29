@@ -1,10 +1,9 @@
 #!/bin/bash
 
-#SBATCH --partition=shared
+#SBATCH --partition=fat
 #SBATCH --job-name=meta-gnn-preprocess-job
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=6
-#SBATCH --gres=cpu
 #SBATCH --time=03:00:00
 #SBATCH --array=1-4%2
 #SBATCH --output=logs/job_outputs/meta_gnn_preprocess_%A_%a.out
