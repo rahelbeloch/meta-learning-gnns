@@ -60,6 +60,9 @@ class SparseAttention(nn.Module):
 
         gain = nn.init.calculate_gain('leaky_relu')
 
+        self.projection = nn.Linear(c_in, c_out)
+        nn.init.xavier_uniform_(self.projection.weight.data, gain=1.414)
+
         # linear projection parameters for head 1
         self.W = nn.Parameter(torch.zeros(size=(c_in, c_out)))
         nn.init.xavier_normal_(self.W.data, gain=gain)
@@ -75,12 +78,16 @@ class SparseAttention(nn.Module):
     def forward(self, node_feats, edges, n):
         dv = node_feats.device
 
-        h = torch.mm(node_feats, self.W)
+        # linear layer
+        h = self.projection(node_feats)
+
+        # Apply linear layer TODO: what about the bias
+        # h = torch.mm(node_feats, self.W)
         # h: N x c_out
         # assert not torch.isnan(h).any()
 
         if torch.isnan(h).any():
-            h = torch.nan_to_num(h)
+            h = self.nan_to_num(h)
 
         # Self-attention on the nodes - Shared attention mechanism
         edge_h = torch.cat((h[edges[0, :], :], h[edges[1, :], :]), dim=1).t()
@@ -104,9 +111,16 @@ class SparseAttention(nn.Module):
         # h_prime: N x out
         # assert not torch.isnan(h_prime).any()
         if torch.isnan(h_prime).any():
-            h_prime = torch.nan_to_num(h_prime)
+            h_prime = self.nan_to_num(h_prime)
 
         return func.elu(h_prime)
+
+    @staticmethod
+    def nan_to_num(x):
+        x[torch.isneginf(x)] = -3.4028e+38
+        x[torch.isinf(x)] = 3.4028e+38
+        x[torch.isnan(x)] = 0
+        return x
 
     @staticmethod
     def idx_select(node_feats, edge_indices):
