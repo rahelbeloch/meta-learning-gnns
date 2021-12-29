@@ -38,8 +38,8 @@ class GATLayer(nn.Module):
             print_attn_probs - If True, the attention weights are printed during the forward pass (for debugging)
         """
 
-        node_feats = subgraph_batch.x
-        assert node_feats.is_sparse, "Feature vector is not sparse!"
+        node_feats = subgraph_batch.x.to(torch.float32)
+        # assert node_feats.is_sparse, "Feature vector is not sparse!"
 
         # TODO: try to make more sparse, e.g. edge index etc.
 
@@ -58,12 +58,17 @@ class SparseAttention(nn.Module):
     def __init__(self, c_in, c_out, alpha):
         super(SparseAttention, self).__init__()
 
+        gain = nn.init.calculate_gain('leaky_relu')
+
         # linear projection parameters for head 1
         self.W = nn.Parameter(torch.zeros(size=(c_in, c_out)))
-        nn.init.xavier_normal_(self.W.data, gain=1.414)
+        nn.init.xavier_normal_(self.W.data, gain=gain)
+        # nn.init.kaiming_uniform(self.W.data)
+        # nn.init.kaiming_normal(self.W.data)
 
         self.a = nn.Parameter(torch.zeros(size=(1, 2 * c_out)))
-        nn.init.xavier_normal_(self.a.data, gain=1.414)
+        nn.init.xavier_normal_(self.a.data, gain=gain)
+        # nn.init.kaiming_normal(self.a.data)
 
         self.leaky_relu = nn.LeakyReLU(alpha)
 
@@ -72,7 +77,10 @@ class SparseAttention(nn.Module):
 
         h = torch.mm(node_feats, self.W)
         # h: N x c_out
-        assert not torch.isnan(h).any()
+        # assert not torch.isnan(h).any()
+
+        if torch.isnan(h).any():
+            h = torch.nan_to_num(h)
 
         # Self-attention on the nodes - Shared attention mechanism
         edge_h = torch.cat((h[edges[0, :], :], h[edges[1, :], :]), dim=1).t()
@@ -94,7 +102,9 @@ class SparseAttention(nn.Module):
 
         h_prime = h_prime.div(e_row_sum)
         # h_prime: N x out
-        assert not torch.isnan(h_prime).any()
+        # assert not torch.isnan(h_prime).any()
+        if torch.isnan(h_prime).any():
+            h_prime = torch.nan_to_num(h_prime)
 
         return func.elu(h_prime)
 
