@@ -60,18 +60,12 @@ class SparseAttention(nn.Module):
 
         gain = nn.init.calculate_gain('leaky_relu')
 
+        # linear projection parameters for head
         self.projection = nn.Linear(c_in, c_out)
-        nn.init.xavier_uniform_(self.projection.weight.data, gain=1.414)
-
-        # linear projection parameters for head 1
-        self.W = nn.Parameter(torch.zeros(size=(c_in, c_out)))
-        nn.init.xavier_normal_(self.W.data, gain=gain)
-        # nn.init.kaiming_uniform(self.W.data)
-        # nn.init.kaiming_normal(self.W.data)
+        nn.init.xavier_uniform_(self.projection.weight.data, gain=gain)
 
         self.a = nn.Parameter(torch.zeros(size=(1, 2 * c_out)))
-        nn.init.xavier_normal_(self.a.data, gain=gain)
-        # nn.init.kaiming_normal(self.a.data)
+        nn.init.xavier_uniform_(self.a.data, gain=gain)
 
         self.leaky_relu = nn.LeakyReLU(alpha)
 
@@ -80,12 +74,10 @@ class SparseAttention(nn.Module):
 
         # linear layer
         h = self.projection(node_feats)
-
-        # Apply linear layer TODO: what about the bias
-        # h = torch.mm(node_feats, self.W)
         # h: N x c_out
-        # assert not torch.isnan(h).any()
 
+        # TODO: fix this; h is getting nan at some point
+        # assert not torch.isnan(h).any()
         if torch.isnan(h).any():
             h = self.nan_to_num(h)
 
@@ -109,6 +101,8 @@ class SparseAttention(nn.Module):
 
         h_prime = h_prime.div(e_row_sum)
         # h_prime: N x out
+
+        # TODO: fix this; h_prime is getting nan at some point
         # assert not torch.isnan(h_prime).any()
         if torch.isnan(h_prime).any():
             h_prime = self.nan_to_num(h_prime)
@@ -117,9 +111,22 @@ class SparseAttention(nn.Module):
 
     @staticmethod
     def nan_to_num(x):
-        x[torch.isneginf(x)] = -3.4028e+38
-        x[torch.isinf(x)] = 3.4028e+38
-        x[torch.isnan(x)] = 0
+        """
+        Creates masks for all values in the tensor x which are either nan, negative inf or inf. Then sets respective
+        alternative values for these indices.
+        """
+
+        # TODO: make sure back propagation can still properly be done
+        # because otherwise we get an error saying that isneginf/isinf/isnan
+        # can not be used with tensors requiring grad
+        with torch.no_grad():
+            neg_inf_mask = torch.isneginf(x)
+            inf_mask = torch.isinf(x)
+            nan_mask = torch.isnan(x)
+
+        x[neg_inf_mask] = -3.4028e+38
+        x[inf_mask] = 3.4028e+38
+        x[nan_mask] = 0
         return x
 
     @staticmethod
