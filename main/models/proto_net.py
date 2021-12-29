@@ -78,6 +78,9 @@ class ProtoNet(pl.LightningModule):
         :return:
         """
 
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
         support_graphs, query_graphs, support_targets, query_targets = batch
 
         # OPTION 1: as complete batch
