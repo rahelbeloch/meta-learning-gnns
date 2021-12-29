@@ -85,6 +85,8 @@ class ProtoNet(pl.LightningModule):
         # support_batch = Batch.from_data_list(support_graphs)
         # support_batch.x = support_batch.x.float().to_sparse()
         # support_feats = self.model(support_batch).squeeze()
+        # select only the features for the nodes we actually want to classify and compute prototypes for these
+        # support_feats = get_classify_node_features(support_graphs, support_feats)
 
         # OPTION 2: as single sub graphs
         outputs = []
@@ -99,9 +101,6 @@ class ProtoNet(pl.LightningModule):
             outputs.append(out)
         support_feats = torch.stack(outputs)
 
-        # select only the features for the nodes we actually want to classify and compute prototypes for these
-        support_feats = get_classify_node_features(support_graphs, support_feats)
-
         assert support_feats.shape[0] == support_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
 
@@ -111,6 +110,7 @@ class ProtoNet(pl.LightningModule):
         # query_batch = Batch.from_data_list(query_graphs)
         # query_batch.x = query_batch.x.float().to_sparse()
         # query_feats = self.model(query_batch).squeeze()
+        # query_feats = get_classify_node_features(query_graphs, query_feats)
 
         # OPTION 2: as single sub graphs
         outputs = []
@@ -124,8 +124,6 @@ class ProtoNet(pl.LightningModule):
                 out = self.model(graph).squeeze()[graph.center_idx]
             outputs.append(out)
         query_feats = torch.stack(outputs)
-
-        query_feats = get_classify_node_features(query_graphs, query_feats)
 
         assert query_feats.shape[0] == query_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
