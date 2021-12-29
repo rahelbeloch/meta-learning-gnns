@@ -114,8 +114,8 @@ if __name__ == '__main__':
     preprocessor = TSVPreprocessor(args['data'], args['feature_type'], args['max_vocab'], args['data_dir'],
                                    args['data_tsv_dir'], args['data_complete_dir'])
 
-    # preprocessor.aggregate_user_contexts()
-    # preprocessor.corpus_to_tsv()
+    preprocessor.aggregate_user_contexts()
+    preprocessor.corpus_to_tsv()
     preprocessor.create_data_splits(train_size=args['train_size'],
                                     test_size=args['test_size'],
                                     val_size=args['val_size'],
