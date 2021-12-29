@@ -252,7 +252,7 @@ if __name__ == "__main__":
 
     # CONFIGURATION
 
-    parser.add_argument('--n-workers', dest='n_workers', type=int, default=4, help="Amount of parallel data loaders.")
+    parser.add_argument('--n-workers', dest='n_workers', type=int, default=None, help="Amount of parallel data loaders.")
     parser.add_argument('--dataset-train', dest='dataset_train', default='gossipcop', choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use for training. '
                              'If a checkpoint is provided we do not train again.')
@@ -269,7 +269,7 @@ if __name__ == "__main__":
                         help='Select the dataset you want to use.')
     parser.add_argument('--complete-dir', dest='complete_dir', default=complete_dir,
                         help='Select the dataset you want to use.')
-    parser.add_argument('--model', dest='model', default='prototypical', choices=SUPPORTED_MODELS,
+    parser.add_argument('--model', dest='model', default='gat', choices=SUPPORTED_MODELS,
                         help='Select the model you want to use.')
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--hidden-dim', dest='hidden_dim', type=int, default=512)

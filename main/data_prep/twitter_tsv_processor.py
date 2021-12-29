@@ -72,9 +72,6 @@ if __name__ == '__main__':
     # complete_dir = COMPLETE_small_DIR
     # num_train_nodes = int(COMPLETE_small_DIR.split('-')[1])
 
-    feature_type = 'one-hot'
-    max_vocab = 10000
-
     tsv_dir = TSV_DIR
     complete_dir = COMPLETE_DIR
     num_train_nodes = None

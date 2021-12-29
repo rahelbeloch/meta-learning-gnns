@@ -1,4 +1,4 @@
---model gat --seed 1234 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 5
 --model gat --seed 1234 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 4
+--model gat --seed 1234 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 3
 --model prototypical --seed 1234 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 4
 --model prototypical --seed 1234 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 3
