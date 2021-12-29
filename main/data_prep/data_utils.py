@@ -8,7 +8,8 @@ from samplers.maml_batch_sampler import FewShotMamlSampler
 SUPPORTED_DATASETS = ['gossipcop', 'twitterHateSpeech']
 
 
-def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, split_size, feature_type, vocab_size, dirs):
+def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, split_size, feature_type, vocab_size, dirs,
+             num_workers=None):
     """
     Creates and returns the correct data object depending on data_name.
     Args:
@@ -22,6 +23,7 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, split_size, 
         feature_type (int): Type of features that should be used.
         vocab_size (int): Size of the vocabulary.
         dirs (str): Path to the data (full & complete) to be used to create the graph (feature file, edge file etc.)
+        num_workers (int): Amount of workers for parallel processing.
     Raises:
         Exception: if the data_name is not in SUPPORTED_DATASETS.
     """
@@ -32,7 +34,7 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, split_size, 
     if data_eval not in SUPPORTED_DATASETS:
         raise ValueError(f"Eval data with name '{data_eval}' is not supported.")
 
-    num_workers = 4 if torch.cuda.is_available() else 0  # mac has 8 CPUs
+    num_workers = num_workers if num_workers is not None else 4 if torch.cuda.is_available() else 0  # mac has 8 CPUs
 
     # creating a train and val loader from the train dataset
     graph_data_train = TorchGeomGraphDataset(data_train, top_k, feature_type, vocab_size, split_size, *dirs)

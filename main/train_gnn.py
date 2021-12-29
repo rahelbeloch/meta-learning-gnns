@@ -24,7 +24,7 @@ if torch.cuda.is_available():
 
 def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, lr_inner, lr_output, hidden_dim,
           proto_dim, data_train, data_eval, dirs, checkpoint, train_docs, split_size, feature_type, vocab_size,
-          n_inner_updates):
+          n_inner_updates, num_workers):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     if model_name not in SUPPORTED_MODELS:
@@ -35,7 +35,8 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
 
     nr_train_docs = 'all' if (train_docs is None or train_docs == -1) else str(train_docs)
 
-    print(f'\nConfiguration:\n mode: {"TEST" if eval else "TRAIN"}\n model_name: {model_name}\n data_train: '
+    print(f'\nConfiguration:\n mode: {"TEST" if eval else "TRAIN"}\n model_name: {model_name}\n '
+          f'num_workers: {num_workers}\n data_train: '
           f'{data_train}\n data_eval: {data_eval}\n nr_train_docs: {nr_train_docs}\n k_shot: {k_shot}\n'
           f' seed: {seed}\n hops: {h_size}\n '
           f'feature_type: {feature_type}\n checkpoint: {checkpoint}\n max epochs: {epochs}\n patience:{patience}\n'
@@ -54,7 +55,7 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
 
     loaders, graph_size, labels, b_size, train_class_ratio = get_data(data_train, data_eval, model_name, h_size, top_k,
                                                                       k_shot, split_size, feature_type, vocab_size,
-                                                                      dirs)
+                                                                      dirs, num_workers)
 
     optimizer_hparams = {
         "lr_cl": lr_cl,
@@ -251,6 +252,7 @@ if __name__ == "__main__":
 
     # CONFIGURATION
 
+    parser.add_argument('--n-workers', dest='n_workers', type=int, default=4, help="Amount of parallel data loaders.")
     parser.add_argument('--dataset-train', dest='dataset_train', default='gossipcop', choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use for training. '
                              'If a checkpoint is provided we do not train again.')
@@ -307,5 +309,6 @@ if __name__ == "__main__":
         split_size=(params["train_size"], params["val_size"], params["test_size"]),
         feature_type=params["feature_type"],
         vocab_size=params["vocab_size"],
-        n_inner_updates=params["n_updates"]
+        n_inner_updates=params["n_updates"],
+        num_workers=params["n_workers"]
     )
