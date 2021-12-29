@@ -11,7 +11,6 @@ conda create -y -n meta-gnn-env python==3.7.5 pytorch-lightning==1.5.3 nltk==3.6
 
 source activate meta-gnn-env
 
-conda install -c dglteam dgl-cuda10.1
 conda install pandas
 conda install importlib_resources
 
