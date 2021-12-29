@@ -12,7 +12,7 @@ from models.train_utils import *
 class ProtoNet(pl.LightningModule):
 
     # noinspection PyUnusedLocal
-    def __init__(self, input_dim, cf_hidden_dim, lr, batch_size):
+    def __init__(self, input_dim, hidden_dim, lr, batch_size):
         """
         Inputs
             proto_dim - Dimensionality of prototype feature space
@@ -20,7 +20,7 @@ class ProtoNet(pl.LightningModule):
         """
         super().__init__()
         self.save_hyperparameters()
-        self.model = GATLayer(c_in=input_dim, c_out=cf_hidden_dim, num_heads=4)
+        self.model = GATLayer(c_in=input_dim, c_out=hidden_dim, num_heads=4)
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.lr)
@@ -94,7 +94,7 @@ class ProtoNet(pl.LightningModule):
             if graph.num_nodes <= 1:
                 # TODO: filter out nodes that don't have any edges
                 # print("graph has 1 node or less, skipping it.")
-                out = torch.zeros(self.hparams['model_hparams']['hid_dim']).to(graph.x.device)
+                out = torch.zeros(self.hparams['hidden_dim']).to(graph.x.device)
             else:
                 out = self.model(graph).squeeze()[graph.center_idx]
             outputs.append(out)
@@ -118,7 +118,7 @@ class ProtoNet(pl.LightningModule):
             if graph.num_nodes <= 1:
                 # TODO: filter out nodes that don't have any edges
                 # print("graph has 1 node or less, skipping it.")
-                out = torch.zeros(self.hparams['model_hparams']['hid_dim']).to(graph.x.device)
+                out = torch.zeros(self.hparams['hidden_dim']).to(graph.x.device)
             else:
                 out = self.model(graph).squeeze()[graph.center_idx]
             outputs.append(out)
