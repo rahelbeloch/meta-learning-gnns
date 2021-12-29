@@ -82,31 +82,37 @@ class SparseAttention(nn.Module):
             h = self.nan_to_num(h)
 
         # Self-attention on the nodes - Shared attention mechanism
+
+        # calculate the attention logits for every edge present in the graph
         edge_h = torch.cat((h[edges[0, :], :], h[edges[1, :], :]), dim=1).t()
         # edge: 2*c_out x E
 
-        edge_e = torch.exp(-self.leaky_relu(self.a.mm(edge_h).squeeze()))
-        assert not torch.isnan(edge_e).any()
+        # calculate attention MLP output (independent for each head)
+        attn_logits = torch.exp(-self.leaky_relu(self.a.mm(edge_h).squeeze()))
+        assert not torch.isnan(attn_logits).any()
         # edge_e1: E
 
         edges = edges.to(dv)
-        edge_e = edge_e.to(dv)
+        attn_logits = attn_logits.to(dv)
 
-        e_row_sum = SparseMultiplyFunction.apply(edges, edge_e, torch.Size([n, n]), torch.ones(size=(n, 1), device=dv))
-        # e_row_sum: N x 1
+        # compute SOFTMAX
 
-        h_prime = SparseMultiplyFunction.apply(edges, edge_e, torch.Size([n, n]), h)
+        # denominator: e_row_sum: N x 1
+        e_row_sum = SparseMultiplyFunction.apply(edges, attn_logits, torch.Size([n, n]),
+                                                 torch.ones(size=(n, 1), device=dv))
+        # nominator: h_prime: N x out
+        h_prime = SparseMultiplyFunction.apply(edges, attn_logits, torch.Size([n, n]), h)
         assert not torch.isnan(h_prime).any()
-        # h_prime: N x out
 
-        h_prime = h_prime.div(e_row_sum)
         # h_prime: N x out
+        h_prime = h_prime.div(e_row_sum)
 
         # TODO: fix this; h_prime is getting nan at some point
         # assert not torch.isnan(h_prime).any()
         if torch.isnan(h_prime).any():
             h_prime = self.nan_to_num(h_prime)
 
+        # the outer non-linearity
         return func.elu(h_prime)
 
     @staticmethod
