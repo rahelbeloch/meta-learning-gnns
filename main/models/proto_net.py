@@ -40,6 +40,7 @@ class ProtoNet(pl.LightningModule):
         # features shape: [N, proto_dim], targets shape: [N]
 
         # Determine which classes we have
+        print(f"Targets shape {str(targets.shape)}")
         classes, _ = torch.unique(targets).sort()
         prototypes = []
         for c in classes:
