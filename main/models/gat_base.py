@@ -111,6 +111,7 @@ class GatBase(pl.LightningModule):
 
         for graph in sub_graphs:
             graph.x = graph.x.float().to_sparse()
+
             if graph.num_nodes <= 1:
                 # TODO: filter out nodes that don't have any edges
                 # print("graph has 1 node or less, skipping it.")
@@ -118,21 +119,16 @@ class GatBase(pl.LightningModule):
             else:
 
                 # gat_encoder_sparse
-                # out = self.model(graph)
+                # out = self.model(graph).squeeze()
 
-                # pushkars version
+                # pushkars sparse version
+                # edge_index = graph.edge_index.to_sparse()
+                edge_index = graph.edge_index
                 x = graph.x.to(torch.float32)
-                adj = torch.zeros((graph.num_nodes, graph.num_nodes), dtype=torch.int)
-                for edge in graph.edge_index.T:
-                    adj[edge[0], edge[1]] = 1
 
-                for i in range(graph.num_nodes):
-                    adj[i, i] = 1
+                out = self.model(x, edge_index)
 
-                adj = adj.to_sparse()
-                out = self.model(x, adj)
-
-                out = out.squeeze()[graph.center_idx]
+                out = out[graph.center_idx]
             outputs.append(out)
 
         return torch.stack(outputs)
@@ -164,6 +160,15 @@ class GatBase(pl.LightningModule):
         # assert len(feats) == len(sub_graphs), "Nr of features returned does not equal nr. of classification nodes!"
         #
         # return feats
+
+    def get_sparse_adj_matrix(self, graph):
+        adj = torch.zeros((graph.num_nodes, graph.num_nodes), dtype=torch.int)
+        for edge in graph.edge_index.T:
+            adj[edge[0], edge[1]] = 1
+        for i in range(graph.num_nodes):
+            adj[i, i] = 1
+        adj = adj.to_sparse()
+        return adj
 
     def training_step(self, batch, batch_idx):
 
