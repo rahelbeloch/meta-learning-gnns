@@ -1,10 +1,10 @@
 import pytorch_lightning as pl
 import torch
 from torch import nn
-from torch_geometric.data import Batch
 
 # from models.gat_encoder import GATLayer
-from models.gat_encoder_sparse import GATLayer
+# from models.gat_encoder_sparse import GATLayer
+from models.gat_encoder_sparse_pushkar import SparseGATLayer
 from models.train_utils import *
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
@@ -29,7 +29,10 @@ class GatBase(pl.LightningModule):
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace
         self.save_hyperparameters()
 
-        self.model = GATLayer(c_in=model_hparams['input_dim'], c_out=model_hparams['hid_dim'], num_heads=2)
+        self.model = SparseGATLayer(in_features=model_hparams['input_dim'], out_features=model_hparams['hid_dim'])
+
+        # gat_encoder_sparse
+        # self.model = GATLayer(c_in=model_hparams['input_dim'], c_out=model_hparams['hid_dim'], num_heads=2)
 
         if checkpoint is not None:
             encoder = load_pretrained_encoder(checkpoint)
@@ -113,7 +116,23 @@ class GatBase(pl.LightningModule):
                 # print("graph has 1 node or less, skipping it.")
                 out = torch.zeros(self.hparams['model_hparams']['hid_dim']).to(device)
             else:
-                out = self.model(graph).squeeze()[graph.center_idx]
+
+                # gat_encoder_sparse
+                # out = self.model(graph)
+
+                # pushkars version
+                x = graph.x.to(torch.float32)
+                adj = torch.zeros((graph.num_nodes, graph.num_nodes), dtype=torch.int)
+                for edge in graph.edge_index.T:
+                    adj[edge[0], edge[1]] = 1
+
+                for i in range(graph.num_nodes):
+                    adj[i, i] = 1
+
+                adj = adj.to_sparse()
+                out = self.model(x, adj)
+
+                out = out.squeeze()[graph.center_idx]
             outputs.append(out)
 
         return torch.stack(outputs)
@@ -127,7 +146,7 @@ class GatBase(pl.LightningModule):
         #     # g.edge_index = g.edge_index.to_sparse()
         #
         #     g.x = g.x.float().to_sparse()
-        #
+        # [Data, Data, Data(x, y, ..)]
         # batch = Batch.from_data_list(sub_graphs)
         #
         # if not batch.x.is_sparse:
