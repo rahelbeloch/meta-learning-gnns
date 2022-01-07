@@ -31,9 +31,6 @@ class GatBase(pl.LightningModule):
 
         self.model = SparseGATLayer(in_features=model_hparams['input_dim'], out_features=model_hparams['hid_dim'])
 
-        # gat_encoder_sparse
-        # self.model = GATLayer(c_in=model_hparams['input_dim'], c_out=model_hparams['hid_dim'], num_heads=2)
-
         if checkpoint is not None:
             encoder = load_pretrained_encoder(checkpoint)
             self.model.load_state_dict(encoder)
@@ -117,18 +114,11 @@ class GatBase(pl.LightningModule):
                 # print("graph has 1 node or less, skipping it.")
                 out = torch.zeros(self.hparams['model_hparams']['hid_dim']).to(device)
             else:
-
-                # gat_encoder_sparse
-                # out = self.model(graph).squeeze()
-
-                # pushkars sparse version
-                # edge_index = graph.edge_index.to_sparse()
+                # Pushkar's sparse version
                 edge_index = graph.edge_index
                 x = graph.x.to(torch.float32)
+                out = self.model(x, edge_index)[graph.center_idx]
 
-                out = self.model(x, edge_index)
-
-                out = out[graph.center_idx]
             outputs.append(out)
 
         return torch.stack(outputs)

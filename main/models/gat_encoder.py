@@ -9,11 +9,11 @@ from torch import nn
 
 class GATLayer(nn.Module):
 
-    def __init__(self, c_in, c_out, num_heads=1, concat_heads=True, alpha=0.2):
+    def __init__(self, in_features, out_features, num_heads=1, concat_heads=True, alpha=0.2):
         """
         Inputs:
-            c_in - Dimensionality of input features
-            c_out - Dimensionality of output features
+            in_features - Dimensionality of input features
+            out_features - Dimensionality of output features
             num_heads - Number of heads, i.e. attention mechanisms to apply in parallel. The
                         output features are equally split up over the heads if concat_heads=True.
             concat_heads - If True, the output of the different heads is concatenated instead of averaged.
@@ -24,48 +24,48 @@ class GATLayer(nn.Module):
         self.num_heads = num_heads
         self.concat_heads = concat_heads
         if self.concat_heads:
-            assert c_out % num_heads == 0, "Number of output features must be a multiple of the count of heads."
-            c_out = c_out // num_heads
+            assert out_features % num_heads == 0, "Number of output features must be a multiple of the count of heads."
+            out_features = out_features // num_heads
 
         # Submodules and parameters needed in the layer
-        self.projection = nn.Linear(c_in, c_out * num_heads)
+        self.projection = nn.Linear(in_features, out_features * num_heads)
 
         # Parameters for each head
-        self.a = nn.Parameter(torch.Tensor(num_heads, 2 * c_out))
+        self.a = nn.Parameter(torch.Tensor(num_heads, 2 * out_features))
         self.leaky_relu = nn.LeakyReLU(alpha)
 
         # Initialization from the original implementation
         nn.init.xavier_uniform_(self.projection.weight.data, gain=1.414)
         nn.init.xavier_uniform_(self.a.data, gain=1.414)
 
-    def forward(self, subgraph_batch, print_attn_probs=False):
+    def forward(self, x, edges, print_attn_probs=False):
         """
         Inputs:
-            sub_graphs - Batch of sub graphs containing node features and edges.
+            x - Batch of node features.
+            edges - Batch of edges.
             print_attn_probs - If True, the attention weights are printed during the forward pass (for debugging)
         """
 
-        node_feats = subgraph_batch.x
-        assert node_feats.is_sparse, "Feature vector is not sparse!"
+        assert x.is_sparse, "Feature vector is not sparse!"
 
-        device = node_feats.device
-        num_nodes = subgraph_batch.num_nodes
+        device = x.device
+        num_nodes = x.size[0]
 
         # make dense because we want to iterate over it
-        edge_index = subgraph_batch.edge_index.T
-        assert not edge_index.is_sparse, "Edge index vector is sparse although it should not!"
+        edges = edges.T
+        assert not edges.is_sparse, "Edge index vector is sparse although it should not!"
 
         # either receiving all sub graphs as single batch or each sub graph one by one
         batch_size = 1
 
         # Apply linear layer and sort nodes by head
-        node_feats = self.projection(node_feats).to_sparse()
+        node_feats = self.projection(x).to_sparse()
         assert node_feats.is_sparse
 
         node_feats = node_feats.view(batch_size, num_nodes, self.num_heads, -1)
 
-        batch_idx = torch.zeros((edge_index.shape[0], 1)).to(torch.int64).to(device)
-        edges = torch.cat((batch_idx, edge_index), dim=1)
+        batch_idx = torch.zeros((edges.shape[0], 1)).to(torch.int64).to(device)
+        edges = torch.cat((batch_idx, edges), dim=1)
 
         # Calculate attention logits for every edge in the adjacency matrix
         # Doing this on all possible combinations of nodes is very expensive
@@ -91,7 +91,7 @@ class GATLayer(nn.Module):
         # print(f'Attn logits shape {str(attn_logits.shape)}')
 
         adj_matrix = torch.zeros((num_nodes, num_nodes)).to(torch.int64).to(device)
-        for i, edge in enumerate(edge_index):
+        for i, edge in enumerate(edges):
             adj_matrix[edge[0], edge[1]] = 1
 
         # we consider the whole graph (containing multiple sub graphs) because we have as one batch

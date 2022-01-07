@@ -5,11 +5,11 @@ from torch import nn
 
 class GATLayer(nn.Module):
 
-    def __init__(self, c_in, c_out, num_heads=2, concat_heads=True, alpha=0.2):
+    def __init__(self, in_features, out_features, num_heads=2, concat_heads=True, alpha=0.2):
         """
         Inputs:
-            c_in - Dimensionality of input features
-            c_out - Dimensionality of output features
+            in_features - Dimensionality of input features
+            out_features - Dimensionality of output features
             num_heads - Number of heads, i.e. attention mechanisms to apply in parallel. The
                         output features are equally split up over the heads if concat_heads=True.
             concat_heads - If True, the output of the different heads is concatenated instead of averaged.
@@ -20,10 +20,10 @@ class GATLayer(nn.Module):
         self.num_heads = num_heads
         self.concat_heads = concat_heads
         if self.concat_heads:
-            assert c_out % num_heads == 0, "Number of output features must be a multiple of the count of heads."
-            c_out = c_out // num_heads
+            assert out_features % num_heads == 0, "Number of output features must be a multiple of the count of heads."
+            out_features = out_features // num_heads
 
-        self.attentions = [SparseAttention(c_in, c_out, alpha) for _ in range(num_heads)]
+        self.attentions = [SparseAttention(in_features, out_features, alpha) for _ in range(num_heads)]
 
         # register the attention layers so that lightning can find them
         for i, attention in enumerate(self.attentions):
@@ -31,19 +31,15 @@ class GATLayer(nn.Module):
 
         self.leaky_relu = nn.LeakyReLU(alpha)
 
-    def forward(self, subgraph_batch):
+    def forward(self, x, edges):
         """
         Inputs:
-            sub_graphs - Batch of sub graphs containing node features and edges.
+            x - Batch of node features.
+            edges - Batch of edges.
             print_attn_probs - If True, the attention weights are printed during the forward pass (for debugging)
         """
 
-        node_feats = subgraph_batch.x.to(torch.float32)
-        # assert node_feats.is_sparse, "Feature vector is not sparse!"
-
-        # TODO: try to make more sparse, e.g. edge index etc.
-
-        att_outs = [att(node_feats, subgraph_batch.edge_index, subgraph_batch.num_nodes) for att in self.attentions]
+        att_outs = [att(x, edges, x.size[0]) for att in self.attentions]
 
         # If heads should be concatenated, we can do this by reshaping. Otherwise, take mean
         if self.concat_heads:

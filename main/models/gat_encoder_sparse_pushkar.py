@@ -3,13 +3,14 @@ import torch.nn.functional as func
 from torch import nn
 
 
-class GATLayer(nn.Module):
+class SparseGATLayer(nn.Module):
     """
-    Simple GAT layer, similar to https://arxiv.org/abs/1710.10903
+    Sparse version GAT layer taken from the official PyTorch repository:
+    https://github.com/Diego999/pyGAT/blob/similar_impl_tensorflow/layers.py
     """
 
     def __init__(self, in_features, out_features, dropout=0.6, attn_drop=0.6, alpha=0.2, concat=False):
-        super(GATLayer, self).__init__()
+        super(SparseGATLayer, self).__init__()
 
         self.in_features = in_features
         self.out_features = out_features
@@ -24,45 +25,27 @@ class GATLayer(nn.Module):
         self.linear = nn.Linear(in_features, in_features, bias=False)
 
         # TODO: still initialize even if constant?
-        gain = nn.init.calculate_gain('leaky_relu')
+        # gain = nn.init.calculate_gain('leaky_relu')
         # nn.init.xavier_uniform_(self.linear.weight.data, gain=gain)
 
         # grad of the linear layer false --> will not be learned but instead constant projection
         self.linear.requires_grad_(False)
 
-        self.seq_transformation = nn.Conv1d(
-            in_features, out_features, kernel_size=1, stride=1, bias=False
-        )
+        self.seq_transformation = nn.Conv1d(in_features, out_features, kernel_size=1, stride=1, bias=False)
 
         self.bias = nn.Parameter(torch.zeros(out_features), requires_grad=True)
 
         self.f_1 = nn.Conv1d(out_features, 1, kernel_size=1, stride=1)
         self.f_2 = nn.Conv1d(out_features, 1, kernel_size=1, stride=1)
+
         self.leaky_relu = nn.LeakyReLU(self.alpha)
 
-    def forward(self, x, adj):
-        seq = torch.transpose(x, 0, 1).unsqueeze(0)
-        seq_fts = self.seq_transformation(seq)
-        f_1 = self.f_1(seq_fts)
-        f_2 = self.f_2(seq_fts)
-        logits = (torch.transpose(f_1, 2, 1) + f_2).squeeze(0)
-        coefs = func.softmax(self.leaky_relu(logits) + adj, dim=1)
-        coefs = self.attn_dropout(coefs)
-        seq_fts = self.dropout(torch.transpose(seq_fts.squeeze(0), 0, 1))
-        ret = torch.mm(coefs, seq_fts) + self.bias
-        return func.elu(ret) if self.concat else ret
-
-
-class SparseGATLayer(GATLayer):
-    """
-    Sparse version GAT layer taken from the official PyTorch repository:
-    https://github.com/Diego999/pyGAT/blob/similar_impl_tensorflow/layers.py
-    """
-
     def forward(self, x, edges):
-
         assert x.is_sparse
-        # assert edges.is_sparse
+
+        # edges may not be sparse, because using a sparse vector as index for another vector does not work
+        # (e.g. f_1[edges[0]] + f_2[edges[1]])
+        assert not edges.is_sparse
 
         # initialize x to be simple weight matrix
         x = torch.mm(x, self.linear.weight.t())
