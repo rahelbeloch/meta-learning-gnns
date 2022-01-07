@@ -4,6 +4,8 @@ from torch import nn
 
 # from models.gat_encoder import GATLayer
 # from models.gat_encoder_sparse import GATLayer
+from torch_geometric.data import Batch
+
 from models.gat_encoder_sparse_pushkar import SparseGATLayer
 from models.train_utils import *
 
@@ -104,54 +106,58 @@ class GatBase(pl.LightningModule):
     def forward(self, sub_graphs):
 
         # OPTION 1: Push each single subgraph through the model
-        outputs = []
-
-        for graph in sub_graphs:
-            graph.x = graph.x.float().to_sparse()
-
-            if graph.num_nodes <= 1:
-                # TODO: filter out nodes that don't have any edges
-                # print("graph has 1 node or less, skipping it.")
-                out = torch.zeros(self.hparams['model_hparams']['hid_dim']).to(device)
-            else:
-                # Pushkar's sparse version
-                edge_index = graph.edge_index
-                x = graph.x.to(torch.float32)
-                out = self.model(x, edge_index)[graph.center_idx]
-
-            outputs.append(out)
-
-        return torch.stack(outputs)
+        # outputs = []
+        #
+        # for graph in sub_graphs:
+        #     graph.x = graph.x.float().to_sparse()
+        #
+        #     if graph.num_nodes <= 1:
+        #         # TODO: filter out nodes that don't have any edges
+        #         # print("graph has 1 node or less, skipping it.")
+        #         out = torch.zeros(self.hparams['model_hparams']['hid_dim']).to(device)
+        #     else:
+        #         # Pushkar's sparse version
+        #         edge_index = graph.edge_index
+        #         x = graph.x.to(torch.float32)
+        #         out = self.model(x, edge_index)[graph.center_idx]
+        #
+        #     outputs.append(out)
+        #
+        # return torch.stack(outputs)
 
         # OPTION 2: make a batch out of all sub graphs and push the batch through the model
 
         # we have a list of sub graphs with different nodes; make one big graph out of it for the forward pass
-        # for g in sub_graphs:
-        #     # edge index can not be made sparse, because Batch.from_data_list internally makes operations which can not
-        #     # be done with this matrix being sparse
-        #     # g.edge_index = g.edge_index.to_sparse()
-        #
-        #     g.x = g.x.float().to_sparse()
-        # [Data, Data, Data(x, y, ..)]
-        # batch = Batch.from_data_list(sub_graphs)
-        #
-        # if not batch.x.is_sparse:
-        #     batch.x = batch.x.float().to_sparse()
-        #
-        # if batch.edge_attr is not None:
-        #     batch.edge_attr = None
-        #
-        # if batch.y is not None:
-        #     batch.y = None
-        #
-        # feats = self.model(batch).squeeze()
-        # feats = get_classify_node_features(sub_graphs, feats)
-        #
-        # assert len(feats) == len(sub_graphs), "Nr of features returned does not equal nr. of classification nodes!"
-        #
-        # return feats
+        for g in sub_graphs:
+            # edge index can not be made sparse, because Batch.from_data_list internally makes operations which can not
+            # be done with this matrix being sparse
+            # g.edge_index = g.edge_index.to_sparse()
+            g.x = g.x.float().to_sparse()
 
-    def get_sparse_adj_matrix(self, graph):
+        # [Data, Data, Data(x, y, ..)]
+        batch = Batch.from_data_list(sub_graphs)
+
+        if not batch.x.is_sparse:
+            batch.x = batch.x.float().to_sparse()
+
+        if batch.edge_attr is not None:
+            batch.edge_attr = None
+
+        if batch.y is not None:
+            batch.y = None
+
+        edge_index = batch.edge_index
+        x = batch.x
+
+        feats = self.model(x, edge_index)
+        feats = get_classify_node_features(sub_graphs, feats)
+
+        assert len(feats) == len(sub_graphs), "Nr of features returned does not equal nr. of classification nodes!"
+
+        return feats
+
+    @staticmethod
+    def get_sparse_adj_matrix(graph):
         adj = torch.zeros((graph.num_nodes, graph.num_nodes), dtype=torch.int)
         for edge in graph.edge_index.T:
             adj[edge[0], edge[1]] = 1
