@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 from scipy.sparse import load_npz
 from torch_geometric.data import Data
@@ -8,14 +10,24 @@ from data_prep.data_preprocess_utils import load_json_file
 from data_prep.graph_io import GraphIO
 
 
+def get_adj_matrix(edge_index, num_nodes):
+    adj = torch.zeros((num_nodes, num_nodes), dtype=torch.int)
+    for edge in edge_index.T:
+        adj[edge[0], edge[1]] = 1
+    for i in range(num_nodes):
+        adj[i, i] = 1
+    return adj
+
+
 class TorchGeomGraphDataset(GraphIO, GeometricDataset):
     """
     Parent class for graph datasets. It loads the graph from respective files.
     """
 
-    def __init__(self, corpus, top_k, feature_type, max_vocab, split_size, data_dir, tsv_dir, complete_dir,
+    def __init__(self, dataset, top_k, feature_type, max_vocab, split_size, data_dir, tsv_dir, complete_dir,
                  verbose=True):
-        super().__init__(corpus, feature_type, max_vocab, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir)
+        super().__init__(dataset, feature_type, max_vocab, data_dir=data_dir, tsv_dir=tsv_dir,
+                         complete_dir=complete_dir)
 
         self._device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
         self._verbose = verbose
@@ -29,6 +41,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         self.x_data, self.y_data = None, None
         self.edge_index, self.edge_type = None, None
+        self.adj = None
         self.node2id = None
         self.split_masks = None
         self.vocab_size = None
@@ -67,24 +80,24 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         # calculate class imbalance for the loss function
         self.class_ratio = torch.bincount(self.y_data) / self.y_data.shape[0]
 
-        # TODO: do we need this? We anyways do not do anything with nodes
-        # load edge index and edge type
-        # edge_index_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k)
-        # self.edge_index = torch.from_numpy(load_npz(edge_index_file).toarray()).long()
         edge_list_file = self.data_complete_path(self.get_file_name(EDGE_LIST_FILE_NAME))
         if not edge_list_file.exists():
             raise ValueError(f"Edge list file does not exist: {edge_list_file}")
         edge_list = load_json_file(edge_list_file)
         self.edge_index = torch.tensor(edge_list).t().contiguous()
 
-        edge_type_file = self.data_complete_path(self.get_file_name(EDGE_TYPE_FILE_NAME))
-        self.edge_type = torch.from_numpy(load_npz(edge_type_file).toarray())
+        # load adjacency matrix
+        adj_matrix_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k)
+        if adj_matrix_file.exists():
+            self.adj = torch.from_numpy(load_npz(adj_matrix_file).toarray()).long()
+        else:
+            # create from edge_list file
+            self.adj = get_adj_matrix(self.edge_index, num_nodes)
 
-        # load node2id and node type
         # node2id_file = self.data_complete_path(NODE_2_ID_FILE_NAME % self.top_k)
         # self.node2id = json.load(open(node2id_file, 'r'))
 
-        # node_type_file = self.data_complete_path( NODE_TYPE_FILE_NAME % self.top_k)
+        # node_type_file = self.data_complete_path(NODE_TYPE_FILE_NAME % self.top_k)
         # node_type = np.load(node_type_file)
         # node_type = torch.from_numpy(node_type).float()
 
@@ -100,6 +113,74 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
             self.print_step("Statistics")
             print(f"Vocabulary size: {self.vocab_size}")
             print(f'No. of nodes in graph: {num_nodes}')
+
+        # Checking node degree distribution
+
+        node_degrees = torch.sum(self.adj, dim=0).numpy()
+        probs = self.plot_node_degree_dist(node_degrees)
+
+        if self.dataset == 'gossipcop':
+            # Find the bin (number of neighboring nodes) where at least 97% of the graph nodes fall in
+            # --> discard the rest of nodes (as bots)
+            keep_threshold = 0.97
+            max_degree = np.argwhere(np.cumsum(probs) <= keep_threshold).squeeze().max()
+
+            outliers = np.where(node_degrees > max_degree)[0].shape[0]
+
+            # only use these nodes that have up to max_bin neighboring nodes
+            new_node_indices = torch.from_numpy(np.argwhere(node_degrees <= max_degree).squeeze())
+            num_new_nodes = new_node_indices.shape[0]
+
+            if self._verbose:
+                print(f"\nFound outliers ({round(1 - keep_threshold, 2) * 100}% of all nodes have more than "
+                      f"{max_degree} neighbors): {outliers}")
+                print(f'Selecting the nodes that have less than {max_degree} neighbors...')
+                print(f'\nNew no. of nodes in graph: {num_new_nodes}')
+
+            row_select = torch.index_select(self.adj, 0, new_node_indices)
+            new_adj = torch.index_select(row_select, 1, new_node_indices)
+
+            # check that no node degree now is greater than the max_bin we choose earlier
+            # noinspection PyTypeChecker
+            assert not torch.any(new_adj.sum(dim=0) > max_degree).item()
+            assert new_adj.shape[0] == num_new_nodes and new_adj.shape[1] == num_new_nodes
+
+            # noinspection PyTypeChecker
+            edges = torch.where(new_adj == 1)
+            self.edge_index = torch.tensor(list(zip(list(edges[0]), list(edges[1])))).t()
+
+            if self._verbose:
+                new_node_degrees = torch.sum(new_adj, dim=0).numpy()
+                self.plot_node_degree_dist(new_node_degrees)
+
+    def plot_node_degree_dist(self, node_degrees):
+
+        max_bin = node_degrees.max()
+
+        mu = node_degrees.mean()
+        sigma = np.var(node_degrees)
+
+        fig, ax = plt.subplots()
+
+        probs, bins, patches = ax.hist(node_degrees, max_bin, density=True, stacked=True)
+
+        if self._verbose:
+            # add a 'best fit' line
+            # y = ((1 / (np.sqrt(2 * np.pi) * sigma)) *
+            #      np.exp(-0.5 * (1 / sigma * (bins - mu)) ** 2))
+            # ax.plot(bins, y, '--')
+
+            ax.set_xlabel('Nr. of neighboring nodes // Degree')
+            ax.set_ylabel('Probability density')
+
+            # noinspection PyTypeChecker
+            ax.set_title(f"Graph '{self.dataset}' node degrees: $mean={round(mu, 2)}$, $var={round(sigma, 2)}$")
+
+            # Tweak spacing to prevent clipping of y label
+            fig.tight_layout()
+            plt.show()
+
+        return probs
 
     def initialize_graph(self):
 
@@ -123,23 +204,6 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
             print(f"\nNo. of train instances = {self._data.train_mask.sum().item()}")
             print(f"No. of val instances = {self._data.val_mask.sum().item()}", )
             print(f"No. of test instances = {self._data.test_mask.sum().item()}")
-
-    # def get_hop_subgraph(self, node_id, hop_size):
-    #     """
-    #     Finds all incoming edges and respective nodes for a given node and given hop size and creates a subgraph from it.
-    #     :param node_id: The center node from which to start finding nodes.
-    #     :param hop_size: Amount of hops.
-    #     """
-    #
-    #     node_idx, edge_index, node_mapping_idx, edge_mask = k_hop_subgraph(node_id.unsqueeze(dim=0), hop_size,
-    #                                                                        self._data.edge_index, relabel_nodes=True,
-    #                                                                        flow="target_to_source")
-    #
-    #     # select the respective features to the subgraph
-    #     # TODO: check more efficient way and make sure the features in the original graph are updated
-    #     node_feats = self._data.x[node_idx]
-    #
-    #     return TorchGeomSubGraph(node_id.item(), node_idx, node_feats, edge_index, node_mapping_idx, edge_mask)
 
     @property
     def labels(self):

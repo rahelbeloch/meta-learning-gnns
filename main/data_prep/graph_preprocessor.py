@@ -306,6 +306,13 @@ class GraphPreprocessor(GraphIO):
 
         adj_matrix, edge_type, edge_list, not_used = self.docs_to_adj(adj_matrix, edge_type)
 
+        # add self connections
+        for n in range(adj_matrix.shape[0]):
+            adj_matrix[n, n] = 1
+            edge_list.append((n, n))
+
+        # get node indices which are bots (nodes with have > X number of neighboring nodes)
+
         hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
         print(f"Not used users and docs = {not_used}")
@@ -323,7 +330,7 @@ class GraphPreprocessor(GraphIO):
         print("\nSaving edge list in :", edge_list_file)
         save_json_file(edge_list, edge_list_file)
 
-        # TODO: because of filtered out users we now here have a grad which still has around 282 nodes that
+        # TODO: because of filtered out users we now here have a graph which still has around 282 nodes that
         # are not test nodes but do not have connections to any users --> filter them out
         # single_self_connection = np.argwhere(adj_matrix.sum(axis=0) > 1)[:, 1]
 
@@ -337,10 +344,9 @@ class GraphPreprocessor(GraphIO):
 
         # SAVING everything
 
-        # No need to save it, is created from edge list in torch geom
-        # adj_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k)
-        # print(f"\nMatrix construction done! Saving in  {adj_file}")
-        # save_npz(adj_file, adj_matrix.tocsr())
+        adj_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k)
+        print(f"\nMatrix construction done! Saving in  {adj_file}")
+        save_npz(adj_file, adj_matrix.tocsr())
 
         edge_type_file = self.data_complete_path(self.get_file_name(EDGE_TYPE_FILE_NAME))
         print(f"\nEdge type construction done! Saving in  {edge_type_file}")
@@ -458,7 +464,7 @@ class GraphPreprocessor(GraphIO):
     @abc.abstractmethod
     def docs_to_adj(self, adj_matrix, edge_type):
         """
-        Creates connections for docs an users in the adj_matrix, adds the edge type for every node.
+        Creates connections for docs and users in the adj_matrix, adds the edge type for every node.
         :param adj_matrix: Adjacency matrix
         :param edge_type: Edge type matrix
         :return: Copy of adj_matrix and edge_type with filled values, a list which describes the edges.

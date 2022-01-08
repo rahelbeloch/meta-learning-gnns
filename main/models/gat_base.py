@@ -1,7 +1,6 @@
 import pytorch_lightning as pl
 import torch
 from torch import nn
-
 # from models.gat_encoder import GATLayer
 # from models.gat_encoder_sparse import GATLayer
 from torch_geometric.data import Batch
@@ -155,16 +154,6 @@ class GatBase(pl.LightningModule):
         assert len(feats) == len(sub_graphs), "Nr of features returned does not equal nr. of classification nodes!"
 
         return feats
-
-    @staticmethod
-    def get_sparse_adj_matrix(graph):
-        adj = torch.zeros((graph.num_nodes, graph.num_nodes), dtype=torch.int)
-        for edge in graph.edge_index.T:
-            adj[edge[0], edge[1]] = 1
-        for i in range(graph.num_nodes):
-            adj[i, i] = 1
-        adj = adj.to_sparse()
-        return adj
 
     def training_step(self, batch, batch_idx):
 

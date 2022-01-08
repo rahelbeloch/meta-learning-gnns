@@ -37,8 +37,8 @@ DOC_2_LABELS_FILE_NAME = 'doc2labels.json'
 # NODE_2_ID_FILE_NAME = 'node2id_top%s_train.json'
 # NODE_TYPE_FILE_NAME = 'node_type_top%s_train.npy'
 
-# ADJACENCY_MATRIX_FILE = 'adj_matrix_top%s_train'
-# ADJACENCY_MATRIX_FILE_NAME = f'{ADJACENCY_MATRIX_FILE}.npz'
+ADJACENCY_MATRIX_FILE = 'adj_matrix_top%s_train'
+ADJACENCY_MATRIX_FILE_NAME = f'{ADJACENCY_MATRIX_FILE}.npz'
 
 # EDGE_INDEX_FILE_NAME = EDGE_TYPE_FILE + '_edge.npy'
 
