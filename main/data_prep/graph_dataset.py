@@ -107,7 +107,12 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         split_mask_file = self.data_complete_path(self.get_file_name(SPLIT_MASK_FILE_NAME))
         if not split_mask_file.exists():
             raise ValueError(f"Split masks file does not exist: {split_mask_file}")
-        self.split_masks = load_json_file(split_mask_file)
+        split_masks = load_json_file(split_mask_file)
+        self.split_masks = {
+            'train_mask': torch.BoolTensor(split_masks['train_mask']),
+            'val_mask': torch.BoolTensor(split_masks['val_mask']),
+            'test_mask': torch.BoolTensor(split_masks['test_mask'])
+        }
 
         if self._verbose:
             self.print_step("Statistics")
@@ -148,6 +153,21 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
             # noinspection PyTypeChecker
             edges = torch.where(new_adj == 1)
             self.edge_index = torch.tensor(list(zip(list(edges[0]), list(edges[1])))).t()
+
+            # TODO: reset the labels
+            self.y_data = self.y_data[new_node_indices]
+            self._labels = self.y_data.unique()
+            # calculate class imbalance for the loss function
+            self.class_ratio = torch.bincount(self.y_data) / self.y_data.shape[0]
+
+            # TODO: reset the features (also recalculate them for the user nodes??)
+            self.x_data = self.x_data[new_node_indices]
+            num_nodes, self.vocab_size = self.x_data.shape
+
+            # reset split masks
+            self.split_masks['test_mask'] = self.split_masks['test_mask'][new_node_indices]
+            self.split_masks['val_mask'] = self.split_masks['val_mask'][new_node_indices]
+            self.split_masks['train_mask'] = self.split_masks['train_mask'][new_node_indices]
 
             if self._verbose:
                 new_node_degrees = torch.sum(new_adj, dim=0).numpy()
@@ -191,9 +211,9 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         new_num_nodes, _ = self._data.x.shape
 
-        self._data.train_mask = torch.BoolTensor(self.split_masks['train_mask'])
-        self._data.val_mask = torch.BoolTensor(self.split_masks['val_mask'])
-        self._data.test_mask = torch.BoolTensor(self.split_masks['val_mask'])
+        self._data.train_mask = self.split_masks['train_mask']
+        self._data.val_mask = self.split_masks['val_mask']
+        self._data.test_mask = self.split_masks['val_mask']
 
         # TODO: for what is this needed?
         # self._data.node2id = torch.tensor(list(self.node2id.values()))

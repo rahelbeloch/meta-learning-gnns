@@ -133,6 +133,8 @@ class GatBase(pl.LightningModule):
             # g.edge_index = g.edge_index.to_sparse()
             g.x = g.x.float().to_sparse()
 
+        print(f"Numbers of nodes: {str([g.num_nodes for g in sub_graphs])}")
+
         # [Data, Data, Data(x, y, ..)]
         batch = Batch.from_data_list(sub_graphs)
 
