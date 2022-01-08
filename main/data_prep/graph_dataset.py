@@ -133,7 +133,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
             if self._verbose:
                 print(f"\nFound outliers ({round(1 - keep_threshold, 2) * 100}% of all nodes have more than "
-                      f"{max_degree} neighbors): {outliers}")
+                      f"{max_degree} and up to {node_degrees.max()} neighbors): {outliers}")
                 print(f'Selecting the nodes that have less than {max_degree} neighbors...')
                 print(f'\nNew no. of nodes in graph: {num_new_nodes}')
 

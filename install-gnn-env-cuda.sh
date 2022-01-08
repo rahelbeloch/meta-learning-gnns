@@ -13,6 +13,7 @@ source activate meta-gnn-env
 
 conda install pandas
 conda install importlib_resources
+conda install matplotlib
 
 pip install torchtext==0.8.0
 
