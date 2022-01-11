@@ -5,8 +5,7 @@ import time
 from collections import OrderedDict
 
 import torch
-from matplotlib import pyplot as plt
-from scipy.sparse import lil_matrix, save_npz, load_npz
+from scipy.sparse import lil_matrix, save_npz
 
 from data_prep.config import *
 from data_prep.data_preprocess_utils import *
@@ -94,51 +93,53 @@ class GraphPreprocessor(GraphIO):
         print(f'Nr. of restricted users : {len(restricted_users)}')
         print(f"Restricted users stored in : {restricted_users_file}")
 
-        bot_percentage = 0.01
-        print(f"\nFiltering top sharing users (bots) : {bot_percentage}")
+        bot_users = []
+        if self.dataset == 'gossipcop':
+            bot_percentage = 0.01
+            print(f"\nFiltering top sharing users (bots) : {bot_percentage}")
 
-        # dict with user_ids and total shared/interacted docs
-        users_shared_sorted = dict(sorted(user_stats.items(), key=lambda it: sum(it[1].values()), reverse=True))
+            # dict with user_ids and total shared/interacted docs
+            users_shared_sorted = dict(sorted(user_stats.items(), key=lambda it: sum(it[1].values()), reverse=True))
 
-        # calculate total number of document shares per user
-        total_user_shares = np.array([sum(values.values()) for _, values in users_shared_sorted.items()])
+            # calculate total number of document shares per user
+            total_user_shares = np.array([sum(values.values()) for _, values in users_shared_sorted.items()])
 
-        # set 1% of the top sharing users as bot users
+            # set 1% of the top sharing users as bot users
 
-        num_bots = round(len(total_user_shares) * bot_percentage)
+            num_bots = round(len(total_user_shares) * bot_percentage)
 
-        # get users which are considered bots
-        bot_users = np.array(list(users_shared_sorted.keys()))[:num_bots]
+            # get users which are considered bots
+            bot_users = np.array(list(users_shared_sorted.keys()))[:num_bots]
 
-        # max_bin = total_user_shares.max()
-        # mu = total_user_shares.mean()
-        # sigma = np.var(total_user_shares)
-        #
-        # fig, ax = plt.subplots()
-        #
-        # # ax.set_ylim([0.0, 0.03])
-        #
-        # probs, bins, patches = ax.hist(total_user_shares, max_bin, density=True)
-        #
-        # # add a 'best fit' line
-        # # y = ((1 / (np.sqrt(2 * np.pi) * sigma)) *
-        # #      np.exp(-0.5 * (1 / sigma * (bins - mu)) ** 2))
-        # # ax.plot(bins, y, '--')
-        #
-        # ax.set_xlabel('Nr. of Articles shared')
-        # ax.set_ylabel('Probability density')
-        #
-        # # noinspection PyTypeChecker
-        # ax.set_title(f"Dataset '{self.dataset}' user shares: $mean={round(mu, 2)}$, $var={round(sigma, 2)}$")
-        #
-        # # Tweak spacing to prevent clipping of y label
-        # fig.tight_layout()
-        # plt.show()
+            # max_bin = total_user_shares.max()
+            # mu = total_user_shares.mean()
+            # sigma = np.var(total_user_shares)
+            #
+            # fig, ax = plt.subplots()
+            #
+            # # ax.set_ylim([0.0, 0.03])
+            #
+            # probs, bins, patches = ax.hist(total_user_shares, max_bin, density=True)
+            #
+            # # add a 'best fit' line
+            # # y = ((1 / (np.sqrt(2 * np.pi) * sigma)) *
+            # #      np.exp(-0.5 * (1 / sigma * (bins - mu)) ** 2))
+            # # ax.plot(bins, y, '--')
+            #
+            # ax.set_xlabel('Nr. of Articles shared')
+            # ax.set_ylabel('Probability density')
+            #
+            # # noinspection PyTypeChecker
+            # ax.set_title(f"Dataset '{self.dataset}' user shares: $mean={round(mu, 2)}$, $var={round(sigma, 2)}$")
+            #
+            # # Tweak spacing to prevent clipping of y label
+            # fig.tight_layout()
+            # plt.show()
 
-        print(f'Nr. of bot users : {len(bot_users)}')
-        bot_users_file = self.data_complete_path(BOT_USERS % bot_percentage)
-        save_json_file(bot_users, bot_users_file, converter=self.np_converter)
-        print(f"Bot users stored in : {bot_users_file}")
+            print(f'Nr. of bot users : {len(bot_users)}')
+            bot_users_file = self.data_complete_path(BOT_USERS % bot_percentage)
+            save_json_file(bot_users, bot_users_file, converter=self.np_converter)
+            print(f"Bot users stored in : {bot_users_file}")
 
         print(f"\nCollecting top K users as valid users : {self.top_k * 1000}")
 

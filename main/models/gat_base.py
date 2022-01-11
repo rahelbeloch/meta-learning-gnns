@@ -104,27 +104,7 @@ class GatBase(pl.LightningModule):
 
     def forward(self, sub_graphs):
 
-        # OPTION 1: Push each single subgraph through the model
-        # outputs = []
-        #
-        # for graph in sub_graphs:
-        #     graph.x = graph.x.float().to_sparse()
-        #
-        #     if graph.num_nodes <= 1:
-        #         # TODO: filter out nodes that don't have any edges
-        #         # print("graph has 1 node or less, skipping it.")
-        #         out = torch.zeros(self.hparams['model_hparams']['hid_dim']).to(device)
-        #     else:
-        #         # Pushkar's sparse version
-        #         edge_index = graph.edge_index
-        #         x = graph.x.to(torch.float32)
-        #         out = self.model(x, edge_index)[graph.center_idx]
-        #
-        #     outputs.append(out)
-        #
-        # return torch.stack(outputs)
-
-        # OPTION 2: make a batch out of all sub graphs and push the batch through the model
+        # make a batch out of all sub graphs and push the batch through the model
 
         # we have a list of sub graphs with different nodes; make one big graph out of it for the forward pass
         for g in sub_graphs:
@@ -133,7 +113,7 @@ class GatBase(pl.LightningModule):
             # g.edge_index = g.edge_index.to_sparse()
             g.x = g.x.float().to_sparse()
 
-        print(f"Numbers of nodes: {str([g.num_nodes for g in sub_graphs])}")
+        # print(f"Numbers of nodes: {str([g.num_nodes for g in sub_graphs])}")
 
         # [Data, Data, Data(x, y, ..)]
         batch = Batch.from_data_list(sub_graphs)
