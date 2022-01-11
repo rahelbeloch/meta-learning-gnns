@@ -5,6 +5,7 @@ import time
 from collections import OrderedDict
 
 import torch
+from matplotlib import pyplot as plt
 from scipy.sparse import lil_matrix, save_npz
 
 from data_prep.config import *
@@ -64,8 +65,10 @@ class GraphPreprocessor(GraphIO):
 
     def filter_users(self, user_stats, used_docs):
         """
-        Counts how many document each user interacted with and identifies users that shared at least X% of
-        the articles of any class. Also picks the top K active users.
+        Counts how many document each user interacted with and filter users:
+            - identify users that shared at least X% of the articles of any class
+            - exclude top 3% sharing users (these are bots that have shared almost everything)
+            - pick from the remaining the top K active users
         """
 
         # based on user stats, exclude some
@@ -79,6 +82,8 @@ class GraphPreprocessor(GraphIO):
             for label in self.labels.values():
                 stat[label] = stat[label] / n_docs
 
+        total_relative = sum(list({k: v['fake'] + v['real'] for k, v in user_stats_avg.items()}.values()))
+
         # filter for 30% in either one of the classes
         restricted_users = []
         for user_id, stat in user_stats_avg.items():
@@ -91,15 +96,58 @@ class GraphPreprocessor(GraphIO):
         print(f'Nr. of restricted users : {len(restricted_users)}')
         print(f"Restricted users stored in : {restricted_users_file}")
 
-        print(f"\nCollecting top K users as valid users : {self.top_k * 1000}")
+        bot_percentage = 0.01
+        print(f"\nFiltering top sharing users (bots) : {bot_percentage}")
 
         # dict with user_ids and total shared/interacted docs
         users_shared_sorted = dict(sorted(user_stats.items(), key=lambda it: sum(it[1].values()), reverse=True))
 
+        # calculate total number of document shares per user
+        total_user_shares = np.array([sum(values.values()) for _, values in users_shared_sorted.items()])
+
+        # set 1% of the top sharing users as bot users
+
+        num_bots = round(len(total_user_shares) * bot_percentage)
+
+        # get users which are considered bots
+        bot_users = np.array(list(users_shared_sorted.keys()))[:num_bots]
+
+        # max_bin = total_user_shares.max()
+        # mu = total_user_shares.mean()
+        # sigma = np.var(total_user_shares)
+        #
+        # fig, ax = plt.subplots()
+        #
+        # # ax.set_ylim([0.0, 0.03])
+        #
+        # probs, bins, patches = ax.hist(total_user_shares, max_bin, density=True)
+        #
+        # # add a 'best fit' line
+        # # y = ((1 / (np.sqrt(2 * np.pi) * sigma)) *
+        # #      np.exp(-0.5 * (1 / sigma * (bins - mu)) ** 2))
+        # # ax.plot(bins, y, '--')
+        #
+        # ax.set_xlabel('Nr. of Articles shared')
+        # ax.set_ylabel('Probability density')
+        #
+        # # noinspection PyTypeChecker
+        # ax.set_title(f"Dataset '{self.dataset}' user shares: $mean={round(mu, 2)}$, $var={round(sigma, 2)}$")
+        #
+        # # Tweak spacing to prevent clipping of y label
+        # fig.tight_layout()
+        # plt.show()
+
+        print(f'Nr. of bot users : {len(bot_users)}')
+        bot_users_file = self.data_complete_path(BOT_USERS % bot_percentage)
+        save_json_file(bot_users, bot_users_file, converter=self.np_converter)
+        print(f"Bot users stored in : {bot_users_file}")
+
+        print(f"\nCollecting top K users as valid users : {self.top_k * 1000}")
+
         # remove users that we have already restricted before
         users_total_shared = OrderedDict()
         for key, value in users_shared_sorted.items():
-            if key not in restricted_users:
+            if key not in restricted_users and key not in bot_users:
                 users_total_shared[key] = value
 
         # select the top k
@@ -340,6 +388,7 @@ class GraphPreprocessor(GraphIO):
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
         print(f"Not found user_ids = {not_found}")
         print(f"Total Non-zero entries = {adj_matrix.getnnz()}")
+        print(f"Total no-connection nodes = {str(torch.where(torch.sum(adj_matrix, dim=0) <= 1).shape)}")
         print(f"Total Non-zero entries edge_type = {edge_type.getnnz()}")
 
         # SAVING everything
