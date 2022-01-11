@@ -397,23 +397,15 @@ class GraphPreprocessor(GraphIO):
         save_npz(adj_file, adj_matrix.tocsr())
 
         # load the file and check for any nodes that have only 1 (self) connection
-        # TODO: check only the train and eval documents
-        adj = torch.from_numpy(load_npz(adj_file).toarray()).long()
-        adj_summed = torch.sum(adj, dim=0)
-        adj_summed_where = torch.where(adj_summed == 1)[0]
-        print(f"Total no-connection nodes = {str(adj_summed_where.shape[0])}")
+        # # TODO: check only the train and val documents
+        # adj = torch.from_numpy(load_npz(adj_file).toarray()).long()
+        # adj_summed = torch.sum(adj, dim=0)
+        # adj_summed_where = torch.where(adj_summed == 1)[0]
+        # print(f"Total no-connection nodes = {str(adj_summed_where.shape[0])}")
 
         edge_type_file = self.data_complete_path(self.get_file_name(EDGE_TYPE_FILE_NAME))
         print(f"\nEdge type construction done! Saving in  {edge_type_file}")
         save_npz(edge_type_file, edge_type.tocsr())
-
-        # Not needed
-        # rows, cols = adj_matrix.nonzero()
-        # edge_index = np.vstack((np.array(rows), np.array(cols)))
-        # print("Edge index shape = ", edge_index.shape)
-        # edge_index_file = self.data_complete_path(self.get_file_name(EDGE_INDEX_FILE_NAME))
-        # print("saving edge_index format in :  ", edge_index_file)
-        # np.save(edge_index_file, edge_index, allow_pickle=True)
 
         edge_type = edge_type[edge_type.nonzero()].toarray().squeeze(0)
         print("edge_type shape = ", edge_type.shape)
