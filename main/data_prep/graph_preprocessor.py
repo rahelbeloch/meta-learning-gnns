@@ -82,8 +82,6 @@ class GraphPreprocessor(GraphIO):
             for label in self.labels.values():
                 stat[label] = stat[label] / n_docs
 
-        total_relative = sum(list({k: v['fake'] + v['real'] for k, v in user_stats_avg.items()}.values()))
-
         # filter for 30% in either one of the classes
         restricted_users = []
         for user_id, stat in user_stats_avg.items():
