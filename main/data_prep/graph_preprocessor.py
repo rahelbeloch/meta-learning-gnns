@@ -6,7 +6,7 @@ from collections import OrderedDict
 
 import torch
 from matplotlib import pyplot as plt
-from scipy.sparse import lil_matrix, save_npz
+from scipy.sparse import lil_matrix, save_npz, load_npz
 
 from data_prep.config import *
 from data_prep.data_preprocess_utils import *
@@ -388,7 +388,6 @@ class GraphPreprocessor(GraphIO):
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
         print(f"Not found user_ids = {not_found}")
         print(f"Total Non-zero entries = {adj_matrix.getnnz()}")
-        print(f"Total no-connection nodes = {str(torch.where(torch.sum(adj_matrix, dim=0) <= 1).shape)}")
         print(f"Total Non-zero entries edge_type = {edge_type.getnnz()}")
 
         # SAVING everything
@@ -396,6 +395,13 @@ class GraphPreprocessor(GraphIO):
         adj_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k)
         print(f"\nMatrix construction done! Saving in  {adj_file}")
         save_npz(adj_file, adj_matrix.tocsr())
+
+        # load the file and check for any nodes that have only 1 (self) connection
+        # TODO: check only the train and eval documents
+        adj = torch.from_numpy(load_npz(adj_file).toarray()).long()
+        adj_summed = torch.sum(adj, dim=0)
+        adj_summed_where = torch.where(adj_summed == 1)[0]
+        print(f"Total no-connection nodes = {str(adj_summed_where.shape[0])}")
 
         edge_type_file = self.data_complete_path(self.get_file_name(EDGE_TYPE_FILE_NAME))
         print(f"\nEdge type construction done! Saving in  {edge_type_file}")

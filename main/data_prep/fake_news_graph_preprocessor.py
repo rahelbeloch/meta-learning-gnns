@@ -17,12 +17,12 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         self.load_doc_splits()
 
-        if self.only_valid_users:
-            self.filter_valid_users()
-        self.create_user_splits(max_users)
-        self.create_doc_id_dicts()
-        self.filter_contexts()
-        self.create_feature_matrix()
+        # if self.only_valid_users:
+        #     self.filter_valid_users()
+        # self.create_user_splits(max_users)
+        # self.create_doc_id_dicts()
+        # self.filter_contexts()
+        # self.create_feature_matrix()
         self.create_adj_matrix()
         self.create_labels()
         self.create_split_masks()
