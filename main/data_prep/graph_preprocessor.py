@@ -93,13 +93,13 @@ class GraphPreprocessor(GraphIO):
         print(f'Nr. of restricted users : {len(restricted_users)}')
         print(f"Restricted users stored in : {restricted_users_file}")
 
+        # dict with user_ids and total shared/interacted docs
+        users_shared_sorted = dict(sorted(user_stats.items(), key=lambda it: sum(it[1].values()), reverse=True))
+
         bot_users = []
         if self.dataset == 'gossipcop':
             bot_percentage = 0.01
             print(f"\nFiltering top sharing users (bots) : {bot_percentage}")
-
-            # dict with user_ids and total shared/interacted docs
-            users_shared_sorted = dict(sorted(user_stats.items(), key=lambda it: sum(it[1].values()), reverse=True))
 
             # calculate total number of document shares per user
             total_user_shares = np.array([sum(values.values()) for _, values in users_shared_sorted.items()])
