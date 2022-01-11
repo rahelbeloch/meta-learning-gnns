@@ -182,6 +182,8 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         fig, ax = plt.subplots()
 
+        ax.set_ylim([0.0, 0.03])
+
         probs, bins, patches = ax.hist(node_degrees, max_bin, density=True, stacked=True)
 
         if self._verbose:

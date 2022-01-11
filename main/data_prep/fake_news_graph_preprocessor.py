@@ -17,8 +17,8 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         self.load_doc_splits()
 
-        # if self.only_valid_users:
-        #     self.filter_valid_users()
+        if self.only_valid_users:
+            self.filter_valid_users()
         self.create_user_splits(max_users)
         self.create_doc_id_dicts()
         self.filter_contexts()
@@ -34,8 +34,10 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
     def filter_valid_users(self):
         """
         From the user engagements folder, loads all document files (containing user IDs who interacted with
-        the respective document), counts how many document each user interacted with and identifies users
-        that shared at least X% of the articles of any class. Also picks the top K active users.
+        the respective document), counts how many document each user interacted with and filter out users:
+            - identify users that shared at least X% of the articles of any class
+            - exclude top 3% sharing users (these are bots that have shared almost everything)
+            - pick from the remaining the top K active users
         """
 
         self.print_step("Applying restrictions on users")

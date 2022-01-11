@@ -16,6 +16,7 @@ USER_SPLITS_FILE_NAME = 'user-splits-%s-%s-train%s-val%s-test%s.json'
 
 VALID_USERS = 'valid_users_top%s.json'
 RESTRICTED_USERS = 'restricted_users_%s.json'
+BOT_USERS = 'bot_users_%s.json'
 
 FEAT_MATRIX_FILE = 'feat_matrix_train_top%s_type=%s_vsize=%s_train=%s_val=%s_test=%s'
 FEAT_MATRIX_FILE_NAME = f'{FEAT_MATRIX_FILE}.npz'
