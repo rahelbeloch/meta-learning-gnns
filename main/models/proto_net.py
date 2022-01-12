@@ -2,10 +2,8 @@ import pytorch_lightning as pl
 import torch
 import torch.nn.functional as func
 from torch import optim
-from torch_geometric.data import Batch
 
-from models.gat_base import get_classify_node_features
-from models.gat_encoder_sparse import GATLayer
+from models.gat_encoder_sparse_pushkar import SparseGATLayer
 from models.train_utils import *
 
 
@@ -20,7 +18,7 @@ class ProtoNet(pl.LightningModule):
         """
         super().__init__()
         self.save_hyperparameters()
-        self.model = GATLayer(c_in=input_dim, c_out=hidden_dim, num_heads=4)
+        self.model = SparseGATLayer(in_features=input_dim, out_features=hidden_dim)
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.lr)

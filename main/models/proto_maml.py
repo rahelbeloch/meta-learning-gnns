@@ -6,17 +6,17 @@ import torch.nn.functional as func
 from torch import optim
 from torch_geometric.data import Batch
 
-from samplers.batch_sampler import split_list
 from models.gat_base import get_classify_node_features
-from models.gat_encoder import GATLayer
+from models.gat_encoder_sparse_pushkar import SparseGATLayer
 from models.proto_net import ProtoNet
 from models.train_utils import f1
+from samplers.batch_sampler import split_list
 
 
 class ProtoMAML(pl.LightningModule):
 
     # noinspection PyUnusedLocal
-    def __init__(self, input_dim, cf_hidden_dim, opt_hparams, n_inner_updates, batch_size):
+    def __init__(self, input_dim, hidden_dim, opt_hparams, n_inner_updates, batch_size):
         """
         Inputs
             lr - Learning rate of the outer loop Adam optimizer
@@ -26,8 +26,7 @@ class ProtoMAML(pl.LightningModule):
         """
         super().__init__()
         self.save_hyperparameters()
-        # self.model = GATEncoder(input_dim, hidden_dim=cf_hidden_dim, num_heads=4)
-        self.model = GATLayer(c_in=input_dim, c_out=cf_hidden_dim, num_heads=4)
+        self.model = SparseGATLayer(in_features=input_dim, out_features=hidden_dim)
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.opt_hparams['lr'])
