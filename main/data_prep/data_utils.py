@@ -52,6 +52,9 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, split_size, 
     if data_train == data_eval:
         print(f'\nData eval and data train are equal, loading graph data only once.')
         graph_data_eval = graph_data_train
+
+        assert split_size[0] > 0.0 and split_size[1] and split_size[2] > 0.0, \
+            "Data for training and evaluation is equal, but one of the split sizes is 0!"
     else:
         # creating a val and test loader from the eval dataset
         test_split_size = (0.0, 0.25, 0.75)

@@ -1,4 +1,4 @@
---model gat --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval gossipcop --feature-type one-hot --k-shot 2
+--model gat --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval gossipcop --feature-type one-hot --k-shot 2 --train-size 0.7 --test-size 0.2 --val-size 0.1
 --model gat --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2
 --model prototypical --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval gossipcop --feature-type one-hot --k-shot 2
 --model prototypical  --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2
