@@ -53,9 +53,11 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
     # if we only want to evaluate, model should be initialized with nr of labels from evaluation data
     evaluation = checkpoint is not None and Path(checkpoint).exists()
 
-    loaders, graph_size, labels, b_size, train_class_ratio = get_data(data_train, data_eval, model_name, h_size, top_k,
-                                                                      k_shot, split_size, feature_type, vocab_size,
-                                                                      dirs, num_workers)
+    loaders, train_graph_size, eval_graph_size, labels, b_size, train_class_ratio = get_data(data_train, data_eval,
+                                                                                             model_name, h_size, top_k,
+                                                                                             k_shot, split_size,
+                                                                                             feature_type, vocab_size,
+                                                                                             dirs, num_workers)
 
     optimizer_hparams = {
         "lr_cl": lr_cl,
@@ -67,7 +69,7 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
     model_params = {
         'model': model_name,
         'hid_dim': hidden_dim,
-        'input_dim': graph_size[1],
+        'input_dim': train_graph_size[1],
         'output_dim': len(labels[0]),
         'proto_dim': proto_dim,
         'class_weight': train_class_ratio
@@ -80,7 +82,6 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
                                  data_eval, k_shot, h_size, feature_type, checkpoint)
 
     if model_name == 'gat':
-        # model = SpyGATLayer(model_params, optimizer_hparams, b_size, checkpoint)
         model = GatBase(model_params, optimizer_hparams, b_size, checkpoint)
     elif model_name == 'prototypical':
         model = ProtoNet(model_params['input_dim'], model_params['hid_dim'], optimizer_hparams['lr'], b_size)
@@ -113,7 +114,7 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
 
     # model was trained on another dataset --> reinitialize
     if model_name == 'gat' and data_eval is not None and data_eval != data_train:
-        model.reset_classifier(len(labels[1]))
+        model.reset_dimensions(len(labels[1]), eval_graph_size[1])
 
     evaluate(trainer, model, test_loader, test_val_loader)
 
@@ -237,7 +238,7 @@ if __name__ == "__main__":
     parser.add_argument('--patience', dest='patience', type=int, default=10)
     parser.add_argument('--hop-size', dest='hop_size', type=int, default=2)
     parser.add_argument('--top-k', dest='top_k', type=int, default=30)
-    parser.add_argument('--k-shot', dest='k_shot', type=int, default=5, help="Number of examples per task/batch.")
+    parser.add_argument('--k-shot', dest='k_shot', type=int, default=2, help="Number of examples per task/batch.")
 
     parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
     parser.add_argument('--lr-cl', dest='lr_cl', type=float, default=0.001,
@@ -252,7 +253,8 @@ if __name__ == "__main__":
 
     # CONFIGURATION
 
-    parser.add_argument('--n-workers', dest='n_workers', type=int, default=None, help="Amount of parallel data loaders.")
+    parser.add_argument('--n-workers', dest='n_workers', type=int, default=None,
+                        help="Amount of parallel data loaders.")
     parser.add_argument('--dataset-train', dest='dataset_train', default='gossipcop', choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use for training. '
                              'If a checkpoint is provided we do not train again.')

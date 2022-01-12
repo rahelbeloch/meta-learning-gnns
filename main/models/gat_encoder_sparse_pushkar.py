@@ -18,11 +18,12 @@ class SparseGATLayer(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.alpha = alpha
         self.concat = concat
+        self.linear = None
 
         # Constant projection
         # TODO: we don't project down on sth, constant projection
         # self.linear = nn.Linear(in_features, out_features, bias=False)
-        self.linear = nn.Linear(in_features, in_features, bias=False)
+        self.initialize_lin_layer(in_features)
 
         # TODO: still initialize even if constant?
         # gain = nn.init.calculate_gain('leaky_relu')
@@ -39,6 +40,9 @@ class SparseGATLayer(nn.Module):
         self.f_2 = nn.Conv1d(out_features, 1, kernel_size=1, stride=1)
 
         self.leaky_relu = nn.LeakyReLU(self.alpha)
+
+    def initialize_lin_layer(self, in_features):
+        self.linear = nn.Linear(in_features, in_features, bias=False)
 
     def forward(self, x, edges):
         assert x.is_sparse

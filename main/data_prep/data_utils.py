@@ -54,7 +54,7 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, split_size, 
         graph_data_eval = graph_data_train
 
         assert split_size[0] > 0.0 and split_size[1] and split_size[2] > 0.0, \
-            "Data for training and evaluation is equal, but one of the split sizes is 0!"
+            "Data for training and evaluation is equal and one of the split sizes is 0!"
     else:
         # creating a val and test loader from the eval dataset
         test_split_size = (0.0, 0.25, 0.75)
@@ -70,14 +70,10 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, split_size, 
     loaders = (train_loader, train_val_loader, test_loader, test_val_loader)
     labels = (train_labels, eval_labels)
 
-    return loaders, graph_train_size, labels, train_b_size, graph_train_class_ratio
+    return loaders, graph_train_size, eval_graph_size, labels, train_b_size, graph_train_class_ratio
 
 
 def get_loader(graph_data, model, hop_size, k_shot, num_workers, mode):
-    # Not needed anymore because handled by Saint Graph Sampler
-    # graphs = DGLSubGraphs(graph_data, f'{mode}_mask', h_size=hop_size, meta=model != 'gat')
-    # graphs = TorchGeomSubGraphs(graph_data, f'{mode}_mask', h_size=hop_size, meta=model != 'gat')
-
     n_classes = len(graph_data.labels)
 
     if model in ['gat', 'prototypical']:

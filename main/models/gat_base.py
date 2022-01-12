@@ -40,8 +40,12 @@ class GatBase(pl.LightningModule):
 
         self.loss_module = nn.CrossEntropyLoss(weight=model_hparams["class_weight"])
 
-    def reset_classifier(self, num_classes):
+    def reset_dimensions(self, num_classes, num_features):
+        # adapting the classifier dimensions
         self.classifier = self.get_classifier(num_classes)
+
+        # setting dimensions of constant projection
+        self.model.initialize_lin_layer(num_features)
 
     def get_classifier(self, num_classes):
         cf_hidden_dim = self.hparams['model_hparams']['hid_dim']
