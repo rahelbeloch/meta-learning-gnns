@@ -199,6 +199,9 @@ def get_classify_node_features(graphs, features):
 def get_subgraph_batch(graphs):
     batch = Batch.from_data_list(graphs)
 
+    num_nodes = [g.num_nodes for g in graphs]
+    print(f"\n Nums nodes: {str(num_nodes)}")
+
     x = batch.x.float()
     if not x.is_sparse:
         x = x.to_sparse()
