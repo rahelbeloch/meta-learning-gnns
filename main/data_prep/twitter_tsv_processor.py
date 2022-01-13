@@ -214,8 +214,8 @@ if __name__ == '__main__':
 
     preprocessor.filter_documents(min_len=6)
 
-    data = preprocessor.preprocess_documents(num_train_nodes=num_train_nodes)
+    data = preprocessor.preprocess_documents()
 
     preprocessor.create_document_splits(data, args['train_size'], args['test_size'], args['val_size'])
 
-    preprocessor.create_user_splits(max_users)
+    preprocessor.create_user_splits()
