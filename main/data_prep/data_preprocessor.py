@@ -1,26 +1,40 @@
+import copy
 import csv
 import json
 import random
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
-import nltk
 import numpy as np
 import pandas as pd
 
 from data_prep.config import *
-from data_prep.data_preprocess_utils import save_json_file, sanitize_text, print_label_distribution, split_data
+from data_prep.data_preprocess_utils import save_json_file, print_label_distribution, split_data, load_json_file
 from data_prep.graph_io import GraphIO, NIV_IDX
 
 
 class DataPreprocessor(GraphIO):
 
-    def __init__(self, dataset, feature_type, max_vocab, data_dir, tsv_dir, complete_dir):
-        super().__init__(dataset, feature_type, max_vocab, data_dir=data_dir, tsv_dir=tsv_dir,
-                         complete_dir=complete_dir)
+    def __init__(self, config, data_dir, tsv_dir, complete_dir):
+        super().__init__(config, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir)
+
+        self.user_doc_threshold = config['user_doc_threshold']
+        self.top_k = config['top_k']
+
+        self.valid_users = None
+
+    def maybe_load_valid_users(self):
+        if self.valid_users is None:
+            self.valid_users = self.load_if_exists(self.data_complete_path(VALID_USERS % self.top_k))
 
     def maybe_load_non_interaction_docs(self):
         if self.non_interaction_docs is None:
             self.non_interaction_docs = self.load_if_exists(self.data_tsv_path('nonInteractionDocs.json'))
+
+    def is_restricted(self, statistics):
+        for label, percentage in statistics.items():
+            if percentage >= self.user_doc_threshold:
+                return True
+        return False
 
     def aggregate_user_contexts(self):
         """
@@ -72,7 +86,7 @@ class DataPreprocessor(GraphIO):
         print(f"\nTotal tweets/re-tweets in the data set = {count}")
 
         # filter out documents which do not have any interaction with any user
-        self.non_interaction_docs = list(set(dict(filter(lambda f: f[1] > 0, dict(
+        self.non_interaction_docs = list(set(dict(filter(lambda f: f[1] <= 0, dict(
             zip(docs_users, map(lambda x: len(x[1]), docs_users.items()))).items())).keys()))
 
         non_interaction_docs_file = self.data_tsv_path('nonInteractionDocs.json')
@@ -80,11 +94,105 @@ class DataPreprocessor(GraphIO):
         print(f"Saving in the dir: {non_interaction_docs_file}")
         save_json_file(self.non_interaction_docs, non_interaction_docs_file)
 
-        docs_users = {k: v for k, v in docs_users.items() if k in self.non_interaction_docs}
+        docs_users = {k: v for k, v in docs_users.items() if k not in self.non_interaction_docs}
 
         self.save_user_doc_engagements(docs_users)
 
+    def filter_users(self, user_stats, n_docs):
+        """
+        Counts how many document each user interacted with and filter users:
+            - identify users that shared at least X% of the articles of any class
+            - exclude top 3% sharing users (these are bots that have shared almost everything)
+            - pick from the remaining the top K active users
+        """
+
+        user_stats_avg = copy.deepcopy(user_stats)
+        for user, stat in user_stats_avg.items():
+            for label in self.labels.values():
+                stat[label] = stat[label] / n_docs
+
+        # filter for 30% in either one of the classes
+        restricted_users = []
+        for user_id, stat in user_stats_avg.items():
+            if self.is_restricted(stat):
+                restricted_users.append(user_id)
+
+        restricted_users_file = self.data_complete_path(RESTRICTED_USERS % self.user_doc_threshold)
+        save_json_file(restricted_users, restricted_users_file)
+
+        print(f'Nr. of restricted users : {len(restricted_users)}')
+        print(f"Restricted users stored in : {restricted_users_file}")
+
+        # dict with user_ids and total shared/interacted docs
+        users_shared_sorted = dict(sorted(user_stats.items(), key=lambda it: sum(it[1].values()), reverse=True))
+
+        bot_users = []
+        if self.dataset == 'gossipcop':
+            bot_percentage = 0.01
+            print(f"\nFiltering top sharing users (bots) : {bot_percentage}")
+
+            # calculate total number of document shares per user
+            total_user_shares = np.array([sum(values.values()) for _, values in users_shared_sorted.items()])
+
+            # set 1% of the top sharing users as bot users
+
+            num_bots = round(len(total_user_shares) * bot_percentage)
+
+            # get users which are considered bots
+            bot_users = np.array(list(users_shared_sorted.keys()))[:num_bots]
+
+            # max_bin = total_user_shares.max()
+            # mu = total_user_shares.mean()
+            # sigma = np.var(total_user_shares)
+            #
+            # fig, ax = plt.subplots()
+            #
+            # # ax.set_ylim([0.0, 0.03])
+            #
+            # probs, bins, patches = ax.hist(total_user_shares, max_bin, density=True)
+            #
+            # # add a 'best fit' line
+            # # y = ((1 / (np.sqrt(2 * np.pi) * sigma)) *
+            # #      np.exp(-0.5 * (1 / sigma * (bins - mu)) ** 2))
+            # # ax.plot(bins, y, '--')
+            #
+            # ax.set_xlabel('Nr. of Articles shared')
+            # ax.set_ylabel('Probability density')
+            #
+            # # noinspection PyTypeChecker
+            # ax.set_title(f"Dataset '{self.dataset}' user shares: $mean={round(mu, 2)}$, $var={round(sigma, 2)}$")
+            #
+            # # Tweak spacing to prevent clipping of y label
+            # fig.tight_layout()
+            # plt.show()
+
+            print(f'Nr. of bot users : {len(bot_users)}')
+            bot_users_file = self.data_complete_path(BOT_USERS % bot_percentage)
+            save_json_file(bot_users, bot_users_file, converter=self.np_converter)
+            print(f"Bot users stored in : {bot_users_file}")
+
+        print(f"\nCollecting top K users as valid users : {self.top_k * 1000}")
+
+        # remove users that we have already restricted before
+        users_total_shared = OrderedDict()
+        for key, value in users_shared_sorted.items():
+            if key not in restricted_users and key not in bot_users:
+                users_total_shared[key] = value
+
+        # select the top k
+        valid_users = list(users_total_shared.keys())[:self.top_k * 1000]
+
+        valid_users_file = self.data_complete_path(VALID_USERS % self.top_k)
+        save_json_file(valid_users, valid_users_file)
+        print(f"Valid/top k users stored in : {valid_users_file}\n")
+
+        self.valid_users = set(valid_users)
+
     def save_user_doc_engagements(self, docs_users):
+        """
+        For all documents that were shared by any user save a file which contains IDs of the users who shared it.
+        :param docs_users: Dictionary where keys are document names and values are lists of user IDs.
+        """
 
         dest_dir = self.data_tsv_path('engagements')
         if not dest_dir.exists():
@@ -100,29 +208,24 @@ class DataPreprocessor(GraphIO):
 
         print("\nDONE..!!")
 
-    def preprocess(self, num_train_nodes, min_len):
+    def preprocess(self, num_train_nodes):
         """
         Applies some preprocessing to the data, e.g. replacing special characters, filters non-required articles out.
-        :param min_len: Minimum required length for articles.
+
+
         :param num_train_nodes: Maximum amount of documents to use.
         :return: Numpy arrays for article tests (x_data), article labels (y_data), and article names (doc_names).
         """
 
-        invalid_min_length = []
-        data_dict = {}
-
         data_file = self.data_tsv_path(CONTENT_INFO_FILE_NAME)
+        data_dict = {}
 
         with open(data_file, encoding='utf-8') as data:
             reader = csv.DictReader(data, delimiter='\t')
             for row in reader:
-                text = sanitize_text(row['text'])
-                doc_key = str(row['id'])
-                tokens = set(nltk.word_tokenize(text))
-                if len(tokens) >= min_len:
-                    data_dict[doc_key] = (tokens, int(row['label']))
-                else:
-                    invalid_min_length.append(doc_key)
+                doc_key = row['key']
+                tokens = row['tokens'].split('_')
+                data_dict[doc_key] = (tokens, int(row['label']))
 
         # Get the vocab we would have from these texts
         vocabulary, _ = self.get_vocab_token2idx({key: value[0] for (key, value) in data_dict.items()})
@@ -156,7 +259,6 @@ class DataPreprocessor(GraphIO):
         print(f"Shortest Length = {min(x_lengths)}")
         print(f"Longest Length = {max(x_lengths)}")
 
-        print(f"\nTotal data points invalid and removed (length < {min_len}) = {len(set(invalid_min_length))}")
         print(f"Total data points invalid and removed (only NIV tokens) = {len(set(invalid_only_niv.keys()))}")
 
         if len(invalid_only_niv) > 0:
@@ -184,23 +286,15 @@ class DataPreprocessor(GraphIO):
 
         return x_data[sampled_indices], y_data[sampled_indices], doc_names[sampled_indices]
 
-    def create_data_splits(self, train_size, test_size, val_size, num_train_nodes=None, min_length=None, splits=1,
-                           duplicate_stats=False):
+    def preprocess_documents(self, num_train_nodes=None, duplicate_stats=False):
         """
-        Creates train, val and test splits via random splitting of the dataset in a stratified fashion to ensure
-        similar data distribution. Currently, only supports splitting data in 1 split for each set.
-
         :param num_train_nodes: Maximum amount of train documents to use.
-        :param min_length: Minimum length of the documents to use.
-        :param test_size: Size of the test split compared to the whole data.
-        :param val_size: Size of the val split compared to the whole data.
-        :param splits: Number of splits.
         :param duplicate_stats: If the statistics about duplicate texts should be collected or not.
         """
 
-        self.print_step("Creating Data Splits")
+        self.print_step("Filtering out invalid documents")
 
-        data = self.preprocess(num_train_nodes, min_length)
+        data = self.preprocess(num_train_nodes)
 
         if duplicate_stats:
             # counting duplicates in test set
@@ -217,6 +311,20 @@ class DataPreprocessor(GraphIO):
 
             duplicates_file = self.data_tsv_path('duplicates_info.json')
             save_json_file(duplicates, duplicates_file, converter=self.np_converter)
+
+        return data
+
+    def create_document_splits(self, data, train_size, test_size, val_size, splits=1):
+        """
+        Creates train, val and test splits via random splitting of the dataset in a stratified fashion to ensure
+        similar data distribution. Currently, only supports splitting data in 1 split for each set.
+
+        :param test_size: Size of the test split compared to the whole data.
+        :param val_size: Size of the val split compared to the whole data.
+        :param splits: Number of splits.
+        """
+
+        self.print_step("Creating Data Splits")
 
         # Creating train-val-test split with same/similar label distribution in each split
         split_dict = {}
@@ -274,7 +382,62 @@ class DataPreprocessor(GraphIO):
         print("\nWriting doc splits in : ", doc_splits_file)
         save_json_file(doc_names_split_dict, doc_splits_file, converter=self.np_converter)
 
-    def store_doc2labels(self, doc2labels):
+    def create_user_splits(self, max_users):
+        """
+        Walks through all valid users and divides them on train/val/test splits.
+        """
+
+        self.print_step("Creating user splits")
+
+        self.maybe_load_valid_users()
+        self.load_doc_splits()
+
+        doc2labels = load_json_file(self.data_complete_path(DOC_2_LABELS_FILE_NAME))
+
+        print("\nCollecting users for splits file..")
+
+        train_users, val_users, test_users = set(), set(), set()
+
+        # walk through user-doc engagement files created before
+        files = list(self.get_engagement_files())
+        print_iter = int(len(files) / 20)
+
+        for count, file_path in enumerate(files):
+            if max_users is not None and (len(train_users) + len(test_users) + len(val_users)) >= max_users:
+                break
+
+            doc_key = file_path.stem
+            if doc_key not in doc2labels:
+                continue
+
+            if count % print_iter == 0:
+                print("{} / {} done..".format(count + 1, len(files)))
+
+            if doc_key in self.train_docs:
+                user_set = train_users
+            if doc_key in self.val_docs:
+                user_set = val_users
+            if doc_key in self.test_docs:
+                user_set = test_users
+
+            users = load_json_file(file_path)['users']
+            users_filtered = [u for u in users if self.valid_user(u)]
+            # noinspection PyUnboundLocalVariable
+            user_set.update(users_filtered)
+
+        all_users = set.union(*[train_users, val_users, test_users])
+        print(f'All users: {len(all_users)}')
+        assert len(all_users) <= self.top_k * 1000, \
+            f"Total nr of users for all splits is greater than top K {self.top_k}!"
+
+        file_name = USER_SPLITS_FILE_NAME % \
+                    (self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
+        user_splits_file = self.data_complete_path(file_name)
+        print("User splits stored in : ", user_splits_file)
+        temp_dict = {'train_users': list(train_users), 'val_users': list(val_users), 'test_users': list(test_users)}
+        save_json_file(temp_dict, user_splits_file)
+
+    def store_doc2label(self, doc2labels):
         """
         Stores the doc2label dictionary as JSON file in the respective directory.
 
@@ -295,12 +458,13 @@ class DataPreprocessor(GraphIO):
 
         :param contents: List of entries (doc name/id, title, text and label) for every article.
         """
+
         print("\nCreating the data corpus file for: ", self.dataset)
 
         content_dest_file = self.data_tsv_path(CONTENT_INFO_FILE_NAME)
         with open(content_dest_file, 'w+', encoding='utf-8', newline='') as csv_file:
             csv_writer = csv.writer(csv_file, delimiter='\t')
-            csv_writer.writerow(['id', 'text', 'label'])
+            csv_writer.writerow(['key', 'tokens', 'label'])
             for file_content in contents:
                 csv_writer.writerow(file_content)
 

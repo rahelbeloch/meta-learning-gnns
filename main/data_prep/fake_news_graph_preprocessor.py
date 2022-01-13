@@ -1,7 +1,6 @@
 import argparse
 import copy
 from collections import defaultdict
-from json import JSONDecodeError
 
 from data_prep.config import *
 from data_prep.data_preprocess_utils import load_json_file
@@ -17,12 +16,9 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         self.load_doc_splits()
 
-        # if self.only_valid_users:
-        #     self.filter_valid_users()
-        # self.create_user_splits(max_users)
-        # self.create_doc_id_dicts()
-        # self.filter_contexts()
-        # self.create_feature_matrix()
+        self.create_doc_id_dicts()
+        self.create_follower_following_relationships()
+        self.create_feature_matrix()
         self.create_adj_matrix()
         self.create_labels()
         self.create_split_masks()
@@ -30,99 +26,6 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
     @property
     def labels(self):
         return LABELS
-
-    def filter_valid_users(self):
-        """
-        From the user engagements folder, loads all document files (containing user IDs who interacted with
-        the respective document), counts how many document each user interacted with and filter out users:
-            - identify users that shared at least X% of the articles of any class
-            - exclude top 3% sharing users (these are bots that have shared almost everything)
-            - pick from the remaining the top K active users
-        """
-
-        self.print_step("Applying restrictions on users")
-
-        print(f"Filtering users who in any class shared articles more than : {self.user_doc_threshold * 100}%")
-
-        doc2labels = load_json_file(self.data_complete_path(DOC_2_LABELS_FILE_NAME))
-        user_stats = defaultdict(lambda: {'fake': 0, 'real': 0})
-
-        used_docs = 0
-        for file_path in self.get_engagement_files():
-
-            # only restrict users interacting with this document ID if we actually use this doc in our splits
-            doc_key = file_path.stem
-            if not self.doc_used(doc_key):
-                continue
-
-            try:
-                users = load_json_file(file_path)['users']
-            except UnicodeDecodeError:
-                # TODO: fix this error / keep track of files for which this happens
-                print(f"Exception for doc {doc_key}")
-                continue
-            except JSONDecodeError:
-                # TODO: fix this error / keep track of files for which this happens
-                print(f"Exception for doc {doc_key}")
-                continue
-
-            used_docs += 1
-
-            for u in users:
-                user_stats[u][self.labels[doc2labels[doc_key]]] += 1
-
-        super().filter_users(user_stats, used_docs)
-
-    def get_engagement_files(self):
-        return self.data_tsv_path('engagements').glob('*')
-
-    def create_user_splits(self, max_users):
-        """
-        Walks through all users that interacted with documents and, divides them on train/val/test splits.
-        """
-
-        self.print_step("Creating user splits")
-
-        self.maybe_load_valid_users()
-
-        print("\nCollecting users for splits file..")
-
-        train_users, val_users, test_users = set(), set(), set()
-
-        # walk through user-doc engagement files created before
-        files = list(self.get_engagement_files())
-        print_iter = int(len(files) / 20)
-
-        for count, file_path in enumerate(files):
-            if max_users is not None and (len(train_users) + len(test_users) + len(val_users)) >= max_users:
-                break
-
-            doc_key = file_path.stem
-            if not self.doc_used(doc_key):
-                continue
-
-            try:
-                users = load_json_file(file_path)['users']
-            except UnicodeDecodeError:
-                # TODO: fix this error / keep track of files for which this happens
-                print("Exception")
-                continue
-
-            if count % print_iter == 0:
-                print("{} / {} done..".format(count + 1, len(files)))
-
-            if doc_key in self.train_docs:
-                user_set = train_users
-            if doc_key in self.val_docs:
-                user_set = val_users
-            if doc_key in self.test_docs:
-                user_set = test_users
-
-            users_filtered = [u for u in users if self.valid_user(u)]
-            # noinspection PyUnboundLocalVariable
-            user_set.update(users_filtered)
-
-        super().store_user_splits(train_users, test_users, val_users)
 
     def docs_to_adj(self, adj_matrix, edge_type):
 
@@ -195,7 +98,7 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
     def get_feature_id_mapping(self, feature_ids):
         feature_id_mapping = defaultdict(list, {k: [] for k in self.user2id.values()})
-        for count, file_path in enumerate(self.data_tsv_path('engagements').rglob('*.json')):
+        for count, file_path in enumerate(self.get_engagement_files()):
             doc_users = load_json_file(file_path)
             doc_key = file_path.stem
 
@@ -237,10 +140,6 @@ if __name__ == '__main__':
                         help='The name of the dataset we want to process.')
 
     parser.add_argument('--top_k', type=int, default=30, help='Number (in K) of top users.')
-
-    parser.add_argument('--user_doc_threshold', type=float, default=0.3, help='Threshold defining how many articles '
-                                                                              'of any class users may max have shared '
-                                                                              'to be included in the graph.')
 
     parser.add_argument('--valid_users', type=bool, default=True, help='Flag if only top K and users not sharing '
                                                                        'more than X% of any class should be used.')

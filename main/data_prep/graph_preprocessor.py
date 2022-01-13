@@ -1,8 +1,6 @@
 import abc
-import copy
 import csv
 import time
-from collections import OrderedDict
 
 import torch
 from scipy.sparse import lil_matrix, save_npz
@@ -18,32 +16,15 @@ USER_CONTEXTS_FILTERED = ['user_followers_filtered', 'user_following_filtered']
 class GraphPreprocessor(GraphIO):
 
     def __init__(self, config):
-        super().__init__(config['data_set'], config['feature_type'], config['max_vocab'], config['data_dir'],
-                         config['data_tsv_dir'], config['data_complete_dir'])
+        super().__init__(config, config['data_dir'], config['data_tsv_dir'], config['data_complete_dir'])
 
-        self.only_valid_users = config['valid_users']
         self.top_k = config['top_k']
-        self.user_doc_threshold = config['user_doc_threshold']
-
-        self.train_size = config['train_size']
-        self.val_size = config['val_size']
-        self.test_size = config['test_size']
 
         # temporary attributes for data which has been loaded and will be reused
         self.doc2id, self.user2id = None, None
-        self.train_docs, self.test_docs, self.val_docs, self.n_nodes = None, None, None, None
-        self.valid_users = None
 
     def doc_used(self, doc_key):
         return doc_key in self.train_docs or doc_key in self.val_docs or doc_key in self.test_docs
-
-    def load_doc_splits(self):
-        file_name = DOC_SPLITS_FILE_NAME % (
-            self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
-        doc_splits = load_json_file(self.data_tsv_path(file_name))
-        self.train_docs = doc_splits['train_docs'] if 'train_docs' in doc_splits else []
-        self.val_docs = doc_splits['val_docs'] if 'val_docs' in doc_splits else []
-        self.test_docs = doc_splits['test_docs'] if 'test_docs' in doc_splits else []
 
     def maybe_load_valid_users(self):
         if self.valid_users is None:
@@ -55,125 +36,6 @@ class GraphPreprocessor(GraphIO):
         if self.doc2id is None:
             self.doc2id = self.load_if_exists(self.data_complete_path(self.get_file_name(DOC_2_ID_FILE_NAME)))
         self.n_nodes = len(self.user2id) + len(self.doc2id)
-
-    def is_restricted(self, statistics):
-        for label, percentage in statistics.items():
-            if percentage >= self.user_doc_threshold:
-                return True
-        return False
-
-    def filter_users(self, user_stats, used_docs):
-        """
-        Counts how many document each user interacted with and filter users:
-            - identify users that shared at least X% of the articles of any class
-            - exclude top 3% sharing users (these are bots that have shared almost everything)
-            - pick from the remaining the top K active users
-        """
-
-        # based on user stats, exclude some
-        n_docs = len(self.train_docs) + len(self.test_docs) + len(self.val_docs)
-
-        assert n_docs == used_docs, "Total nr of documents used does not equal the number of docs for which " \
-                                    "we restrict users!"
-
-        user_stats_avg = copy.deepcopy(user_stats)
-        for user, stat in user_stats_avg.items():
-            for label in self.labels.values():
-                stat[label] = stat[label] / n_docs
-
-        # filter for 30% in either one of the classes
-        restricted_users = []
-        for user_id, stat in user_stats_avg.items():
-            if self.is_restricted(stat):
-                restricted_users.append(user_id)
-
-        restricted_users_file = self.data_complete_path(RESTRICTED_USERS % self.user_doc_threshold)
-        save_json_file(restricted_users, restricted_users_file)
-
-        print(f'Nr. of restricted users : {len(restricted_users)}')
-        print(f"Restricted users stored in : {restricted_users_file}")
-
-        # dict with user_ids and total shared/interacted docs
-        users_shared_sorted = dict(sorted(user_stats.items(), key=lambda it: sum(it[1].values()), reverse=True))
-
-        bot_users = []
-        if self.dataset == 'gossipcop':
-            bot_percentage = 0.01
-            print(f"\nFiltering top sharing users (bots) : {bot_percentage}")
-
-            # calculate total number of document shares per user
-            total_user_shares = np.array([sum(values.values()) for _, values in users_shared_sorted.items()])
-
-            # set 1% of the top sharing users as bot users
-
-            num_bots = round(len(total_user_shares) * bot_percentage)
-
-            # get users which are considered bots
-            bot_users = np.array(list(users_shared_sorted.keys()))[:num_bots]
-
-            # max_bin = total_user_shares.max()
-            # mu = total_user_shares.mean()
-            # sigma = np.var(total_user_shares)
-            #
-            # fig, ax = plt.subplots()
-            #
-            # # ax.set_ylim([0.0, 0.03])
-            #
-            # probs, bins, patches = ax.hist(total_user_shares, max_bin, density=True)
-            #
-            # # add a 'best fit' line
-            # # y = ((1 / (np.sqrt(2 * np.pi) * sigma)) *
-            # #      np.exp(-0.5 * (1 / sigma * (bins - mu)) ** 2))
-            # # ax.plot(bins, y, '--')
-            #
-            # ax.set_xlabel('Nr. of Articles shared')
-            # ax.set_ylabel('Probability density')
-            #
-            # # noinspection PyTypeChecker
-            # ax.set_title(f"Dataset '{self.dataset}' user shares: $mean={round(mu, 2)}$, $var={round(sigma, 2)}$")
-            #
-            # # Tweak spacing to prevent clipping of y label
-            # fig.tight_layout()
-            # plt.show()
-
-            print(f'Nr. of bot users : {len(bot_users)}')
-            bot_users_file = self.data_complete_path(BOT_USERS % bot_percentage)
-            save_json_file(bot_users, bot_users_file, converter=self.np_converter)
-            print(f"Bot users stored in : {bot_users_file}")
-
-        print(f"\nCollecting top K users as valid users : {self.top_k * 1000}")
-
-        # remove users that we have already restricted before
-        users_total_shared = OrderedDict()
-        for key, value in users_shared_sorted.items():
-            if key not in restricted_users and key not in bot_users:
-                users_total_shared[key] = value
-
-        # select the top k
-        valid_users = list(users_total_shared.keys())[:self.top_k * 1000]
-
-        valid_users_file = self.data_complete_path(VALID_USERS % self.top_k)
-        save_json_file(valid_users, valid_users_file)
-        print(f"Valid/top k users stored in : {valid_users_file}\n")
-
-        self.valid_users = valid_users
-
-    def store_user_splits(self, train_users, test_users, val_users):
-        if self.only_valid_users:
-            all_users = set.union(*[train_users, val_users, test_users])
-            print(f'All users: {len(all_users)}')
-            assert len(all_users) <= self.top_k * 1000, \
-                f"Total nr of users for all splits is greater than top K {self.top_k}!"
-
-        file_name = USER_SPLITS_FILE_NAME % \
-                    (self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
-        user_splits_file = self.data_complete_path(file_name)
-        print("User splits stored in : ", user_splits_file)
-        temp_dict = {'train_users': list(train_users), 'val_users': list(val_users), 'test_users': list(test_users)}
-        save_json_file(temp_dict, user_splits_file)
-
-    def valid_user(self, user):
-        return not self.only_valid_users or user in self.valid_users
 
     def create_doc_id_dicts(self):
         """
@@ -273,7 +135,7 @@ class GraphPreprocessor(GraphIO):
 
         return doc2id, node_type
 
-    def filter_contexts(self):
+    def create_follower_following_relationships(self):
         self.print_step("Creating filtered follower-following")
 
         all_users = load_json_file(self.data_complete_path(self.get_file_name(USER_2_ID_FILE_NAME)))

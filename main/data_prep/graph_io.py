@@ -19,24 +19,42 @@ NIV_IDX = (-1, 'NIV')
 
 class GraphIO:
 
-    def __init__(self, dataset, feature_type, max_vocab, data_dir, tsv_dir=TSV_DIR, complete_dir=COMPLETE_DIR):
-        self.dataset = dataset
+    def __init__(self, config, data_dir, tsv_dir=TSV_DIR, complete_dir=COMPLETE_DIR):
+        self.dataset = config['data_set']
 
         data_path = files(data_dir)
         raw_path = data_path / RAW_DIR
-        if not (raw_path / dataset).exists():
-            raise ValueError(f"Wanting to preprocess data for dataset '{dataset}', but raw data in path"
-                             f" with raw data '{raw_path / dataset}' does not exist!")
+        if not (raw_path / self.dataset).exists():
+            raise ValueError(f"Wanting to preprocess data for dataset '{self.dataset}', but raw data in path"
+                             f" with raw data '{raw_path / self.dataset}' does not exist!")
 
         self.data_raw_dir = raw_path
         self.data_tsv_dir = self.create_dir(data_path / tsv_dir / self.dataset).parent
         self.data_complete_dir = self.create_dir(data_path / complete_dir / self.dataset).parent
 
-        self.non_interaction_docs, self.max_vocab = None, max_vocab
+        self.non_interaction_docs, self.max_vocab = None, config['max_vocab']
+        self.only_valid_users, self.valid_users = config['valid_users'], None
 
-        if feature_type not in FEATURE_TYPES:
-            raise ValueError(f"Trying to create features of type {feature_type} which is not supported!")
-        self.feature_type = feature_type
+        self.train_size = config['train_size']
+        self.val_size = config['val_size']
+        self.test_size = config['test_size']
+
+        self.train_docs, self.test_docs, self.val_docs, self.n_nodes = None, None, None, None
+
+        self.feature_type = config['feature_type']
+        if self.feature_type not in FEATURE_TYPES:
+            raise ValueError(f"Trying to create features of type {self.feature_type} which is not supported!")
+
+    def valid_user(self, user):
+        return not self.only_valid_users or user in self.valid_users
+
+    def load_doc_splits(self):
+        file_name = DOC_SPLITS_FILE_NAME % (
+            self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
+        doc_splits = load_json_file(self.data_tsv_path(file_name))
+        self.train_docs = doc_splits['train_docs'] if 'train_docs' in doc_splits else []
+        self.val_docs = doc_splits['val_docs'] if 'val_docs' in doc_splits else []
+        self.test_docs = doc_splits['test_docs'] if 'test_docs' in doc_splits else []
 
     def print_step(self, step_title):
         print(f'\n{"-" * 100}\n \t\t\t {step_title} for {self.dataset} dataset.\n{"-" * 100}')
@@ -126,6 +144,9 @@ class GraphIO:
             vocab[token] = i + 1
 
         return vocab
+
+    def get_engagement_files(self):
+        return self.data_tsv_path('engagements').glob('*')
 
     @property
     @abc.abstractmethod
