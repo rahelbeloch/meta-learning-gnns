@@ -18,21 +18,16 @@ class SparseGATLayer(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.alpha = alpha
         self.concat = concat
-        self.linear = None
+        self.linear, self.seq_transformation = None, None
 
         # Constant projection
         # TODO: we don't project down on sth, constant projection
         # self.linear = nn.Linear(in_features, out_features, bias=False)
-        self.initialize_lin_layer(in_features)
+        self.initialize_first_layers(in_features)
 
         # TODO: still initialize even if constant?
         # gain = nn.init.calculate_gain('leaky_relu')
         # nn.init.xavier_uniform_(self.linear.weight.data, gain=gain)
-
-        # grad of the linear layer false --> will not be learned but instead constant projection
-        self.linear.requires_grad_(False)
-
-        self.seq_transformation = nn.Conv1d(in_features, out_features, kernel_size=1, stride=1, bias=False)
 
         self.bias = nn.Parameter(torch.zeros(out_features), requires_grad=True)
 
@@ -41,8 +36,13 @@ class SparseGATLayer(nn.Module):
 
         self.leaky_relu = nn.LeakyReLU(self.alpha)
 
-    def initialize_lin_layer(self, in_features):
+    def initialize_first_layers(self, in_features):
         self.linear = nn.Linear(in_features, in_features, bias=False)
+
+        # grad of the linear layer false --> will not be learned but instead constant projection
+        self.linear.requires_grad_(False)
+
+        self.seq_transformation = nn.Conv1d(in_features, self.out_features, kernel_size=1, stride=1, bias=False)
 
     def forward(self, x, edges):
         assert x.is_sparse

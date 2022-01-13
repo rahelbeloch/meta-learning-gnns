@@ -2,7 +2,9 @@ import pytorch_lightning as pl
 import torch
 import torch.nn.functional as func
 from torch import optim
+from torch_geometric.data import Batch
 
+from models.gat_base import get_classify_node_features
 from models.gat_encoder_sparse_pushkar import SparseGATLayer
 from models.train_utils import *
 
@@ -82,24 +84,36 @@ class ProtoNet(pl.LightningModule):
         support_graphs, query_graphs, support_targets, query_targets = batch
 
         # OPTION 1: as complete batch
-        # support_batch = Batch.from_data_list(support_graphs)
-        # support_batch.x = support_batch.x.float().to_sparse()
-        # support_feats = self.model(support_batch).squeeze()
+        support_batch = Batch.from_data_list(support_graphs)
+
+        x = support_batch.x.float()
+        if not x.is_sparse:
+            x = x.to_sparse()
+
+        if batch.edge_attr is not None:
+            batch.edge_attr = None
+
+        if batch.y is not None:
+            batch.y = None
+
+        edge_index = support_batch.edge_index
+
+        support_feats = self.model(x, edge_index).squeeze()
         # select only the features for the nodes we actually want to classify and compute prototypes for these
-        # support_feats = get_classify_node_features(support_graphs, support_feats)
+        support_feats = get_classify_node_features(support_graphs, support_feats)
 
         # OPTION 2: as single sub graphs
-        outputs = []
-        for graph in support_graphs:
-            graph.x = graph.x.float().to_sparse()
-            if graph.num_nodes <= 1:
-                # TODO: filter out nodes that don't have any edges
-                # print("graph has 1 node or less, skipping it.")
-                out = torch.zeros(self.hparams['hidden_dim']).to(graph.x.device)
-            else:
-                out = self.model(graph).squeeze()[graph.center_idx]
-            outputs.append(out)
-        support_feats = torch.stack(outputs)
+        # outputs = []
+        # for graph in support_graphs:
+        #     graph.x = graph.x.float().to_sparse()
+        #     if graph.num_nodes <= 1:
+        #         # TODO: filter out nodes that don't have any edges
+        #         # print("graph has 1 node or less, skipping it.")
+        #         out = torch.zeros(self.hparams['hidden_dim']).to(graph.x.device)
+        #     else:
+        #         out = self.model(x, edge_index)[graph.center_idx]
+        #     outputs.append(out)
+        # support_feats = torch.stack(outputs)
 
         assert support_feats.shape[0] == support_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
