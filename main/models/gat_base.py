@@ -153,7 +153,7 @@ class GatBase(pl.LightningModule):
         self.log_on_epoch('val_f1_macro', f1_macro)
         self.log_on_epoch('val_f1_micro', f1_micro)
 
-        print(f"Validation accuracy: {val_accuracy}")
+        print(f"\nValidation accuracy: {val_accuracy}")
         print(f"Validation F1 macro: {f1_macro}")
         print(f"Validation F1 micro: {f1_micro}")
 

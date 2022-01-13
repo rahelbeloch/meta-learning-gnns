@@ -37,9 +37,8 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
     nr_train_docs = 'all' if (train_docs is None or train_docs == -1) else str(train_docs)
 
     print(f'\nConfiguration:\n mode: {"TEST" if eval else "TRAIN"}\n model_name: {model_name}\n '
-          f'num_workers: {num_workers}\n data_train: '
-          f'{data_train}\n data_eval: {data_eval}\n nr_train_docs: {nr_train_docs}\n k_shot: {k_shot}\n'
-          f' seed: {seed}\n hops: {h_size}\n '
+          f'num_workers: {num_workers}\n data_train: {data_train}\n data_eval: {data_eval}\n '
+          f'nr_train_docs: {nr_train_docs}\n k_shot: {k_shot}\n seed: {seed}\n hops: {h_size}\n '
           f'feature_type: {feature_type}\n checkpoint: {checkpoint}\n max epochs: {epochs}\n patience:{patience}\n'
           f' lr: {lr}\n lr_cl: {lr_cl}\n hidden_dim: {hidden_dim}\n')
 
