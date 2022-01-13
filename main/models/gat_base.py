@@ -117,8 +117,18 @@ class GatBase(pl.LightningModule):
 
         # make a batch out of all sub graphs and push the batch through the model
         # [Data, Data, Data(x, y, ..)]
-        x, edge_index = get_subgraph_batch(sub_graphs)
-        feats = self.model(x, edge_index)
+        # x, edge_index = get_subgraph_batch(sub_graphs)
+        # feats = self.model(x, edge_index)
+
+        feats = []
+        for graph in sub_graphs:
+            x, edge_index = graph.x.float(), graph.edge_index
+            if not x.is_sparse:
+                x = x.to_sparse()
+            out = self.model(x, edge_index)
+            feats.append(out)
+        feats = torch.stack(feats)
+
         feats = get_classify_node_features(sub_graphs, feats)
 
         assert len(feats) == len(sub_graphs), "Nr of features returned does not equal nr. of classification nodes!"
