@@ -18,13 +18,14 @@ class DataPreprocessor(GraphIO):
         super().__init__(config, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir)
 
         self.user_doc_threshold = config['user_doc_threshold']
-        self.top_k = config['top_k']
+        self.top_users = config['top_users']
+        self.top_users_excluded = config['top_users_excluded'] / 100
 
         self.valid_users = None
 
     def maybe_load_valid_users(self):
         if self.valid_users is None:
-            self.valid_users = self.load_if_exists(self.data_complete_path(VALID_USERS % self.top_k))
+            self.valid_users = self.load_if_exists(self.data_complete_path(VALID_USERS % self.top_users))
 
     def maybe_load_non_interaction_docs(self):
         if self.non_interaction_docs is None:
@@ -128,15 +129,13 @@ class DataPreprocessor(GraphIO):
 
         bot_users = []
         if self.dataset == 'gossipcop':
-            bot_percentage = 0.01
-            print(f"\nFiltering top sharing users (bots) : {bot_percentage}")
+            print(f"\nRemoving top sharing users (possibly bots) : {self.top_users_excluded * 100}%")
 
             # calculate total number of document shares per user
             total_user_shares = np.array([sum(values.values()) for _, values in users_shared_sorted.items()])
 
             # set 1% of the top sharing users as bot users
-
-            num_bots = round(len(total_user_shares) * bot_percentage)
+            num_bots = round(len(total_user_shares) * self.top_users_excluded)
 
             # get users which are considered bots
             bot_users = np.array(list(users_shared_sorted.keys()))[:num_bots]
@@ -166,12 +165,12 @@ class DataPreprocessor(GraphIO):
             # fig.tight_layout()
             # plt.show()
 
-            print(f'Nr. of bot users : {len(bot_users)}')
-            bot_users_file = self.data_complete_path(BOT_USERS % bot_percentage)
-            save_json_file(bot_users, bot_users_file, converter=self.np_converter)
-            print(f"Bot users stored in : {bot_users_file}")
+            print(f'Nr. of top excluded users : {len(bot_users)}')
+            top_excluded_users_file = self.data_complete_path(TOP_K_USERS_EXCLUDED % self.top_users_excluded)
+            save_json_file(bot_users, top_excluded_users_file, converter=self.np_converter)
+            print(f"Top excluded users stored in : {top_excluded_users_file}")
 
-        print(f"\nCollecting top K users as valid users : {self.top_k * 1000}")
+        print(f"\nCollecting top K users as valid users : {self.top_users * 1000}")
 
         # remove users that we have already restricted before
         users_total_shared = OrderedDict()
@@ -180,9 +179,9 @@ class DataPreprocessor(GraphIO):
                 users_total_shared[key] = value
 
         # select the top k
-        valid_users = list(users_total_shared.keys())[:self.top_k * 1000]
+        valid_users = list(users_total_shared.keys())[:self.top_users * 1000]
 
-        valid_users_file = self.data_complete_path(VALID_USERS % self.top_k)
+        valid_users_file = self.data_complete_path(VALID_USERS % self.top_users)
         save_json_file(valid_users, valid_users_file)
         print(f"Valid/top k users stored in : {valid_users_file}\n")
 
@@ -314,7 +313,7 @@ class DataPreprocessor(GraphIO):
 
         return data
 
-    def create_document_splits(self, data, train_size, test_size, val_size, splits=1):
+    def create_document_splits(self, data, splits=1):
         """
         Creates train, val and test splits via random splitting of the dataset in a stratified fashion to ensure
         similar data distribution. Currently, only supports splitting data in 1 split for each set.
@@ -329,9 +328,9 @@ class DataPreprocessor(GraphIO):
         # Creating train-val-test split with same/similar label distribution in each split
         split_dict = {}
 
-        if test_size > 0:
+        if self.test_size > 0:
             # one tuple is one split and contains: (x, y, doc_names)
-            rest_split, test_split = split_data(splits, test_size, data)
+            rest_split, test_split = split_data(splits, self.test_size, data)
             assert len(set(test_split[2])) == len(test_split[2]), "Test split contains duplicate doc names!"
             print_label_distribution(test_split[1], 'test')
             split_dict['test'] = test_split
@@ -339,14 +338,14 @@ class DataPreprocessor(GraphIO):
             rest_split = data
 
         train_split = None
-        if val_size > 0:
+        if self.val_size > 0:
 
-            if (test_size + val_size) == 1:
+            if (self.test_size + self.val_size) == 1:
                 # no train split needed
                 val_split = rest_split
             else:
                 # split rest data into validation and train splits
-                train_split, val_split = split_data(splits, val_size, rest_split)
+                train_split, val_split = split_data(splits, self.val_size, rest_split)
 
             assert len(set(val_split[2])) == len(val_split[2]), "Validation split contains duplicate doc names!"
             print_label_distribution(val_split[1], 'val')
@@ -361,7 +360,8 @@ class DataPreprocessor(GraphIO):
 
         print("\nWriting train, val and test files...\n")
 
-        folder_name = DOC_SPLITS_FOLDER_NAME % (self.feature_type, self.max_vocab, train_size, val_size, test_size)
+        config_tuple = (self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
+        folder_name = DOC_SPLITS_FOLDER_NAME % config_tuple
         split_path = self.data_tsv_path(folder_name)
 
         doc_names_split_dict = {}
@@ -385,7 +385,7 @@ class DataPreprocessor(GraphIO):
 
             doc_names_split_dict[f'{split}_docs'] = name_list
 
-        file_name = DOC_SPLITS_FILE_NAME % (self.feature_type, self.max_vocab, train_size, val_size, test_size)
+        file_name = DOC_SPLITS_FILE_NAME % config_tuple
         doc_splits_file = self.data_tsv_path(file_name)
         print("\nWriting doc splits in : ", doc_splits_file)
         save_json_file(doc_names_split_dict, doc_splits_file, converter=self.np_converter)
@@ -471,8 +471,8 @@ class DataPreprocessor(GraphIO):
     def store_user_splits(self, train_users, test_users, val_users):
         all_users = set.union(*[train_users, val_users, test_users])
         print(f'All users: {len(all_users)}')
-        assert len(all_users) <= self.top_k * 1000, \
-            f"Total nr of users for all splits is greater than top K {self.top_k}!"
+        assert len(all_users) <= self.top_users * 1000, \
+            f"Total nr of users for all splits is greater than top K {self.top_users}!"
 
         file_name = USER_SPLITS_FILE_NAME % \
                     (self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
