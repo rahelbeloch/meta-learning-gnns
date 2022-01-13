@@ -18,10 +18,11 @@ class DataPreprocessor(GraphIO):
         super().__init__(config, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir)
 
         self.user_doc_threshold = config['user_doc_threshold']
-        self.top_users = config['top_users']
-        self.top_users_excluded = config['top_users_excluded'] / 100
 
-        self.valid_users = None
+        self.only_valid_users, self.valid_users = 'valid_users' in config and config['valid_users'], None
+
+    def valid_user(self, user):
+        return not self.only_valid_users or user in self.valid_users
 
     def maybe_load_valid_users(self):
         if self.valid_users is None:
@@ -29,7 +30,8 @@ class DataPreprocessor(GraphIO):
 
     def maybe_load_non_interaction_docs(self):
         if self.non_interaction_docs is None:
-            self.non_interaction_docs = self.load_if_exists(self.data_tsv_path('nonInteractionDocs.json'))
+            filename = self.data_tsv_path('nonInteractionDocs.json')
+            self.non_interaction_docs = load_json_file(filename) if filename.exists() else []
 
     def is_restricted(self, statistics):
         for label, percentage in statistics.items():
@@ -181,7 +183,7 @@ class DataPreprocessor(GraphIO):
         # select the top k
         valid_users = list(users_total_shared.keys())[:self.top_users * 1000]
 
-        valid_users_file = self.data_complete_path(VALID_USERS % self.top_users)
+        valid_users_file = self.data_complete_path(VALID_USERS)
         save_json_file(valid_users, valid_users_file)
         print(f"Valid/top k users stored in : {valid_users_file}\n")
 
@@ -318,8 +320,6 @@ class DataPreprocessor(GraphIO):
         Creates train, val and test splits via random splitting of the dataset in a stratified fashion to ensure
         similar data distribution. Currently, only supports splitting data in 1 split for each set.
 
-        :param test_size: Size of the test split compared to the whole data.
-        :param val_size: Size of the val split compared to the whole data.
         :param splits: Number of splits.
         """
 
@@ -360,9 +360,9 @@ class DataPreprocessor(GraphIO):
 
         print("\nWriting train, val and test files...\n")
 
-        config_tuple = (self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
-        folder_name = DOC_SPLITS_FOLDER_NAME % config_tuple
-        split_path = self.data_tsv_path(folder_name)
+        folder_name = self.get_file_name(DOC_SPLITS_FOLDER_NAME)
+        split_path = self.data_tsv_path(f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}',
+                                        folder_name)
 
         doc_names_split_dict = {}
         for split, data in split_dict.items():
@@ -385,8 +385,9 @@ class DataPreprocessor(GraphIO):
 
             doc_names_split_dict[f'{split}_docs'] = name_list
 
-        file_name = DOC_SPLITS_FILE_NAME % config_tuple
-        doc_splits_file = self.data_tsv_path(file_name)
+        file_name = self.get_file_name(DOC_SPLITS_FILE_NAME)
+        doc_splits_file = self.data_tsv_path(f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}',
+                                             file_name)
         print("\nWriting doc splits in : ", doc_splits_file)
         save_json_file(doc_names_split_dict, doc_splits_file, converter=self.np_converter)
 

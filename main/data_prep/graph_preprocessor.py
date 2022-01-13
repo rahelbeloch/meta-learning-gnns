@@ -18,17 +18,13 @@ class GraphPreprocessor(GraphIO):
     def __init__(self, config):
         super().__init__(config, config['data_dir'], config['data_tsv_dir'], config['data_complete_dir'])
 
-        self.top_k = config['top_k']
+        self.top_users = config['top_users']
 
         # temporary attributes for data which has been loaded and will be reused
         self.doc2id, self.user2id = None, None
 
     def doc_used(self, doc_key):
         return doc_key in self.train_docs or doc_key in self.val_docs or doc_key in self.test_docs
-
-    def maybe_load_valid_users(self):
-        if self.valid_users is None:
-            self.valid_users = self.load_if_exists(self.data_complete_path(VALID_USERS % self.top_k))
 
     def maybe_load_id_mappings(self):
         if self.user2id is None:
@@ -70,8 +66,7 @@ class GraphPreprocessor(GraphIO):
         save_json_file(doc2id, doc2id_file)
         self.doc2id = doc2id
 
-        file_name = USER_SPLITS_FILE_NAME % \
-                    (self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
+        file_name = self.get_file_name(USER_SPLITS_FILE_NAME)
         splits = load_json_file(self.data_complete_path(file_name))
         train_users, val_users, test_users = splits['train_users'], splits['val_users'], splits['test_users']
         all_users = list(set(train_users + val_users + test_users))
@@ -105,7 +100,7 @@ class GraphPreprocessor(GraphIO):
         # assert len(node_type) == n_val + n_train + len(all_users)
         #
         # print(f"\nNode type size = {len(node_type)}")
-        # node_type_file = self.data_complete_path(NODE_TYPE_FILE_NAME % self.top_k)
+        # node_type_file = self.data_complete_path(NODE_TYPE_FILE_NAME % self.top_users)
         # node_type = np.array(node_type)
         # print(f"Saving node type in : {node_type_file}")
         # np.save(node_type_file, node_type, allow_pickle=True)
@@ -116,7 +111,7 @@ class GraphPreprocessor(GraphIO):
         #     "Length of node2id is not the sum of doc2id and user2id length!"
         #
         # print("\nNode2id size = ", len(node2id))
-        # node2id_file = self.data_complete_path(NODE_2_ID_FILE_NAME % self.top_k)
+        # node2id_file = self.data_complete_path(NODE_2_ID_FILE_NAME % self.top_users)
         # print("Saving node2id_lr in : ", node2id_file)
         # save_json_file(node2id, node2id_file)
 
@@ -253,7 +248,7 @@ class GraphPreprocessor(GraphIO):
 
         # SAVING everything
 
-        adj_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k)
+        adj_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME)
         print(f"\nMatrix construction done! Saving in  {adj_file}")
         save_npz(adj_file, adj_matrix.tocsr())
 
@@ -281,9 +276,8 @@ class GraphPreprocessor(GraphIO):
         self.print_step("Creating feature matrix")
 
         # load all texts for test, train and val documents
-        folder_name = DOC_SPLITS_FOLDER_NAME % \
-                      (self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
-        split_path = self.data_tsv_path(folder_name)
+        split_path = self.data_tsv_path(f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}',
+                                        self.get_file_name(DOC_SPLITS_FOLDER_NAME))
 
         all_texts = {}
         for split in ['test', 'train', 'val']:
@@ -365,9 +359,6 @@ class GraphPreprocessor(GraphIO):
         filename = self.data_complete_path(self.get_file_name(FEAT_MATRIX_FILE_NAME))
         print(f"\nMatrix construction done! Saving in: {filename}")
         save_npz(filename, feature_matrix.tocsr())
-
-    def get_file_name(self, file):
-        return file % (self.top_k, self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
 
     @abc.abstractmethod
     def docs_to_adj(self, adj_matrix, edge_type):

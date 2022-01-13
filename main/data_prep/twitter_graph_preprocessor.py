@@ -124,7 +124,10 @@ if __name__ == '__main__':
     parser.add_argument('--data_set', type=str, default='twitterHateSpeech',
                         help='The name of the dataset we want to process.')
 
-    parser.add_argument('--top_k', type=int, default=30, help='Number (in K) of top users.')
+    parser.add_argument('--top_users', type=int, default=30, help='Number (in K) of top users.')
+
+    parser.add_argument('--top_users_excluded', type=float, default=0,
+                        help='Percentage (in %) of top sharing users that are excluded (the bot users).')
 
     parser.add_argument('--user_doc_threshold', type=float, default=0.3, help='Threshold defining how many articles '
                                                                               'of any class users may max have shared '

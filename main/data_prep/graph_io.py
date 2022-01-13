@@ -22,6 +22,9 @@ class GraphIO:
     def __init__(self, config, data_dir, tsv_dir=TSV_DIR, complete_dir=COMPLETE_DIR):
         self.dataset = config['data_set']
 
+        self.top_users = config['top_users']
+        self.top_users_excluded = config['top_users_excluded'] / 100
+
         data_path = files(data_dir)
         raw_path = data_path / RAW_DIR
         if not (raw_path / self.dataset).exists():
@@ -32,8 +35,12 @@ class GraphIO:
         self.data_tsv_dir = self.create_dir(data_path / tsv_dir / self.dataset).parent
         self.data_complete_dir = self.create_dir(data_path / complete_dir / self.dataset).parent
 
+        self.create_dir(
+            data_path / tsv_dir / self.dataset / f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}')
+        self.create_dir(
+            data_path / complete_dir / self.dataset / f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}')
+
         self.non_interaction_docs, self.max_vocab = None, config['max_vocab']
-        self.only_valid_users, self.valid_users = 'valid_users' in config and config['valid_users'], None
 
         self.train_size = config['train_size']
         self.val_size = config['val_size']
@@ -45,16 +52,16 @@ class GraphIO:
         if self.feature_type not in FEATURE_TYPES:
             raise ValueError(f"Trying to create features of type {self.feature_type} which is not supported!")
 
-    def valid_user(self, user):
-        return not self.only_valid_users or user in self.valid_users
-
     def load_doc_splits(self):
-        file_name = DOC_SPLITS_FILE_NAME % (
-            self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
-        doc_splits = load_json_file(self.data_tsv_path(file_name))
+        file_name = self.get_file_name(DOC_SPLITS_FILE_NAME)
+        path = self.data_tsv_path(f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}', file_name)
+        doc_splits = load_json_file(path)
         self.train_docs = doc_splits['train_docs'] if 'train_docs' in doc_splits else []
         self.val_docs = doc_splits['val_docs'] if 'val_docs' in doc_splits else []
         self.test_docs = doc_splits['test_docs'] if 'test_docs' in doc_splits else []
+
+    def get_file_name(self, filename):
+        return filename % (self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
 
     def print_step(self, step_title):
         print(f'\n{"-" * 100}\n \t\t\t {step_title} for {self.dataset} dataset.\n{"-" * 100}')
@@ -79,7 +86,9 @@ class GraphIO:
         return self.data_tsv_dir.joinpath(self.dataset, *parts)
 
     def data_complete_path(self, *parts):
-        return self.data_complete_dir.joinpath(self.dataset, *parts)
+        return self.data_complete_dir.joinpath(self.dataset,
+                                               f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}',
+                                               *parts)
 
     @staticmethod
     def np_converter(obj):
