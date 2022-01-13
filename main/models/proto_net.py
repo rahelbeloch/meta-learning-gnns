@@ -2,7 +2,6 @@ import pytorch_lightning as pl
 import torch
 import torch.nn.functional as func
 from torch import optim
-from torch_geometric.data import Batch
 
 from models.gat_base import get_classify_node_features, get_subgraph_batch
 from models.gat_encoder_sparse_pushkar import SparseGATLayer
@@ -26,6 +25,10 @@ class ProtoNet(pl.LightningModule):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.lr)
         scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[140, 180], gamma=0.1)
         return [optimizer], [scheduler]
+
+    def reset_dimensions(self, _, num_features):
+        # setting dimensions of constant projection
+        self.model.initialize_first_layers(num_features)
 
     @staticmethod
     def calculate_prototypes(features, targets):
