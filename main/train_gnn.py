@@ -24,7 +24,7 @@ if torch.cuda.is_available():
 
 
 def train(model_name, seed, epochs, patience, h_size, top_users, top_users_excluded, k_shot, lr, lr_cl, lr_inner,
-          lr_output, hidden_dim,
+          lr_output, hidden_dim, feat_reduce_dim,
           proto_dim, data_train, data_eval, dirs, checkpoint, train_docs, split_size, feature_type, vocab_size,
           n_inner_updates, num_workers):
     os.makedirs(LOG_PATH, exist_ok=True)
@@ -72,6 +72,7 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
     model_params = {
         'model': model_name,
         'hid_dim': hidden_dim,
+        'feat_reduce_dim': feat_reduce_dim,
         'input_dim': train_graph_size[1],
         'output_dim': len(labels[0]),
         'proto_dim': proto_dim,
@@ -280,6 +281,7 @@ if __name__ == "__main__":
                         help='Select the model you want to use.')
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--hidden-dim', dest='hidden_dim', type=int, default=512)
+    parser.add_argument('--feature-reduce-dim', dest='feat_reduce_dim', type=int, default=10000)
     parser.add_argument('--proto-dim', dest='proto_dim', type=int, default=64)
     parser.add_argument('--checkpoint', default=model_checkpoint, type=str, metavar='PATH',
                         help='Path to latest checkpoint (default: None)')
@@ -308,6 +310,7 @@ if __name__ == "__main__":
         lr_inner=params["lr_inner"],
         lr_output=params["lr_output"],
         hidden_dim=params["hidden_dim"],
+        feat_reduce_dim=params["feat_reduce_dim"],
         proto_dim=params["proto_dim"],
         data_train=params["dataset_train"],
         data_eval=params["dataset_eval"],
