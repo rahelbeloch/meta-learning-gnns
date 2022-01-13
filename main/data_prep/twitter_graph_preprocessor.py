@@ -110,21 +110,15 @@ class TwitterGraphPreprocessor(GraphPreprocessor):
 
 
 if __name__ == '__main__':
-    # complete_dir = COMPLETE_small_DIR
-    # tsv_dir = TSV_small_DIR
-
-    complete_dir = COMPLETE_DIR
-    tsv_dir = TSV_DIR
-
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--data_dir', type=str, default='data',
                         help='Dataset folder path that contains the folders to the raw data.')
 
-    parser.add_argument('--data_complete_dir', type=str, default=complete_dir,
+    parser.add_argument('--data_complete_dir', type=str, default=COMPLETE_DIR,
                         help='Dataset folder path that contains the folders to the complete data.')
 
-    parser.add_argument('--data_tsv_dir', type=str, default=tsv_dir,
+    parser.add_argument('--data_tsv_dir', type=str, default=TSV_DIR,
                         help='Dataset folder path that contains the folders to the intermediate data.')
 
     parser.add_argument('--data_set', type=str, default='twitterHateSpeech',

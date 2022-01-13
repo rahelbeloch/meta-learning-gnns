@@ -134,7 +134,7 @@ class TSVPreprocessor(DataPreprocessor):
         self.store_doc2label(doc2labels)
         self.store_doc_contents(contents)
 
-    def create_user_splits(self, max_users):
+    def create_user_splits(self, max_users=None):
 
         self.print_step("Creating user splits")
 
@@ -169,25 +169,15 @@ class TSVPreprocessor(DataPreprocessor):
 
 
 if __name__ == '__main__':
-    # tsv_dir = TSV_small_DIR
-    # complete_dir = COMPLETE_small_DIR
-    # num_train_nodes = int(COMPLETE_small_DIR.split('-')[1])
-    # max_nr_users = 500
-
-    tsv_dir = TSV_DIR
-    complete_dir = COMPLETE_DIR
-    num_train_nodes = None
-    max_users = None
-
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--data_dir', type=str, default='data',
                         help='Dataset folder path that contains the folders to the raw data.')
 
-    parser.add_argument('--data_complete_dir', type=str, default=complete_dir,
+    parser.add_argument('--data_complete_dir', type=str, default=COMPLETE_DIR,
                         help='Dataset folder path that contains the folders to the complete data.')
 
-    parser.add_argument('--data_tsv_dir', type=str, default=tsv_dir,
+    parser.add_argument('--data_tsv_dir', type=str, default=TSV_DIR,
                         help='Dataset folder path that contains the folders to the intermediate data.')
 
     parser.add_argument('--data_set', type=str, default='twitterHateSpeech',

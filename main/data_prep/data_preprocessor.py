@@ -338,20 +338,28 @@ class DataPreprocessor(GraphIO):
         else:
             rest_split = data
 
+        train_split = None
         if val_size > 0:
-            # split rest data into validation and train splits
-            train_split, val_split = split_data(splits, val_size, rest_split)
+
+            if (test_size + val_size) == 1:
+                # no train split needed
+                val_split = rest_split
+            else:
+                # split rest data into validation and train splits
+                train_split, val_split = split_data(splits, val_size, rest_split)
+
             assert len(set(val_split[2])) == len(val_split[2]), "Validation split contains duplicate doc names!"
             print_label_distribution(val_split[1], 'val')
             split_dict['val'] = val_split
         else:
             train_split = data
 
-        assert len(set(train_split[2])) == len(train_split[2]), "Train split contains duplicate doc names!"
-        print_label_distribution(train_split[1], 'train')
-        split_dict['train'] = train_split
+        if train_split is not None:
+            assert len(set(train_split[2])) == len(train_split[2]), "Train split contains duplicate doc names!"
+            print_label_distribution(train_split[1], 'train')
+            split_dict['train'] = train_split
 
-        print("\nWriting train-val-test files...\n")
+        print("\nWriting train, val and test files...\n")
 
         folder_name = DOC_SPLITS_FOLDER_NAME % (self.feature_type, self.max_vocab, train_size, val_size, test_size)
         split_path = self.data_tsv_path(folder_name)
