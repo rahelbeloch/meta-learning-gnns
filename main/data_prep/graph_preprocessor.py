@@ -137,7 +137,7 @@ class GraphPreprocessor(GraphIO):
         print("Total users in this dataset = ", len(all_users))
 
         print_iter = int(20000 / 10)
-        unknown_user_ids = 0
+        unused_user = 0
 
         for user_context in USER_CONTEXTS:
             print(f"\n    - from {user_context}  folder...")
@@ -150,7 +150,7 @@ class GraphPreprocessor(GraphIO):
 
                 user_id = file_path.stem
                 if user_id not in all_users:
-                    unknown_user_ids += 1
+                    unused_user += 1
                     continue
 
                 if count == 0:
