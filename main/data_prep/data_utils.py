@@ -37,17 +37,19 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, split_size, 
     num_workers = num_workers if num_workers is not None else 4 if torch.cuda.is_available() else 0  # mac has 8 CPUs
 
     # creating a train and val loader from the train dataset
-    graph_data_train = TorchGeomGraphDataset(data_train, top_k, feature_type, vocab_size, split_size, *dirs)
+    graph_data_train = TorchGeomGraphDataset({'data_set': data_train, 'top_k': top_k, 'feature_type': feature_type},
+                                             vocab_size, split_size, *dirs)
 
     train_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'train')
     train_val_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'val')
 
     train_labels = graph_data_train.labels
-    graph_train_size = graph_data_train.size
+    train_graph_size = graph_data_train.size
     graph_train_class_ratio = graph_data_train.class_ratio
     train_b_size = train_loader.b_size
+    eval_graph_size = None
 
-    print(f"\nTrain graph size: \n num_features: {graph_train_size[1]}\n total_nodes: {graph_train_size[0]}")
+    print(f"\nTrain graph size: \n num_features: {train_graph_size[1]}\n total_nodes: {train_graph_size[0]}")
 
     if data_train == data_eval:
         print(f'\nData eval and data train are equal, loading graph data only once.')
@@ -58,7 +60,8 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, split_size, 
     else:
         # creating a val and test loader from the eval dataset
         test_split_size = (0.0, 0.25, 0.75)
-        graph_data_eval = TorchGeomGraphDataset(data_eval, top_k, feature_type, vocab_size, test_split_size, *dirs)
+        graph_data_eval = TorchGeomGraphDataset({'data_set': data_eval, 'top_k': top_k, 'feature_type': feature_type},
+                                                vocab_size, test_split_size, *dirs)
 
         eval_graph_size = graph_data_eval.size
         print(f"\nTest graph size: \n num_features: {eval_graph_size[1]}\n total_nodes: {eval_graph_size[0]}")
@@ -70,7 +73,7 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, split_size, 
     loaders = (train_loader, train_val_loader, test_loader, test_val_loader)
     labels = (train_labels, eval_labels)
 
-    return loaders, graph_train_size, eval_graph_size, labels, train_b_size, graph_train_class_ratio
+    return loaders, train_graph_size, eval_graph_size, labels, train_b_size, graph_train_class_ratio
 
 
 def get_loader(graph_data, model, hop_size, k_shot, num_workers, mode):
