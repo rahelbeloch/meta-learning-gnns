@@ -32,7 +32,7 @@ class GatBase(pl.LightningModule):
 
         # self.model = GATLayer(in_features=model_hparams['input_dim'], out_features=model_hparams['hid_dim'])
         self.model = SparseGATLayer(model_hparams['input_dim'], model_hparams['hid_dim'],
-                                    model_hparams['feat_reduce_dim'])
+                                    feat_reduce_dim=model_hparams['feat_reduce_dim'])
 
         if checkpoint is not None:
             encoder = load_pretrained_encoder(checkpoint)
