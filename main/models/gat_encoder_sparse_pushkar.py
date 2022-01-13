@@ -9,7 +9,7 @@ class SparseGATLayer(nn.Module):
     https://github.com/Diego999/pyGAT/blob/similar_impl_tensorflow/layers.py
     """
 
-    def __init__(self, in_features, out_features, dropout=0.6, attn_drop=0.6, alpha=0.2, concat=False):
+    def __init__(self, in_features, out_features, feat_reduce_dim, dropout=0.6, attn_drop=0.6, alpha=0.2, concat=False):
         super(SparseGATLayer, self).__init__()
 
         self.in_features = in_features
@@ -23,7 +23,7 @@ class SparseGATLayer(nn.Module):
         # Constant projection
         # TODO: we don't project down on sth, constant projection
         # self.linear = nn.Linear(in_features, out_features, bias=False)
-        self.initialize_first_layers(in_features)
+        self.initialize_first_layers(in_features, feat_reduce_dim)
 
         # TODO: still initialize even if constant?
         # gain = nn.init.calculate_gain('leaky_relu')
@@ -36,13 +36,15 @@ class SparseGATLayer(nn.Module):
 
         self.leaky_relu = nn.LeakyReLU(self.alpha)
 
-    def initialize_first_layers(self, in_features):
-        self.linear = nn.Linear(in_features, in_features, bias=False)
+    def initialize_first_layers(self, in_features, out_features):
+
+        # reduce this to lower dimension: 256; compressing into smaller dimension
+        self.linear = nn.Linear(in_features, out_features, bias=False)
 
         # grad of the linear layer false --> will not be learned but instead constant projection
         self.linear.requires_grad_(False)
 
-        self.seq_transformation = nn.Conv1d(in_features, self.out_features, kernel_size=1, stride=1, bias=False)
+        self.seq_transformation = nn.Conv1d(out_features, self.out_features, kernel_size=1, stride=1, bias=False)
 
     def forward(self, x, edges):
         assert x.is_sparse
