@@ -6,7 +6,7 @@ import torch.nn.functional as func
 from torch import optim
 from torch_geometric.data import Batch
 
-from models.gat_base import get_classify_node_features
+from models.gat_base import get_classify_node_features, get_subgraph_batch
 from models.gat_encoder_sparse_pushkar import SparseGATLayer
 from models.proto_net import ProtoNet
 from models.train_utils import f1
@@ -35,10 +35,10 @@ class ProtoMAML(pl.LightningModule):
 
     def adapt_few_shot(self, support_graphs, support_targets):
 
-        support_batch = Batch.from_data_list(support_graphs)
+        x, edge_index = get_subgraph_batch(support_graphs)
 
         # Determine prototype initialization
-        support_feats = self.model(support_batch).squeeze()
+        support_feats = self.model(x, edge_index).squeeze()
         support_feats = get_classify_node_features(support_graphs, support_feats)
 
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
@@ -156,8 +156,8 @@ def run_model(local_model, output_weight, output_bias, graphs, targets):
     Execute a model with given output layer weights and inputs.
     """
 
-    batch = Batch.from_data_list(graphs)
-    feats = local_model(batch).squeeze()
+    x, edge_index = get_subgraph_batch(graphs)
+    feats = local_model(x, edge_index).squeeze()
     feats = get_classify_node_features(graphs, feats)
 
     predictions = func.linear(feats, output_weight, output_bias)

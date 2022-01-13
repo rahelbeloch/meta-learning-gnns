@@ -5,7 +5,6 @@ from torch import nn
 # from models.gat_encoder_sparse import GATLayer
 from torch_geometric.data import Batch
 
-from models.gat_encoder import GATLayer
 from models.gat_encoder_sparse_pushkar import SparseGATLayer
 from models.train_utils import *
 
@@ -111,31 +110,8 @@ class GatBase(pl.LightningModule):
     def forward(self, sub_graphs):
 
         # make a batch out of all sub graphs and push the batch through the model
-
-        # we have a list of sub graphs with different nodes; make one big graph out of it for the forward pass
-        for g in sub_graphs:
-            # edge index can not be made sparse, because Batch.from_data_list internally makes operations which can not
-            # be done with this matrix being sparse
-            # g.edge_index = g.edge_index.to_sparse()
-            g.x = g.x.float().to_sparse()
-
-        # print(f"Numbers of nodes: {str([g.num_nodes for g in sub_graphs])}")
-
         # [Data, Data, Data(x, y, ..)]
-        batch = Batch.from_data_list(sub_graphs)
-
-        if not batch.x.is_sparse:
-            batch.x = batch.x.float().to_sparse()
-
-        if batch.edge_attr is not None:
-            batch.edge_attr = None
-
-        if batch.y is not None:
-            batch.y = None
-
-        edge_index = batch.edge_index
-        x = batch.x
-
+        x, edge_index = get_subgraph_batch(sub_graphs)
         feats = self.model(x, edge_index)
         feats = get_classify_node_features(sub_graphs, feats)
 
@@ -210,3 +186,13 @@ def get_classify_node_features(graphs, features):
         cl_n_indices.append(n_count + graph.center_idx)
         n_count += graph.num_nodes
     return features[cl_n_indices]
+
+
+def get_subgraph_batch(graphs):
+    batch = Batch.from_data_list(graphs)
+
+    x = batch.x.float()
+    if not x.is_sparse:
+        x = x.to_sparse()
+
+    return x, batch.edge_index
