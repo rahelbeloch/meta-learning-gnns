@@ -125,7 +125,7 @@ class GatBase(pl.LightningModule):
             x, edge_index = graph.x.float(), graph.edge_index
             if not x.is_sparse:
                 x = x.to_sparse()
-            out = self.model(x, edge_index)
+            out = self.model(x, edge_index)[graph.center_idx]
             feats.append(out)
         feats = torch.stack(feats)
 
