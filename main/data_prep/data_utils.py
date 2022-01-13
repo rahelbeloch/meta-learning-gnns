@@ -36,9 +36,12 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, split_size, 
 
     num_workers = num_workers if num_workers is not None else 4 if torch.cuda.is_available() else 0  # mac has 8 CPUs
 
+    data_config = {'top_k': top_k, 'feature_type': feature_type, 'max_vocab': vocab_size}
+
     # creating a train and val loader from the train dataset
-    graph_data_train = TorchGeomGraphDataset({'data_set': data_train, 'top_k': top_k, 'feature_type': feature_type},
-                                             split_size, *dirs)
+    train_config = {**data_config, **{'data_set': data_train, 'train_size': split_size[0], 'val_size': split_size[1],
+                                      'test_size': split_size[2]}}
+    graph_data_train = TorchGeomGraphDataset(train_config, split_size, *dirs)
 
     train_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'train')
     train_val_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'val')
@@ -60,8 +63,9 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, split_size, 
     else:
         # creating a val and test loader from the eval dataset
         test_split_size = (0.0, 0.25, 0.75)
-        graph_data_eval = TorchGeomGraphDataset({'data_set': data_eval, 'top_k': top_k, 'feature_type': feature_type},
-                                                test_split_size, *dirs)
+        eval_config = {**data_config, **{'data_set': data_eval, 'train_size': test_split_size[0],
+                                         'val_size': test_split_size[1], 'test_size': test_split_size[2]}}
+        graph_data_eval = TorchGeomGraphDataset(eval_config, test_split_size, *dirs)
 
         eval_graph_size = graph_data_eval.size
         print(f"\nTest graph size: \n num_features: {eval_graph_size[1]}\n total_nodes: {eval_graph_size[0]}")

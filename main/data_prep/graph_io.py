@@ -33,7 +33,7 @@ class GraphIO:
         self.data_complete_dir = self.create_dir(data_path / complete_dir / self.dataset).parent
 
         self.non_interaction_docs, self.max_vocab = None, config['max_vocab']
-        self.only_valid_users, self.valid_users = config['valid_users'], None
+        self.only_valid_users, self.valid_users = 'valid_users' in config and config['valid_users'], None
 
         self.train_size = config['train_size']
         self.val_size = config['val_size']
