@@ -258,7 +258,7 @@ class GraphPreprocessor(GraphIO):
         save_npz(adj_file, adj_matrix.tocsr())
 
         # load the file and check for any nodes that have only 1 (self) connection
-        # # TODO: check only the train and val documents
+        # TODO: check only the train and val
         # adj = torch.from_numpy(load_npz(adj_file).toarray()).long()
         # adj_summed = torch.sum(adj, dim=0)
         # adj_summed_where = torch.where(adj_summed == 1)[0]

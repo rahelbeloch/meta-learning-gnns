@@ -193,15 +193,15 @@ if __name__ == '__main__':
 
     preprocessor = TSVPreprocessor(args, args['data_dir'], args['data_tsv_dir'], args['data_complete_dir'])
 
-    # preprocessor.aggregate_user_contexts()
-    #
-    # if args['valid_users']:
-    #     preprocessor.filter_valid_users()
-    #
-    # preprocessor.filter_documents(min_len=min_len)
-    #
-    # data = preprocessor.preprocess_documents(num_train_nodes=num_train_nodes)
-    #
-    # preprocessor.create_document_splits(data, args['train_size'], args['test_size'], args['val_size'])
+    preprocessor.aggregate_user_contexts()
+
+    if args['valid_users']:
+        preprocessor.filter_valid_users()
+
+    preprocessor.filter_documents(min_len=min_len)
+
+    data = preprocessor.preprocess_documents(num_train_nodes=num_train_nodes)
+
+    preprocessor.create_document_splits(data, args['train_size'], args['test_size'], args['val_size'])
 
     preprocessor.create_user_splits(max_users)

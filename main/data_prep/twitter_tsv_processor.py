@@ -1,7 +1,11 @@
 import argparse
 import csv
+from collections import defaultdict
+
+import nltk
 
 from data_prep.config import *
+from data_prep.data_preprocess_utils import sanitize_text
 from data_prep.data_preprocessor import DataPreprocessor
 from data_prep.graph_io import FEATURE_TYPES
 
@@ -17,8 +21,8 @@ class TSVPreprocessor(DataPreprocessor):
         - TSV files for twitter hate speech.
     """
 
-    def __init__(self, dataset, f_type, max_vocab, data_dir, tsv_dir, comp_dir, content_file):
-        super().__init__(dataset, f_type, max_vocab, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=comp_dir)
+    def __init__(self, config, data_dir, tsv_dir, comp_dir, content_file):
+        super().__init__(config, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=comp_dir)
 
         self.content_file = content_file
 
@@ -26,55 +30,154 @@ class TSVPreprocessor(DataPreprocessor):
     def labels(self):
         return LABELS
 
-    def corpus_to_tsv(self):
+    def filter_valid_users(self):
         """
-        This method reads all the individual JSON files of both the datasets and creates separate .tsv files for each.
-        The .tsv file contains the fields: ID, article title, article content and the label.
+        From the authors.txt file, loads all lines (containing a combination of tweet ID and user ID),
+        counts how many document each user interacted with and identifies users that shared at least X% of
+        the articles of any class. Also picks the top K active users.
         """
 
-        self.print_step("Preparing Data Corpus")
+        self.print_step("Applying restrictions on users")
 
-        # TODO check if this doc has 0 interactions
-        # self.maybe_load_non_interaction_docs()
+        print(f"Filtering users who in any class shared articles more than : {self.user_doc_threshold * 100}%")
 
-        print("\nCreating doc2labels and collecting doc contents...")
         doc2labels = {}
-        no_content = []
+        data_file = self.data_raw_path(self.dataset, self.content_file)
+        with open(data_file, encoding='utf-8') as content_data:
+            reader = csv.DictReader(content_data)
+
+            # skip the header
+            next(reader, None)
+
+            for row in reader:
+                doc2labels[row['id']] = int(row['annotation'])
+
+        user_stats = defaultdict(lambda: {'racism': 0, 'sexism': 0, 'none': 0})
+        used_docs = 0
+
+        authors_file = self.data_raw_path(self.dataset, 'authors.txt')
+        for count, author_entry in enumerate(open(authors_file, 'r').read().split('\n')):
+
+            if len(author_entry) == 0:
+                continue
+
+            doc_key, user_key = author_entry.split()
+
+            # only restrict users interacting with this document ID if we actually use this doc in our splits
+            if doc_key not in doc2labels:
+                continue
+
+            used_docs += 1
+            user_stats[user_key][self.labels[doc2labels[doc_key]]] += 1
+
+        super().filter_users(user_stats, used_docs)
+
+    def filter_documents(self, min_len):
+        """
+        Filters documents based on if they were shared by any user that is contained in 'valid_users'.
+        For all documents that:
+            - have content
+            - are shared at least by 1 (valid) user
+        extracts the document contents and saves then as TSV file. The .tsv file contains the fields:
+        ID, article title, article content and the label.
+
+        :param min_len: Minimum required length for articles.
+        """
+
+        self.print_step("Filtering documents and creating doc2label file")
+
+        self.maybe_load_valid_users()
+
+        doc2labels = {}
         contents = []
+
+        no_content, no_valid_users, no_interactions = [], [], []
+        invalid_min_length = []
 
         data_file = self.data_raw_path(self.dataset, self.content_file)
         with open(data_file, encoding='utf-8') as content_data:
             reader = csv.DictReader(content_data)
+
             # skip the header
             next(reader, None)
-            for row in reader:
 
+            for row in reader:
                 tweet_id = row['id']
                 tweet_content = row['tweet']
-                annotation = row['annotation']
+                annotation = int(row['annotation'])
 
                 if len(tweet_content) == 0:
                     no_content.append(tweet_id)
                     continue
 
-                # label = LABELS[int(annotation)]
-                doc2labels[tweet_id] = int(annotation)
-                contents.append([tweet_id, tweet_content, int(annotation)])
+                # TODO: do this
+                # # check if the engagement file contains at least 1 user that is in valid users
+                # if len(set(users).intersection(self.valid_users)) == 0:
+                #     no_valid_users.append(doc_name)
+                #     continue
 
-        print(f"Total docs without content : {str(len(no_content))}")
+                text = sanitize_text(tweet_content)
+                tokens = set(nltk.word_tokenize(text))
+                if len(tokens) >= min_len:
+                    contents.append([tweet_id, "_".join(tokens), annotation])
+                    doc2labels[tweet_id] = annotation
+                else:
+                    invalid_min_length.append(tweet_id)
 
-        self.store_doc2labels(doc2labels)
+        print(f"Total docs without content : {len(no_content)}")
+        print(f"Total docs without interactions (before valid users) : {len(no_interactions)}")
+        print(f"Total docs without interactions (after valid users) : {len(no_valid_users)}")
+        print(f"Total docs invalid and removed (length < {min_len}) = {len(set(invalid_min_length))}")
+
+        assert len(doc2labels) == len(contents), "doc2labels is not of same length as contents list!"
+
+        self.store_doc2label(doc2labels)
         self.store_doc_contents(contents)
+
+    def create_user_splits(self, max_users):
+
+        self.print_step("Creating user splits")
+
+        self.maybe_load_valid_users()
+        self.load_doc_splits()
+
+        print("\nCollecting users for splits file..")
+
+        train_users, val_users, test_users = set(), set(), set()
+
+        authors_file = self.data_raw_path(self.dataset, 'authors.txt')
+        for count, author_entry in enumerate(open(authors_file, 'r').read().split('\n')):
+
+            if max_users is not None and (len(train_users) + len(test_users) + len(val_users)) >= max_users:
+                break
+
+            if len(author_entry) == 0:
+                continue
+
+            doc_key, author_id = author_entry.split()
+            if not self.valid_user(author_id):
+                continue
+
+            if doc_key in self.train_docs:
+                train_users.add(author_id)
+            if doc_key in self.val_docs:
+                val_users.add(author_id)
+            if doc_key in self.test_docs:
+                test_users.add(author_id)
+
+        super().store_user_splits(train_users, test_users, val_users)
 
 
 if __name__ == '__main__':
     # tsv_dir = TSV_small_DIR
     # complete_dir = COMPLETE_small_DIR
     # num_train_nodes = int(COMPLETE_small_DIR.split('-')[1])
+    # max_nr_users = 500
 
     tsv_dir = TSV_DIR
     complete_dir = COMPLETE_DIR
     num_train_nodes = None
+    max_users = None
 
     parser = argparse.ArgumentParser()
 
@@ -87,7 +190,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_tsv_dir', type=str, default=tsv_dir,
                         help='Dataset folder path that contains the folders to the intermediate data.')
 
-    parser.add_argument('--data', type=str, default='twitterHateSpeech',
+    parser.add_argument('--data_set', type=str, default='twitterHateSpeech',
                         help='The name of the dataset we want to process.')
 
     parser.add_argument('--top_k', type=int, default=30, help='Number (in K) of top users.')
@@ -113,12 +216,16 @@ if __name__ == '__main__':
     args, unparsed = parser.parse_known_args()
     args = args.__dict__
 
-    preprocessor = TSVPreprocessor(args['data'], args['feature_type'], args['max_vocab'], args['data_dir'],
-                                   args['data_tsv_dir'], args['data_complete_dir'], 'twitter_data_waseem_hovy.csv')
+    preprocessor = TSVPreprocessor(args, args['data_dir'], args['data_tsv_dir'], args['data_complete_dir'],
+                                   'twitter_data_waseem_hovy.csv')
 
-    preprocessor.corpus_to_tsv()
-    preprocessor.create_data_splits(train_size=args['train_size'],
-                                    test_size=args['test_size'],
-                                    val_size=args['val_size'],
-                                    num_train_nodes=num_train_nodes,
-                                    min_length=6)
+    if args['valid_users']:
+        preprocessor.filter_valid_users()
+
+    preprocessor.filter_documents(min_len=6)
+
+    data = preprocessor.preprocess_documents(num_train_nodes=num_train_nodes)
+
+    preprocessor.create_document_splits(data, args['train_size'], args['test_size'], args['val_size'])
+
+    preprocessor.create_user_splits(max_users)

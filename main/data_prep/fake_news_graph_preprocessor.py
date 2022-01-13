@@ -11,7 +11,7 @@ from data_prep.graph_preprocessor import GraphPreprocessor, USER_CONTEXTS_FILTER
 
 class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
-    def __init__(self, config, max_users=None):
+    def __init__(self, config):
         super().__init__(config)
 
         self.load_doc_splits()
@@ -119,11 +119,9 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 if __name__ == '__main__':
     # complete_dir = COMPLETE_small_DIR
     # tsv_dir = TSV_small_DIR
-    # max_nr_users = 2000
 
     complete_dir = COMPLETE_DIR
     tsv_dir = TSV_DIR
-    max_nr_users = None
 
     parser = argparse.ArgumentParser()
 
@@ -157,4 +155,4 @@ if __name__ == '__main__':
 
     args, unparsed = parser.parse_known_args()
 
-    preprocessor = FakeNewsGraphPreprocessor(args.__dict__, max_nr_users)
+    preprocessor = FakeNewsGraphPreprocessor(args.__dict__)

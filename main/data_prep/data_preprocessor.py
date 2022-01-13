@@ -269,7 +269,7 @@ class DataPreprocessor(GraphIO):
                 invalid = [': '.join(entry) for entry in invalid.items()]
                 file.write('\n'.join(invalid))
 
-        x_data = np.array(x_data)
+        x_data = np.array(x_data, dtype=object)
         y_data = np.array(y_data)
         doc_names = np.array(doc_names)
 
@@ -425,17 +425,7 @@ class DataPreprocessor(GraphIO):
             # noinspection PyUnboundLocalVariable
             user_set.update(users_filtered)
 
-        all_users = set.union(*[train_users, val_users, test_users])
-        print(f'All users: {len(all_users)}')
-        assert len(all_users) <= self.top_k * 1000, \
-            f"Total nr of users for all splits is greater than top K {self.top_k}!"
-
-        file_name = USER_SPLITS_FILE_NAME % \
-                    (self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
-        user_splits_file = self.data_complete_path(file_name)
-        print("User splits stored in : ", user_splits_file)
-        temp_dict = {'train_users': list(train_users), 'val_users': list(val_users), 'test_users': list(test_users)}
-        save_json_file(temp_dict, user_splits_file)
+        self.store_user_splits(train_users, test_users, val_users)
 
     def store_doc2label(self, doc2labels):
         """
@@ -469,3 +459,16 @@ class DataPreprocessor(GraphIO):
                 csv_writer.writerow(file_content)
 
         print("Final file written in :  ", content_dest_file)
+
+    def store_user_splits(self, train_users, test_users, val_users):
+        all_users = set.union(*[train_users, val_users, test_users])
+        print(f'All users: {len(all_users)}')
+        assert len(all_users) <= self.top_k * 1000, \
+            f"Total nr of users for all splits is greater than top K {self.top_k}!"
+
+        file_name = USER_SPLITS_FILE_NAME % \
+                    (self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
+        user_splits_file = self.data_complete_path(file_name)
+        print("User splits stored in : ", user_splits_file)
+        temp_dict = {'train_users': list(train_users), 'val_users': list(val_users), 'test_users': list(test_users)}
+        save_json_file(temp_dict, user_splits_file)
