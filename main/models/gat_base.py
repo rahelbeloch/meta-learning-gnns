@@ -109,10 +109,10 @@ class GatBase(pl.LightningModule):
 
     def forward(self, sub_graphs, mode=None):
 
-        if mode == 'test' or mode == 'val':
-            print(f"Mode {mode}")
-            num_nodes = [g.num_nodes for g in sub_graphs]
-            print(f"\n Nums nodes: {str(num_nodes)}")
+        # if mode == 'test' or mode == 'val':
+        #     print(f"\nMode {mode}")
+        #     num_nodes = [g.num_nodes for g in sub_graphs]
+        #     print(f"Nums nodes: {str(num_nodes)}")
 
         # make a batch out of all sub graphs and push the batch through the model
         # [Data, Data, Data(x, y, ..)]
