@@ -107,7 +107,12 @@ class GatBase(pl.LightningModule):
     def log(self, metric, value, on_step=True, on_epoch=False, **kwargs):
         super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=self.hparams['batch_size'])
 
-    def forward(self, sub_graphs):
+    def forward(self, sub_graphs, mode=None):
+
+        if mode == 'test' or mode == 'val':
+            print(f"Mode {mode}")
+            num_nodes = [g.num_nodes for g in sub_graphs]
+            print(f"\n Nums nodes: {str(num_nodes)}")
 
         # make a batch out of all sub graphs and push the batch through the model
         # [Data, Data, Data(x, y, ..)]
@@ -125,7 +130,7 @@ class GatBase(pl.LightningModule):
             torch.cuda.empty_cache()
 
         sub_graphs, targets = batch
-        out = self.forward(sub_graphs)
+        out = self.forward(sub_graphs, mode='train')
         predictions = self.classifier(out)
         loss = self.loss_module(predictions, targets)
 
@@ -142,7 +147,7 @@ class GatBase(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
 
         sub_graphs, targets = batch
-        out = self.forward(sub_graphs)
+        out = self.forward(sub_graphs, mode='val')
         predictions = self.classifier(out)
 
         val_accuracy = accuracy(predictions, targets)
@@ -160,7 +165,7 @@ class GatBase(pl.LightningModule):
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default logs it per epoch (weighted average over batches)
         sub_graphs, targets = batch
-        out = self.forward(sub_graphs)
+        out = self.forward(sub_graphs, mode='test')
         predictions = self.classifier(out)
 
         self.log_on_epoch('test_accuracy', accuracy(predictions, targets))
@@ -198,9 +203,6 @@ def get_classify_node_features(graphs, features):
 
 def get_subgraph_batch(graphs):
     batch = Batch.from_data_list(graphs)
-
-    # num_nodes = [g.num_nodes for g in graphs]
-    # print(f"\n Nums nodes: {str(num_nodes)}")
 
     x = batch.x.float()
     if not x.is_sparse:
