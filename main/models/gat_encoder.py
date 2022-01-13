@@ -51,7 +51,7 @@ class GATLayer(nn.Module):
         assert x.is_sparse, "Feature vector is not sparse!"
 
         device = x.device
-        num_nodes = x.size[0]
+        num_nodes = x.shape[0]
 
         # make dense because we want to iterate over it
         edges = edges.T
