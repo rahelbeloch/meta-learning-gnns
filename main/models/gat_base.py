@@ -145,9 +145,17 @@ class GatBase(pl.LightningModule):
         out = self.forward(sub_graphs)
         predictions = self.classifier(out)
 
-        self.log_on_epoch('val_accuracy', accuracy(predictions, targets))
-        self.log_on_epoch('val_f1_macro', f1(predictions, targets, average='macro'))
-        self.log_on_epoch('val_f1_micro', f1(predictions, targets, average='micro'))
+        val_accuracy = accuracy(predictions, targets)
+        f1_macro = f1(predictions, targets, average='macro')
+        f1_micro = f1(predictions, targets, average='micro')
+
+        self.log_on_epoch('val_accuracy', val_accuracy)
+        self.log_on_epoch('val_f1_macro', f1_macro)
+        self.log_on_epoch('val_f1_micro', f1_micro)
+
+        print(f"Validation accuracy: {val_accuracy}")
+        print(f"Validation F1 macro: {f1_macro}")
+        print(f"Validation F1 micro: {f1_micro}")
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default logs it per epoch (weighted average over batches)

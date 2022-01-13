@@ -6,6 +6,7 @@ from pathlib import Path
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as cb
 import torch
+from pytorch_lightning.callbacks import EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from data_prep.config import *
@@ -140,13 +141,13 @@ def initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_out
 
     logger = TensorBoardLogger(LOG_PATH, name=model_name, version=version_str)
 
-    # early_stop_callback = EarlyStopping(
-    #     monitor='val_accuracy',
-    #     min_delta=0.00,
-    #     patience=patience,  # validation happens per default after each training epoch
-    #     verbose=False,
-    #     mode='max'
-    # )
+    early_stop_callback = EarlyStopping(
+        monitor='val_accuracy',
+        min_delta=0.00,
+        patience=patience,  # validation happens per default after each training epoch
+        verbose=False,
+        mode='max'
+    )
 
     trainer = pl.Trainer(move_metrics_to_cpu=True,
                          log_every_n_steps=1,
@@ -154,7 +155,7 @@ def initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_out
                          enable_checkpointing=True,
                          gpus=1 if torch.cuda.is_available() else 0,
                          max_epochs=epochs,
-                         callbacks=[model_checkpoint],
+                         callbacks=[model_checkpoint, early_stop_callback],
                          enable_progress_bar=True,
                          num_sanity_val_steps=0)
 
