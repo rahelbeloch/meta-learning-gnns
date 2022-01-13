@@ -27,6 +27,8 @@ class GATLayer(nn.Module):
             assert out_features % num_heads == 0, "Number of output features must be a multiple of the count of heads."
             out_features = out_features // num_heads
 
+        self.out_features = out_features
+
         # Submodules and parameters needed in the layer
         self.projection = nn.Linear(in_features, out_features * num_heads)
 
@@ -128,3 +130,6 @@ class GATLayer(nn.Module):
     @staticmethod
     def idx_select(node_feats, edge_indices):
         return torch.index_select(input=node_feats, index=edge_indices, dim=0)
+
+    def initialize_lin_layer(self, in_features):
+        self.projection = nn.Linear(in_features, self.out_features * self.num_heads)

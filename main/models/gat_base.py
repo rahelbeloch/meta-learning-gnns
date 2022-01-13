@@ -5,7 +5,7 @@ from torch import nn
 # from models.gat_encoder_sparse import GATLayer
 from torch_geometric.data import Batch
 
-from models.gat_encoder_sparse_pushkar import SparseGATLayer
+from models.gat_encoder import GATLayer
 from models.train_utils import *
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
@@ -30,7 +30,8 @@ class GatBase(pl.LightningModule):
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace
         self.save_hyperparameters()
 
-        self.model = SparseGATLayer(in_features=model_hparams['input_dim'], out_features=model_hparams['hid_dim'])
+        self.model = GATLayer(in_features=model_hparams['input_dim'], out_features=model_hparams['hid_dim'])
+        # self.model = SparseGATLayer(in_features=model_hparams['input_dim'], out_features=model_hparams['hid_dim'])
 
         if checkpoint is not None:
             encoder = load_pretrained_encoder(checkpoint)
