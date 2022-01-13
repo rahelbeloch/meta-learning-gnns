@@ -23,7 +23,8 @@ if torch.cuda.is_available():
     torch.cuda.empty_cache()
 
 
-def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, lr_inner, lr_output, hidden_dim,
+def train(model_name, seed, epochs, patience, h_size, top_users, top_users_excluded, k_shot, lr, lr_cl, lr_inner,
+          lr_output, hidden_dim,
           proto_dim, data_train, data_eval, dirs, checkpoint, train_docs, split_size, feature_type, vocab_size,
           n_inner_updates, num_workers):
     os.makedirs(LOG_PATH, exist_ok=True)
@@ -54,7 +55,9 @@ def train(model_name, seed, epochs, patience, h_size, top_k, k_shot, lr, lr_cl, 
     evaluation = checkpoint is not None and Path(checkpoint).exists()
 
     loaders, train_graph_size, eval_graph_size, labels, b_size, train_class_ratio = get_data(data_train, data_eval,
-                                                                                             model_name, h_size, top_k,
+                                                                                             model_name, h_size,
+                                                                                             top_users,
+                                                                                             top_users_excluded,
                                                                                              k_shot, split_size,
                                                                                              feature_type, vocab_size,
                                                                                              dirs, num_workers)
@@ -237,7 +240,9 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', dest='epochs', type=int, default=20)
     parser.add_argument('--patience', dest='patience', type=int, default=10)
     parser.add_argument('--hop-size', dest='hop_size', type=int, default=2)
-    parser.add_argument('--top-k', dest='top_k', type=int, default=30)
+    parser.add_argument('--top-users', dest='top_users', type=int, default=30)
+    parser.add_argument('--top-users-excluded', type=int, default=1,
+                        help='Percentage (in %) of top sharing users that are excluded (the bot users).')
     parser.add_argument('--k-shot', dest='k_shot', type=int, default=2, help="Number of examples per task/batch.")
 
     parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
@@ -295,7 +300,8 @@ if __name__ == "__main__":
         epochs=params['epochs'],
         patience=params['patience'],
         h_size=params["hop_size"],
-        top_k=params["top_k"],
+        top_users=params["top_users"],
+        top_users_excluded=params["top_users_excluded"],
         k_shot=params["k_shot"],
         lr=params["lr"],
         lr_cl=params["lr_cl"],

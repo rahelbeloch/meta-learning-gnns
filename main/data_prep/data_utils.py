@@ -8,8 +8,8 @@ from samplers.maml_batch_sampler import FewShotMamlSampler
 SUPPORTED_DATASETS = ['gossipcop', 'twitterHateSpeech']
 
 
-def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, split_size, feature_type, vocab_size, dirs,
-             num_workers=None):
+def get_data(data_train, data_eval, model, hop_size, top_k, top_users_excluded,
+             k_shot, split_size, feature_type, vocab_size, dirs, num_workers=None):
     """
     Creates and returns the correct data object depending on data_name.
     Args:
@@ -36,7 +36,8 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, split_size, 
 
     num_workers = num_workers if num_workers is not None else 4 if torch.cuda.is_available() else 0  # mac has 8 CPUs
 
-    data_config = {'top_k': top_k, 'feature_type': feature_type, 'max_vocab': vocab_size}
+    data_config = {'top_users': top_k, 'top_users_excluded': top_users_excluded, 'feature_type': feature_type,
+                   'max_vocab': vocab_size}
 
     # creating a train and val loader from the train dataset
     train_config = {**data_config, **{'data_set': data_train, 'train_size': split_size[0], 'val_size': split_size[1],
@@ -63,8 +64,11 @@ def get_data(data_train, data_eval, model, hop_size, top_k, k_shot, split_size, 
     else:
         # creating a val and test loader from the eval dataset
         test_split_size = (0.0, 0.25, 0.75)
+        data_config['top_users_excluded'] = 0
+
         eval_config = {**data_config, **{'data_set': data_eval, 'train_size': test_split_size[0],
                                          'val_size': test_split_size[1], 'test_size': test_split_size[2]}}
+
         graph_data_eval = TorchGeomGraphDataset(eval_config, test_split_size, *dirs)
 
         eval_graph_size = graph_data_eval.size

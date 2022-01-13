@@ -16,12 +16,12 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         self.load_doc_splits()
 
-        # self.create_doc_id_dicts()
+        self.create_doc_id_dicts()
         self.create_follower_following_relationships()
-        # self.create_feature_matrix()
-        # self.create_adj_matrix()
-        # self.create_labels()
-        # self.create_split_masks()
+        self.create_feature_matrix()
+        self.create_adj_matrix()
+        self.create_labels()
+        self.create_split_masks()
 
     @property
     def labels(self):
@@ -139,7 +139,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--top_users', type=int, default=30, help='Number (in K) of top users.')
 
-    parser.add_argument('--top_users_excluded', type=float, default=1,
+    parser.add_argument('--top_users_excluded', type=int, default=1,
                         help='Percentage (in %) of top sharing users that are excluded (the bot users).')
 
     parser.add_argument('--valid_users', type=bool, default=True, help='Flag if only top K and users not sharing '

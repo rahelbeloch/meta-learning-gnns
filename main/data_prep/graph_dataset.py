@@ -31,7 +31,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         self._verbose = verbose
         self._analyse_node_degrees = analyse_node_degrees
 
-        self.top_k = config['top_k']
+        self.top_users = config['top_users']
         self.class_ratio = None
         self.train_size, self.val_size, self.test_size = split_size
         self._data = None
@@ -82,17 +82,17 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         self.edge_index = torch.tensor(edge_list).t().contiguous()
 
         # load adjacency matrix
-        adj_matrix_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME % self.top_k)
+        adj_matrix_file = self.data_complete_path(ADJACENCY_MATRIX_FILE_NAME)
         if adj_matrix_file.exists():
             self.adj = torch.from_numpy(load_npz(adj_matrix_file).toarray()).long()
         else:
             # create from edge_list file
             self.adj = get_adj_matrix(self.edge_index, num_nodes)
 
-        # node2id_file = self.data_complete_path(NODE_2_ID_FILE_NAME % self.top_k)
+        # node2id_file = self.data_complete_path(NODE_2_ID_FILE_NAME % self.top_users)
         # self.node2id = json.load(open(node2id_file, 'r'))
 
-        # node_type_file = self.data_complete_path(NODE_TYPE_FILE_NAME % self.top_k)
+        # node_type_file = self.data_complete_path(NODE_TYPE_FILE_NAME % self.top_users)
         # node_type = np.load(node_type_file)
         # node_type = torch.from_numpy(node_type).float()
 

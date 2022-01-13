@@ -170,7 +170,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--top_users', type=int, default=30, help='Number (in K) of top users.')
 
-    parser.add_argument('--top_users_excluded', type=float, default=1,
+    parser.add_argument('--top_users_excluded', type=int, default=1,
                         help='Percentage (in %) of top sharing users that are excluded (the bot users).')
 
     parser.add_argument('--user_doc_threshold', type=float, default=0.3, help='Threshold defining how many articles '
