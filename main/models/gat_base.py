@@ -115,25 +115,43 @@ class GatBase(pl.LightningModule):
         #     num_nodes = [g.num_nodes for g in sub_graphs]
         #     print(f"Nums nodes: {str(num_nodes)}")
 
+        # OPTION 1: Push each single subgraph through the model
+        outputs = []
+
+        for graph in sub_graphs:
+            graph.x = graph.x.float().to_sparse()
+
+            if graph.num_nodes <= 1:
+                # TODO: filter out nodes that don't have any edges
+                # print("graph has 1 node or less, skipping it.")
+                out = torch.zeros(self.hparams['model_hparams']['hid_dim']).to(device)
+            else:
+
+                # gat_encoder_sparse
+                # out = self.model(graph).squeeze()
+
+                # pushkars sparse version
+                # edge_index = graph.edge_index.to_sparse()
+                edge_index = graph.edge_index
+                x = graph.x.to(torch.float32)
+
+                out = self.model(x, edge_index)
+
+                out = out[graph.center_idx]
+            outputs.append(out)
+
+        return torch.stack(outputs)
+
         # make a batch out of all sub graphs and push the batch through the model
         # [Data, Data, Data(x, y, ..)]
         # x, edge_index = get_subgraph_batch(sub_graphs)
         # feats = self.model(x, edge_index)
 
-        feats = []
-        for graph in sub_graphs:
-            x, edge_index = graph.x.float(), graph.edge_index
-            if not x.is_sparse:
-                x = x.to_sparse()
-            out = self.model(x, edge_index)[graph.center_idx]
-            feats.append(out)
-        feats = torch.stack(feats)
-
-        feats = get_classify_node_features(sub_graphs, feats)
-
-        assert len(feats) == len(sub_graphs), "Nr of features returned does not equal nr. of classification nodes!"
-
-        return feats
+        # feats = get_classify_node_features(sub_graphs, feats)
+        #
+        # assert len(feats) == len(sub_graphs), "Nr of features returned does not equal nr. of classification nodes!"
+        #
+        # return feats
 
     def training_step(self, batch, batch_idx):
 
