@@ -24,10 +24,11 @@ if torch.cuda.is_available():
 
 
 def train(model_name, seed, epochs, patience, h_size, top_users, top_users_excluded, k_shot, lr, lr_cl, lr_inner,
-          lr_output, hidden_dim, feat_reduce_dim,
-          proto_dim, data_train, data_eval, dirs, checkpoint, train_docs, split_size, feature_type, vocab_size,
-          n_inner_updates, num_workers):
+          lr_outer, hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_docs,
+          train_split_size, feature_type, vocab_size, n_inner_updates, num_workers):
     os.makedirs(LOG_PATH, exist_ok=True)
+
+    eval_split_size = (0.0, 0.25, 0.75)
 
     if model_name not in SUPPORTED_MODELS:
         raise ValueError("Model type '%s' is not supported." % model_name)
@@ -37,11 +38,20 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
 
     nr_train_docs = 'all' if (train_docs is None or train_docs == -1) else str(train_docs)
 
-    print(f'\nConfiguration:\n mode: {"TEST" if eval else "TRAIN"}\n model_name: {model_name}\n '
-          f'num_workers: {num_workers}\n data_train: {data_train}\n data_eval: {data_eval}\n '
-          f'nr_train_docs: {nr_train_docs}\n vocab_size: {vocab_size}\n k_shot: {k_shot}\n seed: {seed}\n hops: {h_size}\n '
-          f'feature_type: {feature_type}\n checkpoint: {checkpoint}\n max epochs: {epochs}\n patience:{patience}\n'
-          f' lr: {lr}\n lr_cl: {lr_cl}\n hidden_dim: {hidden_dim}\n')
+    # print(f'\nConfiguration:\n mode: {"TEST" if eval else "TRAIN"}\n model_name: {model_name}\n '
+    #       f'num_workers: {num_workers}\n data_train: {data_train}\n data_eval: {data_eval}\n '
+    #       f'nr_train_docs: {nr_train_docs}\n vocab_size: {vocab_size}\n k_shot: {k_shot}\n seed: {seed}\n hops: {h_size}\n '
+    #       f'feature_type: {feature_type}\n checkpoint: {checkpoint}\n max epochs: {epochs}\n patience:{patience}\n'
+    #       f' lr: {lr}\n lr_cl: {lr_cl}\n hidden_dim: {hidden_dim}\n')
+
+    print(f'\nConfiguration:\n mode: {"TEST" if eval else "TRAIN"}\n seed: {seed}\n max epochs: {epochs}\n '
+          f'patience:{patience}\n k_shot: {k_shot}\n\n model_name: {model_name}\n hidden_dim: {hidden_dim}\n '
+          f'feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n\n data_train: {data_train}\n '
+          f'data_eval: {data_eval}\n nr_train_docs: {nr_train_docs}\n hop_size: {h_size}\n top_users: {top_users}\n '
+          f'top_users_excluded: {top_users_excluded}\n num_workers: {num_workers}\n vocab_size: {vocab_size}\n '
+          f'hops: {h_size}\n feature_type: {feature_type}\n split size {data_train}: {str(train_split_size)}\n '
+          f'split size {data_eval}: {str(eval_split_size)}\n\n lr: {lr}\n lr_cl: {lr_cl}\n outer_lr: {lr_outer}\n '
+          f'inner_lr: {lr_inner}\n n_updates: {n_inner_updates}\n proto_dim: {proto_dim}\n')
 
     # reproducible results
     pl.seed_everything(seed)
@@ -58,7 +68,8 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
                                                                                              model_name, h_size,
                                                                                              top_users,
                                                                                              top_users_excluded,
-                                                                                             k_shot, split_size,
+                                                                                             k_shot, train_split_size,
+                                                                                             eval_split_size,
                                                                                              feature_type, vocab_size,
                                                                                              dirs, num_workers)
 
@@ -82,7 +93,7 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
     train_loader, train_val_loader, test_loader, test_val_loader = loaders
 
     print('\nInitializing trainer ..........\n')
-    trainer = initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_output, seed, data_train,
+    trainer = initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_outer, seed, data_train,
                                  data_eval, k_shot, h_size, feature_type, checkpoint)
 
     if model_name == 'gat':
@@ -238,27 +249,36 @@ if __name__ == "__main__":
 
     # TRAINING PARAMETERS
 
+    parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--epochs', dest='epochs', type=int, default=20)
     parser.add_argument('--patience', dest='patience', type=int, default=10)
-    parser.add_argument('--hop-size', dest='hop_size', type=int, default=2)
-    parser.add_argument('--top-users', dest='top_users', type=int, default=30)
-    parser.add_argument('--top-users-excluded', type=int, default=1,
-                        help='Percentage (in %) of top sharing users that are excluded (the bot users).')
     parser.add_argument('--k-shot', dest='k_shot', type=int, default=2, help="Number of examples per task/batch.")
-
     parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
     parser.add_argument('--lr-cl', dest='lr_cl', type=float, default=0.001,
                         help="Classifier learning rate for baseline.")
 
-    # META setup
+    # MODEL CONFIGURATION
 
-    parser.add_argument('--output-lr', dest='lr_output', type=float, default=0.01)
+    parser.add_argument('--model', dest='model', default='gat', choices=SUPPORTED_MODELS,
+                        help='Select the model you want to use.')
+    parser.add_argument('--hidden-dim', dest='hidden_dim', type=int, default=512)
+    parser.add_argument('--feature-reduce-dim', dest='feat_reduce_dim', type=int, default=10000)
+    parser.add_argument('--checkpoint', default=model_checkpoint, type=str, metavar='PATH',
+                        help='Path to latest checkpoint (default: None)')
+
+    # META PARAMETERS
+
+    parser.add_argument('--proto-dim', dest='proto_dim', type=int, default=64)
+    parser.add_argument('--outer-lr', dest='lr_outer', type=float, default=0.01)
     parser.add_argument('--inner-lr', dest='lr_inner', type=float, default=0.01)
     parser.add_argument('--n-updates', dest='n_updates', type=int, default=5,
                         help="Inner gradient updates during meta learning.")
 
-    # CONFIGURATION
-
+    # DATA CONFIGURATION
+    parser.add_argument('--hop-size', dest='hop_size', type=int, default=2)
+    parser.add_argument('--top-users', dest='top_users', type=int, default=30)
+    parser.add_argument('--top-users-excluded', type=int, default=1,
+                        help='Percentage (in %) of top sharing users that are excluded (the bot users).')
     parser.add_argument('--n-workers', dest='n_workers', type=int, default=None,
                         help="Amount of parallel data loaders.")
     parser.add_argument('--dataset-train', dest='dataset_train', default='gossipcop', choices=SUPPORTED_DATASETS,
@@ -273,26 +293,15 @@ if __name__ == "__main__":
     parser.add_argument('--vocab-size', dest='vocab_size', type=int, default=10000, help="Size of the vocabulary.")
     parser.add_argument('--data-dir', dest='data_dir', default='data',
                         help='Select the dataset you want to use.')
-    parser.add_argument('--tsv-dir', dest='tsv_dir', default=tsv_dir,
-                        help='Select the dataset you want to use.')
-    parser.add_argument('--complete-dir', dest='complete_dir', default=complete_dir,
-                        help='Select the dataset you want to use.')
-    parser.add_argument('--model', dest='model', default='gat', choices=SUPPORTED_MODELS,
-                        help='Select the model you want to use.')
-    parser.add_argument('--seed', dest='seed', type=int, default=1234)
-    parser.add_argument('--hidden-dim', dest='hidden_dim', type=int, default=512)
-    parser.add_argument('--feature-reduce-dim', dest='feat_reduce_dim', type=int, default=10000)
-    parser.add_argument('--proto-dim', dest='proto_dim', type=int, default=64)
-    parser.add_argument('--checkpoint', default=model_checkpoint, type=str, metavar='PATH',
-                        help='Path to latest checkpoint (default: None)')
-    parser.add_argument('--transfer', dest='transfer', action='store_true', help='Transfer the model to new dataset.')
-    parser.add_argument('--h-search', dest='h_search', action='store_true', default=False,
-                        help='Flag for doing hyper parameter search (and freezing half of roberta layers) '
-                             'or doing full fine tuning.')
 
     parser.add_argument('--train-size', dest='train_size', type=float, default=0.875)
     parser.add_argument('--val-size', dest='val_size', type=float, default=0.125)
     parser.add_argument('--test-size', dest='test_size', type=float, default=0.0)
+
+    parser.add_argument('--tsv-dir', dest='tsv_dir', default=tsv_dir,
+                        help='Select the dataset you want to use.')
+    parser.add_argument('--complete-dir', dest='complete_dir', default=complete_dir,
+                        help='Select the dataset you want to use.')
 
     params = vars(parser.parse_args())
 
@@ -308,7 +317,7 @@ if __name__ == "__main__":
         lr=params["lr"],
         lr_cl=params["lr_cl"],
         lr_inner=params["lr_inner"],
-        lr_output=params["lr_output"],
+        lr_outer=params["lr_outer"],
         hidden_dim=params["hidden_dim"],
         feat_reduce_dim=params["feat_reduce_dim"],
         proto_dim=params["proto_dim"],
