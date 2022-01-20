@@ -250,7 +250,7 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', dest='epochs', type=int, default=20)
     parser.add_argument('--patience', dest='patience', type=int, default=10)
     parser.add_argument('--dropout', dest='dropout', type=float, default=0.1)
-    parser.add_argument('--dropout-linear', dest='dropout_linear', type=float, default=0.5)
+    parser.add_argument('--dropout-linear', dest='dropout_lin', type=float, default=0.5)
     parser.add_argument('--k-shot', dest='k_shot', type=int, default=2, help="Number of examples per task/batch.")
     parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
     parser.add_argument('--lr-cl', dest='lr_cl', type=float, default=0.001,
