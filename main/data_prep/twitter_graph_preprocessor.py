@@ -139,7 +139,7 @@ if __name__ == '__main__':
     parser.add_argument('--feature_type', type=str, default='one-hot', help='The type of features to use.',
                         choices=FEATURE_TYPES)
 
-    parser.add_argument('--max_vocab', type=int, default=10000, help='Size of the vocabulary used (if one-hot).')
+    parser.add_argument('--vocab_size', type=int, default=10000, help='Size of the vocabulary used (if one-hot).')
 
     parser.add_argument('--train_size', type=float, default=0.0, help='Size of train split.')
 

@@ -47,7 +47,7 @@ class GatBase(pl.LightningModule):
         self.classifier = self.get_classifier(num_classes)
 
         # setting dimensions of constant projection
-        self.model.initialize_first_layers(num_features)
+        # self.model.initialize_first_layers(num_features)
 
     def get_classifier(self, num_classes):
         cf_hidden_dim = self.hparams['model_hparams']['hid_dim']

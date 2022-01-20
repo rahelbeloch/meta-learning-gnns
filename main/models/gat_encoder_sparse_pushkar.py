@@ -36,15 +36,15 @@ class SparseGATLayer(nn.Module):
 
         self.leaky_relu = nn.LeakyReLU(self.alpha)
 
-    def initialize_first_layers(self, in_features, out_features):
-
-        # reduce this to lower dimension: 256; compressing into smaller dimension
-        self.linear = nn.Linear(in_features, out_features, bias=False)
-
-        # grad of the linear layer false --> will not be learned but instead constant projection
-        self.linear.requires_grad_(False)
-
-        self.seq_transformation = nn.Conv1d(out_features, self.out_features, kernel_size=1, stride=1, bias=False)
+    # def initialize_first_layers(self, in_features, out_features):
+    #
+    #     # reduce this to lower dimension: 256; compressing into smaller dimension
+    #     self.linear = nn.Linear(in_features, out_features, bias=False)
+    #
+    #     # grad of the linear layer false --> will not be learned but instead constant projection
+    #     self.linear.requires_grad_(False)
+    #
+    #     self.seq_transformation = nn.Conv1d(out_features, self.out_features, kernel_size=1, stride=1, bias=False)
 
     def forward(self, x, edges):
         assert x.is_sparse

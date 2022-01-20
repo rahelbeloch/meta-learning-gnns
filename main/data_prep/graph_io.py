@@ -40,7 +40,7 @@ class GraphIO:
         self.create_dir(
             data_path / complete_dir / self.dataset / f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}')
 
-        self.non_interaction_docs, self.max_vocab = None, config['max_vocab']
+        self.non_interaction_docs, self.vocab_size = None, config['vocab_size']
 
         self.train_size = config['train_size']
         self.val_size = config['val_size']
@@ -61,7 +61,7 @@ class GraphIO:
         self.test_docs = doc_splits['test_docs'] if 'test_docs' in doc_splits else []
 
     def get_file_name(self, filename):
-        return filename % (self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
+        return filename % (self.feature_type, self.vocab_size, self.train_size, self.val_size, self.test_size)
 
     def print_step(self, step_title):
         print(f'\n{"-" * 100}\n \t\t\t {step_title} for {self.dataset} dataset.\n{"-" * 100}')
@@ -113,7 +113,7 @@ class GraphIO:
             return vocab, len(vocab)
         elif 'glove' in self.feature_type:
             feature_size = 200
-            glove = GloVe(name='twitter.27B', dim=feature_size, max_vectors=self.max_vocab)
+            glove = GloVe(name='twitter.27B', dim=feature_size, max_vectors=self.vocab_size)
             # check if words are in the inflected form
             return glove, feature_size
         else:
@@ -143,8 +143,8 @@ class GraphIO:
             token_counts.append((count, token))
 
         token_counts.sort(reverse=True)
-        if self.max_vocab != -1:
-            token_counts = token_counts[:self.max_vocab]
+        if self.vocab_size != -1:
+            token_counts = token_counts[:self.vocab_size-1]
         # NIV: not in vocab token, i.e., out of vocab
         token_counts.append(NIV_IDX)
 

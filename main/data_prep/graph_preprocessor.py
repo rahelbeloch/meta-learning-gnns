@@ -3,6 +3,7 @@ import csv
 import time
 
 import torch
+import torch.nn.functional as func
 from scipy.sparse import lil_matrix, save_npz
 
 from data_prep.config import *
@@ -296,6 +297,8 @@ class GraphPreprocessor(GraphIO):
 
         vocabulary, feature_size = self.get_vocab_token2idx(all_texts)
 
+        padding = feature_size != self.vocab_size
+
         print("\nCreating features for docs nodes...")
         start = time.time()
 
@@ -306,7 +309,7 @@ class GraphPreprocessor(GraphIO):
 
             if self.feature_type == 'one-hot':
                 indices = [vocabulary[token] for token in tokens if token in vocabulary]
-                doc_feat = torch.zeros(feature_size)
+                doc_feat = torch.zeros(self.vocab_size)
                 doc_feat[indices] = 1
             elif 'glove' in self.feature_type:
                 idx_vectors = torch.stack([vocabulary[token] for token in tokens])
@@ -314,6 +317,14 @@ class GraphPreprocessor(GraphIO):
                 doc_feat = idx_vectors.mean(dim=0) if 'average' in self.feature_type else idx_vectors.sum(dim=0)
             else:
                 raise ValueError(f"Trying to create features of type {self.feature_type} which is not unknown!")
+
+            # pad the feature vector to the vocab size if necessary
+            diff = self.vocab_size - doc_feat.shape[0]
+            if padding and diff > 0:
+                doc_feat_padded = func.pad(input=doc_feat.unsqueeze(dim=0), pad=(0, diff, 0, 0), mode='constant',
+                                           value=0).squeeze()
+                assert False not in torch.eq(doc_feat_padded[:doc_feat.shape[0]], doc_feat)
+                doc_feat = doc_feat_padded
 
             features_docs.append(doc_feat)
             feature_ids[doc_key] = feature_idx
@@ -342,7 +353,7 @@ class GraphPreprocessor(GraphIO):
         start = time.time()
         total = doc_features.shape[0] + user_features.shape[0]
 
-        feature_matrix = lil_matrix((total, feature_size))
+        feature_matrix = lil_matrix((total, self.vocab_size))
         print(f"Size of feature matrix = {feature_matrix.shape}")
 
         feature_matrix[:len(doc_features)] = doc_features

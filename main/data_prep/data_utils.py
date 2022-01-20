@@ -37,7 +37,7 @@ def get_data(data_train, data_eval, model, hop_size, top_k, top_users_excluded,
     num_workers = num_workers if num_workers is not None else 4 if torch.cuda.is_available() else 0  # mac has 8 CPUs
 
     data_config = {'top_users': top_k, 'top_users_excluded': top_users_excluded, 'feature_type': feature_type,
-                   'max_vocab': vocab_size}
+                   'vocab_size': vocab_size}
 
     # creating a train and val loader from the train dataset
     train_config = {**data_config, **{'data_set': data_train, 'train_size': split_size[0], 'val_size': split_size[1],

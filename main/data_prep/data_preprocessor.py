@@ -476,7 +476,7 @@ class DataPreprocessor(GraphIO):
             f"Total nr of users for all splits is greater than top K {self.top_users}!"
 
         file_name = USER_SPLITS_FILE_NAME % \
-                    (self.feature_type, self.max_vocab, self.train_size, self.val_size, self.test_size)
+                    (self.feature_type, self.vocab_size, self.train_size, self.val_size, self.test_size)
         user_splits_file = self.data_complete_path(file_name)
         print("User splits stored in : ", user_splits_file)
         temp_dict = {'train_users': list(train_users), 'val_users': list(val_users), 'test_users': list(test_users)}
