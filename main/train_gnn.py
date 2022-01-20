@@ -44,13 +44,13 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
     #       f'feature_type: {feature_type}\n checkpoint: {checkpoint}\n max epochs: {epochs}\n patience:{patience}\n'
     #       f' lr: {lr}\n lr_cl: {lr_cl}\n hidden_dim: {hidden_dim}\n')
 
-    print(f'\nConfiguration:\n mode: {"TEST" if eval else "TRAIN"}\n seed: {seed}\n max epochs: {epochs}\n '
+    print(f'\nConfiguration:\n\n mode: {"TEST" if eval else "TRAIN"}\n seed: {seed}\n max epochs: {epochs}\n '
           f'patience:{patience}\n k_shot: {k_shot}\n\n model_name: {model_name}\n hidden_dim: {hidden_dim}\n '
-          f'feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n\n data_train: {data_train}\n '
-          f'data_eval: {data_eval}\n nr_train_docs: {nr_train_docs}\n hop_size: {h_size}\n top_users: {top_users}\n '
-          f'top_users_excluded: {top_users_excluded}\n num_workers: {num_workers}\n vocab_size: {vocab_size}\n '
-          f'hops: {h_size}\n feature_type: {feature_type}\n split size {data_train}: {str(train_split_size)}\n '
-          f'split size {data_eval}: {str(eval_split_size)}\n\n lr: {lr}\n lr_cl: {lr_cl}\n outer_lr: {lr_outer}\n '
+          f'feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n\n data_train: {data_train} '
+          f'(splits: {str(train_split_size)})\n data_eval: {data_eval} (splits: {str(eval_split_size)})\n '
+          f'nr_train_docs: {nr_train_docs}\n hop_size: {h_size}\n top_users: {top_users}K\n '
+          f'top_users_excluded: {top_users_excluded}%\n num_workers: {num_workers}\n vocab_size: {vocab_size}\n '
+          f'hops: {h_size}\n feature_type: {feature_type}\n\n lr: {lr}\n lr_cl: {lr_cl}\n outer_lr: {lr_outer}\n '
           f'inner_lr: {lr_inner}\n n_updates: {n_inner_updates}\n proto_dim: {proto_dim}\n')
 
     # reproducible results
@@ -77,7 +77,7 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
         "lr_cl": lr_cl,
         "lr": lr,
         'lr_inner': lr_inner,
-        'lr_output': lr_output
+        'lr_output': lr_outer
     }
 
     model_params = {
