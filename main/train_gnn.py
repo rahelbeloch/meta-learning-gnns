@@ -116,9 +116,9 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
 
     model = model.load_from_checkpoint(model_path)
 
-    # model was trained on another dataset --> reinitialize
-    if data_eval is not None and data_eval != data_train:
-        model.reset_dimensions(len(labels[1]), eval_graph_size[1])
+    # model was trained on another dataset --> reinitialize gat classifier
+    if model_name == 'gat' and data_eval is not None and data_eval != data_train:
+        model.reset_classifier_dimensions(len(labels[1]))
 
     evaluate(trainer, model, test_loader, test_val_loader)
 

@@ -20,14 +20,17 @@ class SparseGATLayer(nn.Module):
         self.concat = concat
         self.linear, self.seq_transformation = None, None
 
-        # Constant projection
-        # TODO: we don't project down on sth, constant projection
-        # self.linear = nn.Linear(in_features, out_features, bias=False)
-        self.initialize_first_layers(in_features, feat_reduce_dim)
+        # Constant projection to lower dimension: 256; compressing features
+        self.linear = nn.Linear(in_features, feat_reduce_dim, bias=False)
 
-        # TODO: still initialize even if constant?
-        # gain = nn.init.calculate_gain('leaky_relu')
-        # nn.init.xavier_uniform_(self.linear.weight.data, gain=gain)
+        # grad of the linear layer false --> will not be learned but instead constant projection
+        self.linear.requires_grad_(False)
+
+        self.seq_transformation = nn.Conv1d(feat_reduce_dim, self.out_features, kernel_size=1, stride=1, bias=False)
+
+        # initialization still matters
+        gain = nn.init.calculate_gain('leaky_relu')
+        nn.init.xavier_uniform_(self.linear.weight.data, gain=gain)
 
         self.bias = nn.Parameter(torch.zeros(out_features), requires_grad=True)
 
@@ -35,15 +38,6 @@ class SparseGATLayer(nn.Module):
         self.f_2 = nn.Conv1d(out_features, 1, kernel_size=1, stride=1)
 
         self.leaky_relu = nn.LeakyReLU(self.alpha)
-
-    def initialize_first_layers(self, in_features, out_features):
-        # reduce this to lower dimension: 256; compressing into smaller dimension
-        self.linear = nn.Linear(in_features, out_features, bias=False)
-
-        # grad of the linear layer false --> will not be learned but instead constant projection
-        self.linear.requires_grad_(False)
-
-        self.seq_transformation = nn.Conv1d(out_features, self.out_features, kernel_size=1, stride=1, bias=False)
 
     def forward(self, x, edges):
         assert x.is_sparse

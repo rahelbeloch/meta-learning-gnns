@@ -32,10 +32,6 @@ class ProtoMAML(pl.LightningModule):
         scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[140, 180], gamma=0.1)
         return [optimizer], [scheduler]
 
-    def reset_dimensions(self, _, num_features):
-        # setting dimensions of constant projection
-        self.model.initialize_first_layers(num_features)
-
     def adapt_few_shot(self, support_graphs, support_targets):
 
         x, edge_index = get_subgraph_batch(support_graphs)
