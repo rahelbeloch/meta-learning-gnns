@@ -11,7 +11,7 @@ from models.train_utils import *
 class ProtoNet(pl.LightningModule):
 
     # noinspection PyUnusedLocal
-    def __init__(self, input_dim, hidden_dim, lr, batch_size):
+    def __init__(self, input_dim, hidden_dim, feat_reduce_dim, lr, batch_size):
         """
         Inputs
             proto_dim - Dimensionality of prototype feature space
@@ -19,7 +19,8 @@ class ProtoNet(pl.LightningModule):
         """
         super().__init__()
         self.save_hyperparameters()
-        self.model = SparseGATLayer(in_features=input_dim, out_features=hidden_dim)
+        self.model = SparseGATLayer(in_features=input_dim, out_features=hidden_dim,
+                                    feat_reduce_dim=feat_reduce_dim)
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.lr)

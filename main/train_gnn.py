@@ -93,10 +93,11 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
     if model_name == 'gat':
         model = GatBase(model_params, optimizer_hparams, b_size, checkpoint)
     elif model_name == 'prototypical':
-        model = ProtoNet(model_params['input_dim'], model_params['hid_dim'], optimizer_hparams['lr'], b_size)
+        model = ProtoNet(model_params['input_dim'], model_params['hid_dim'], model_params['feat_reduce_dim'],
+                         optimizer_hparams['lr'], b_size)
     elif model_name == 'gmeta':
-        model = ProtoMAML(model_params['input_dim'], model_params['hid_dim'], optimizer_hparams, n_inner_updates,
-                          b_size)
+        model = ProtoMAML(model_params['input_dim'], model_params['hid_dim'], model_params['feat_reduce_dim'],
+                          optimizer_hparams, n_inner_updates, b_size)
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 
@@ -253,7 +254,7 @@ if __name__ == "__main__":
 
     # MODEL CONFIGURATION
 
-    parser.add_argument('--model', dest='model', default='gat', choices=SUPPORTED_MODELS,
+    parser.add_argument('--model', dest='model', default='gmeta', choices=SUPPORTED_MODELS,
                         help='Select the model you want to use.')
     parser.add_argument('--hidden-dim', dest='hidden_dim', type=int, default=512)
     parser.add_argument('--feature-reduce-dim', dest='feat_reduce_dim', type=int, default=10000)

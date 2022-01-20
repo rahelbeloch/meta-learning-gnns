@@ -15,7 +15,7 @@ from samplers.batch_sampler import split_list
 class ProtoMAML(pl.LightningModule):
 
     # noinspection PyUnusedLocal
-    def __init__(self, input_dim, hidden_dim, opt_hparams, n_inner_updates, batch_size):
+    def __init__(self, input_dim, hidden_dim, feat_reduce_dim, opt_hparams, n_inner_updates, batch_size):
         """
         Inputs
             lr - Learning rate of the outer loop Adam optimizer
@@ -25,7 +25,7 @@ class ProtoMAML(pl.LightningModule):
         """
         super().__init__()
         self.save_hyperparameters()
-        self.model = SparseGATLayer(in_features=input_dim, out_features=hidden_dim)
+        self.model = SparseGATLayer(input_dim, hidden_dim, feat_reduce_dim)
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.opt_hparams['lr'])
