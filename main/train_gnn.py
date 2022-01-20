@@ -326,7 +326,7 @@ if __name__ == "__main__":
         dirs=(params["data_dir"], params["tsv_dir"], params["complete_dir"]),
         checkpoint=params["checkpoint"],
         train_docs=params["num_train_docs"],
-        split_size=(params["train_size"], params["val_size"], params["test_size"]),
+        train_split_size=(params["train_size"], params["val_size"], params["test_size"]),
         feature_type=params["feature_type"],
         vocab_size=params["vocab_size"],
         n_inner_updates=params["n_updates"],
