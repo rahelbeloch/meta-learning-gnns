@@ -1,0 +1,8 @@
+--model gat --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 5 --epochs 20 --feature-reduce-dim 256 --top-users-excluded 1
+--model gat --seed 1234 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 5 --epochs 20 --feature-reduce-dim 256 --top-users-excluded 1
+--model gat --seed 82 --lr 1e-3 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 5 --epochs 20 --feature-reduce-dim 256 --top-users-excluded 1
+--model gat --seed 1234 --lr 1e-3 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 5 --epochs 20 --feature-reduce-dim 256 --top-users-excluded 1
+--model prototypical --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 5 --epochs 20 --feature-reduce-dim 256 --top-users-excluded 1
+--model prototypical --seed 1245 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 5 --epochs 20 --feature-reduce-dim 256 --top-users-excluded 1
+--model prototypical --seed 82 --lr 1e-3 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 5 --epochs 20 --feature-reduce-dim 256 --top-users-excluded 1
+--model prototypical --seed 1245 --lr 1e-3 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 5 --epochs 20 --feature-reduce-dim 256 --top-users-excluded 1

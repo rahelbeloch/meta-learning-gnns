@@ -6,4 +6,6 @@
 --model gat --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 5 --epochs 2 --feature-reduce-dim 128 --top-users-excluded 0
 
 # EXCLUDING BOT users and reduced feature dim
---model gat --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 5 --epochs 2 --feature-reduce-dim 256
+--model gat --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 5 --epochs 2 --feature-reduce-dim 256 --epochs 1
+
+--model prototypical --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 5 --epochs 2 --feature-reduce-dim 256 --epochs 1

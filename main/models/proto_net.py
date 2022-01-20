@@ -83,47 +83,20 @@ class ProtoNet(pl.LightningModule):
 
         support_graphs, query_graphs, support_targets, query_targets = batch
 
-        # OPTION 1: as complete batch
         x, edge_index = get_subgraph_batch(support_graphs)
         support_feats = self.model(x, edge_index).squeeze()
+
         # select only the features for the nodes we actually want to classify and compute prototypes for these
         support_feats = get_classify_node_features(support_graphs, support_feats)
-
-        # OPTION 2: as single sub graphs
-        # outputs = []
-        # for graph in support_graphs:
-        #     graph.x = graph.x.float().to_sparse()
-        #     if graph.num_nodes <= 1:
-        #         # TODO: filter out nodes that don't have any edges
-        #         # print("graph has 1 node or less, skipping it.")
-        #         out = torch.zeros(self.hparams['hidden_dim']).to(graph.x.device)
-        #     else:
-        #         out = self.model(x, edge_index)[graph.center_idx]
-        #     outputs.append(out)
-        # support_feats = torch.stack(outputs)
 
         assert support_feats.shape[0] == support_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
 
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
-        # OPTION 1: as complete batch
         x, edge_index = get_subgraph_batch(query_graphs)
         query_feats = self.model(x, edge_index).squeeze()
         query_feats = get_classify_node_features(query_graphs, query_feats)
-
-        # OPTION 2: as single sub graphs
-        # outputs = []
-        # for graph in query_graphs:
-        #     graph.x = graph.x.float().to_sparse()
-        #     if graph.num_nodes <= 1:
-        #         # TODO: filter out nodes that don't have any edges
-        #         # print("graph has 1 node or less, skipping it.")
-        #         out = torch.zeros(self.hparams['hidden_dim']).to(graph.x.device)
-        #     else:
-        #         out = self.model(graph).squeeze()[graph.center_idx]
-        #     outputs.append(out)
-        # query_feats = torch.stack(outputs)
 
         assert query_feats.shape[0] == query_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
