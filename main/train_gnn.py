@@ -38,12 +38,6 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
 
     nr_train_docs = 'all' if (train_docs is None or train_docs == -1) else str(train_docs)
 
-    # print(f'\nConfiguration:\n mode: {"TEST" if eval else "TRAIN"}\n model_name: {model_name}\n '
-    #       f'num_workers: {num_workers}\n data_train: {data_train}\n data_eval: {data_eval}\n '
-    #       f'nr_train_docs: {nr_train_docs}\n vocab_size: {vocab_size}\n k_shot: {k_shot}\n seed: {seed}\n hops: {h_size}\n '
-    #       f'feature_type: {feature_type}\n checkpoint: {checkpoint}\n max epochs: {epochs}\n patience:{patience}\n'
-    #       f' lr: {lr}\n lr_cl: {lr_cl}\n hidden_dim: {hidden_dim}\n')
-
     print(f'\nConfiguration:\n\n mode: {"TEST" if eval else "TRAIN"}\n seed: {seed}\n max epochs: {epochs}\n '
           f'patience:{patience}\n k_shot: {k_shot}\n\n model_name: {model_name}\n hidden_dim: {hidden_dim}\n '
           f'feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n\n data_train: {data_train} '
