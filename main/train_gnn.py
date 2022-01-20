@@ -39,7 +39,7 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
 
     print(f'\nConfiguration:\n mode: {"TEST" if eval else "TRAIN"}\n model_name: {model_name}\n '
           f'num_workers: {num_workers}\n data_train: {data_train}\n data_eval: {data_eval}\n '
-          f'nr_train_docs: {nr_train_docs}\n k_shot: {k_shot}\n seed: {seed}\n hops: {h_size}\n '
+          f'nr_train_docs: {nr_train_docs}\n vocab_size: {vocab_size}\n k_shot: {k_shot}\n seed: {seed}\n hops: {h_size}\n '
           f'feature_type: {feature_type}\n checkpoint: {checkpoint}\n max epochs: {epochs}\n patience:{patience}\n'
           f' lr: {lr}\n lr_cl: {lr_cl}\n hidden_dim: {hidden_dim}\n')
 

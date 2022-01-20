@@ -42,7 +42,6 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         self.adj = None
         self.node2id = None
         self.split_masks = None
-        self.vocab_size = None
 
         self.read_files()
         self.initialize_graph()
