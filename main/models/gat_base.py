@@ -1,8 +1,6 @@
 import pytorch_lightning as pl
 import torch
 from torch import nn
-# from models.gat_encoder import GATLayer
-# from models.gat_encoder_sparse import GATLayer
 from torch_geometric.data import Batch
 
 from models.gat_encoder_sparse_pushkar import SparseGATLayer
@@ -30,9 +28,8 @@ class GatBase(pl.LightningModule):
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace
         self.save_hyperparameters()
 
-        # self.model = GATLayer(in_features=model_hparams['input_dim'], out_features=model_hparams['hid_dim'])
         self.model = SparseGATLayer(model_hparams['input_dim'], model_hparams['hid_dim'],
-                                    feat_reduce_dim=model_hparams['feat_reduce_dim'])
+                                    model_hparams['feat_reduce_dim'])
 
         if checkpoint is not None:
             encoder = load_pretrained_encoder(checkpoint)
@@ -47,16 +44,20 @@ class GatBase(pl.LightningModule):
         self.classifier = self.get_classifier(num_classes)
 
     def get_classifier(self, num_classes):
-        cf_hidden_dim = self.hparams['model_hparams']['hid_dim']
+        hidden_dim = self.hparams['model_hparams']['hid_dim']
+        dropout = self.hparams['model_hparams']['dropout_lin']
         return nn.Sequential(
-            # TODO: maybe
-            # nn.Dropout(config["dropout"]),
-            # WHY??
-            # nn.Linear(3 * cf_hidden_dim, cf_hidden_dim),
-            nn.Linear(cf_hidden_dim, cf_hidden_dim),
-            nn.ReLU(),
-            nn.Linear(cf_hidden_dim, num_classes)
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, num_classes)
         )
+        # return nn.Sequential(
+        # nn.Dropout(config["dropout"]),
+        # WHY??
+        # nn.Linear(3 * cf_hidden_dim, cf_hidden_dim),
+        # nn.Linear(cf_hidden_dim, cf_hidden_dim),
+        # nn.ReLU(),
+        # nn.Linear(cf_hidden_dim, num_classes)
+        # )
 
     def configure_optimizers(self):
         """

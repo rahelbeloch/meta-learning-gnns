@@ -25,7 +25,7 @@ if torch.cuda.is_available():
 
 def train(model_name, seed, epochs, patience, h_size, top_users, top_users_excluded, k_shot, lr, lr_cl, lr_inner,
           lr_outer, hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_docs,
-          train_split_size, feature_type, vocab_size, n_inner_updates, num_workers):
+          train_split_size, feature_type, vocab_size, n_inner_updates, num_workers, dropout, dropout_lin):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     eval_split_size = (0.0, 0.25, 0.75)
@@ -81,7 +81,9 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
         'input_dim': train_graph_size[1],
         'output_dim': len(labels[0]),
         'proto_dim': proto_dim,
-        'class_weight': train_class_ratio
+        'class_weight': train_class_ratio,
+        'dropout': dropout,
+        'dropout_lin': dropout_lin
     }
 
     train_loader, train_val_loader, test_loader, test_val_loader = loaders
@@ -247,6 +249,8 @@ if __name__ == "__main__":
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--epochs', dest='epochs', type=int, default=20)
     parser.add_argument('--patience', dest='patience', type=int, default=10)
+    parser.add_argument('--dropout', dest='dropout', type=float, default=0.1)
+    parser.add_argument('--dropout-linear', dest='dropout_linear', type=float, default=0.5)
     parser.add_argument('--k-shot', dest='k_shot', type=int, default=2, help="Number of examples per task/batch.")
     parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
     parser.add_argument('--lr-cl', dest='lr_cl', type=float, default=0.001,
@@ -325,5 +329,7 @@ if __name__ == "__main__":
         feature_type=params["feature_type"],
         vocab_size=params["vocab_size"],
         n_inner_updates=params["n_updates"],
-        num_workers=params["n_workers"]
+        num_workers=params["n_workers"],
+        dropout=params["dropout"],
+        dropout_lin=params["dropout_lin"]
     )
