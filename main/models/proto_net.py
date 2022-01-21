@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as func
 from torch import optim
 
-from models.gat_base import get_classify_node_features, get_subgraph_batch
+from models.gat_base import get_subgraph_batch, get_classify_mask
 from models.gat_encoder_sparse_pushkar import SparseGATLayer
 from models.train_utils import *
 
@@ -87,7 +87,7 @@ class ProtoNet(pl.LightningModule):
         support_feats = self.model(x, edge_index).squeeze()
 
         # select only the features for the nodes we actually want to classify and compute prototypes for these
-        support_feats = get_classify_node_features(support_graphs, support_feats)
+        support_feats = support_feats[get_classify_mask(support_graphs)]
 
         assert support_feats.shape[0] == support_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
@@ -96,7 +96,7 @@ class ProtoNet(pl.LightningModule):
 
         x, edge_index = get_subgraph_batch(query_graphs)
         query_feats = self.model(x, edge_index).squeeze()
-        query_feats = get_classify_node_features(query_graphs, query_feats)
+        query_feats = query_feats[get_classify_mask(query_graphs)]
 
         assert query_feats.shape[0] == query_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"

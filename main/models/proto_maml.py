@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as func
 from torch import optim
 
-from models.gat_base import get_classify_node_features, get_subgraph_batch
+from models.gat_base import get_subgraph_batch, get_classify_mask
 from models.gat_encoder_sparse_pushkar import SparseGATLayer
 from models.proto_net import ProtoNet
 from models.train_utils import evaluation_metrics
@@ -38,7 +38,7 @@ class ProtoMAML(pl.LightningModule):
 
         # Determine prototype initialization
         support_feats = self.model(x, edge_index).squeeze()
-        support_feats = get_classify_node_features(support_graphs, support_feats)
+        support_feats = support_feats[get_classify_mask(support_graphs)]
 
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
         support_labels = self.get_labels(classes, support_targets)
@@ -157,7 +157,7 @@ def run_model(local_model, output_weight, output_bias, graphs, targets):
 
     x, edge_index = get_subgraph_batch(graphs)
     feats = local_model(x, edge_index).squeeze()
-    feats = get_classify_node_features(graphs, feats)
+    feats = feats[get_classify_mask(graphs)]
 
     predictions = func.linear(feats, output_weight, output_bias)
 
