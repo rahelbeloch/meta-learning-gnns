@@ -99,13 +99,10 @@ class GatBase(pl.LightningModule):
         # make a batch out of all sub graphs and push the batch through the model
         # [Data, Data, Data(x, y, ..)]
         x, edge_index = get_subgraph_batch(sub_graphs)
-        feats = self.model(x, edge_index, mode)
+        cl_mask = get_classify_mask(sub_graphs)
 
-        feats = get_classify_node_features(sub_graphs, feats)
-
-        assert len(feats) == len(sub_graphs), "Nr of features returned does not equal nr. of classification nodes!"
-
-        return feats
+        predictions = self.model(x, edge_index, cl_mask, mode == 'train')
+        return predictions
 
     def training_step(self, batch, batch_idx):
 
@@ -113,8 +110,8 @@ class GatBase(pl.LightningModule):
             torch.cuda.empty_cache()
 
         sub_graphs, targets = batch
-        out = self.forward(sub_graphs, mode='train')
-        predictions = self.classifier(out)
+        predictions = self.forward(sub_graphs, mode='train')
+
         loss = self.loss_module(predictions, targets)
         self.log(f"train_loss", loss)
 
@@ -133,8 +130,7 @@ class GatBase(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
 
         sub_graphs, targets = batch
-        out = self.forward(sub_graphs, mode='val')
-        predictions = self.classifier(out)
+        predictions = self.forward(sub_graphs, mode='val')
 
         f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets)
         self.log_on_epoch('val_accuracy', acc)
@@ -143,10 +139,9 @@ class GatBase(pl.LightningModule):
         self.log_on_epoch('val_f1_micro', f1_micro)
 
     def test_step(self, batch, batch_idx1, batch_idx2):
-        # By default logs it per epoch (weighted average over batches)
+        # By default, logs it per epoch (weighted average over batches)
         sub_graphs, targets = batch
-        out = self.forward(sub_graphs, mode='test')
-        predictions = self.classifier(out)
+        predictions = self.forward(sub_graphs, mode='test')
 
         f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets)
         self.log_on_epoch('test_accuracy', acc)
@@ -175,14 +170,6 @@ def load_pretrained_encoder(checkpoint_path):
     return encoder_state_dict
 
 
-def get_classify_node_features(graphs, features):
-    cl_n_indices, n_count = [], 0
-    for graph in graphs:
-        cl_n_indices.append(n_count + graph.center_idx)
-        n_count += graph.num_nodes
-    return features[cl_n_indices]
-
-
 def get_subgraph_batch(graphs):
     batch = Batch.from_data_list(graphs)
 
@@ -191,3 +178,11 @@ def get_subgraph_batch(graphs):
         x = x.to_sparse()
 
     return x, batch.edge_index
+
+
+def get_classify_mask(graphs):
+    cl_n_indices, n_count = [], 0
+    for graph in graphs:
+        cl_n_indices.append(n_count + graph.center_idx)
+        n_count += graph.num_nodes
+    return torch.BoolTensor(cl_n_indices)

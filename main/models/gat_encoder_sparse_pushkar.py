@@ -39,19 +39,21 @@ class GatNet(torch.nn.Module):
         #                                 nn.ReLU(),
         #                                 nn.Linear(self.fc_dim, config['n_classes']))
 
-    def forward(self, x, edge_index, mode):
+    def forward(self, x, edge_index, cl_node_mask, train=False):
         x = self.layer1(x, edge_index)
 
-        # TODO: check if we need this (Pushkars version is already doing this whe concatenating)
+        # TODO: check if we need this (Pushkar's version is already doing this whe concatenating)
         # x = func.relu(x)
         # print(f'x is sparse after relu {x.is_sparse}')
 
-        x = func.dropout(x, p=self.dropout, training=mode == 'train')
+        x = func.dropout(x, p=self.dropout, training=train)
 
         if not x.is_sparse:
             x = x.to_sparse()
 
         x = self.layer2(x, edge_index)
+
+        x = x[cl_node_mask]
 
         out = self.classifier(x)
         return out
