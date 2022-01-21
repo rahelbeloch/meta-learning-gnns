@@ -8,7 +8,7 @@ from torch import optim
 from models.gat_base import get_classify_node_features, get_subgraph_batch
 from models.gat_encoder_sparse_pushkar import SparseGATLayer
 from models.proto_net import ProtoNet
-from models.train_utils import f1
+from models.train_utils import evaluation_metrics
 from samplers.batch_sampler import split_list
 
 
@@ -58,7 +58,7 @@ class ProtoMAML(pl.LightningModule):
         # Optimize inner loop model on support set
         for _ in range(self.hparams.n_inner_updates):
             # Determine loss on the support set
-            loss, _, _, _, _ = run_model(local_model, output_weight, output_bias, support_graphs, support_labels)
+            loss, _, _, _, _, _ = run_model(local_model, output_weight, output_bias, support_graphs, support_labels)
 
             # Calculate gradients and perform inner loop update
             loss.backward()
@@ -104,8 +104,8 @@ class ProtoMAML(pl.LightningModule):
 
             # Determine loss of query set
             query_labels = self.get_labels(classes, query_targets)
-            loss, predictions, acc, f1_macro, f1_micro = run_model(local_model, output_weight, output_bias,
-                                                                   query_graphs, query_labels)
+            loss, predictions, acc, f1, f1_macro, f1_micro = run_model(local_model, output_weight, output_bias,
+                                                                       query_graphs, query_labels)
 
             # Calculate gradients for query set loss
             if mode == "train":
@@ -162,9 +162,7 @@ def run_model(local_model, output_weight, output_bias, graphs, targets):
     predictions = func.linear(feats, output_weight, output_bias)
 
     loss = func.cross_entropy(predictions, targets)
-    # noinspection PyUnresolvedReferences
-    accuracy = (predictions.argmax(dim=1) == targets).float()
-    f1_macro = f1(predictions, targets, average='macro')
-    f1_micro = f1(predictions, targets, average='micro')
 
-    return loss, predictions, accuracy, f1_macro, f1_micro
+    f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets)
+
+    return loss, predictions, acc, f1, f1_macro, f1_micro

@@ -108,9 +108,11 @@ class ProtoNet(pl.LightningModule):
         if mode == 'train':
             self.log(f"{mode}_loss", meta_loss)
 
+        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets)
         self.log_on_epoch(f"{mode}_accuracy", acc)
-        self.log_on_epoch(f"{mode}_f1_macro", f1(predictions, targets, average='macro'))
-        self.log_on_epoch(f"{mode}_f1_micro", f1(predictions, targets, average='micro'))
+        self.log_on_epoch(f'{mode}_train_f1', f1)
+        self.log_on_epoch(f"{mode}_f1_macro", f1_macro)
+        self.log_on_epoch(f"{mode}_f1_micro", f1_micro)
 
         return meta_loss
 

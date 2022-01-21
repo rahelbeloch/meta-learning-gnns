@@ -49,18 +49,18 @@ class GatBase(pl.LightningModule):
     def get_classifier(self, num_classes):
         hidden_dim = self.hparams['model_hparams']['hid_dim']
         dropout = self.hparams['model_hparams']['dropout_lin']
+
+        # Phillips implementation
         return nn.Sequential(
             nn.Dropout(dropout),
             nn.Linear(hidden_dim, num_classes)
         )
-        # return nn.Sequential(
-        # nn.Dropout(config["dropout"]),
-        # WHY??
-        # nn.Linear(3 * cf_hidden_dim, cf_hidden_dim),
-        # nn.Linear(cf_hidden_dim, cf_hidden_dim),
-        # nn.ReLU(),
-        # nn.Linear(cf_hidden_dim, num_classes)
-        # )
+
+        # Shans implementation
+        # self.classifier = nn.Sequential(nn.Dropout(config["dropout"]),
+        #                                 nn.Linear(3 * self.embed_dim, self.fc_dim), 3 is number of heads
+        #                                 nn.ReLU(),
+        #                                 nn.Linear(self.fc_dim, config['n_classes']))
 
     def configure_optimizers(self):
         """
@@ -136,15 +136,18 @@ class GatBase(pl.LightningModule):
         out = self.forward(sub_graphs, mode='train')
         predictions = self.classifier(out)
         loss = self.loss_module(predictions, targets)
+        self.log(f"train_loss", loss)
 
-        self.log_on_epoch('train_accuracy', accuracy(predictions, targets))
-        self.log_on_epoch('train_f1_macro', f1(predictions, targets, average='macro'))
-        self.log_on_epoch('train_f1_micro', f1(predictions, targets, average='micro'))
-        self.log('train_loss', loss)
+        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets)
+        self.log_on_epoch('train_accuracy', acc)
+        self.log_on_epoch('train_f1', f1)
+        self.log_on_epoch('train_f1_macro', f1_macro)
+        self.log_on_epoch('train_f1_micro', f1_micro)
 
         # TODO: add scheduler
         # logging in optimizer step does not work, therefore here
         # self.log('lr_rate', self.lr_scheduler.get_lr()[0])
+
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -153,17 +156,11 @@ class GatBase(pl.LightningModule):
         out = self.forward(sub_graphs, mode='val')
         predictions = self.classifier(out)
 
-        val_accuracy = accuracy(predictions, targets)
-        f1_macro = f1(predictions, targets, average='macro')
-        f1_micro = f1(predictions, targets, average='micro')
-
-        self.log_on_epoch('val_accuracy', val_accuracy)
+        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets)
+        self.log_on_epoch('val_accuracy', acc)
+        self.log_on_epoch('val_f1', f1)
         self.log_on_epoch('val_f1_macro', f1_macro)
         self.log_on_epoch('val_f1_micro', f1_micro)
-
-        # print(f"\nValidation accuracy: {val_accuracy}")
-        # print(f"Validation F1 macro: {f1_macro}")
-        # print(f"Validation F1 micro: {f1_micro}")
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default logs it per epoch (weighted average over batches)
@@ -171,9 +168,11 @@ class GatBase(pl.LightningModule):
         out = self.forward(sub_graphs, mode='test')
         predictions = self.classifier(out)
 
-        self.log_on_epoch('test_accuracy', accuracy(predictions, targets))
-        self.log_on_epoch('test_f1_macro', f1(predictions, targets, average='macro'))
-        self.log_on_epoch('test_f1_micro', f1(predictions, targets, average='micro'))
+        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets)
+        self.log_on_epoch('test_accuracy', acc)
+        self.log_on_epoch('test_f1', f1)
+        self.log_on_epoch('test_f1_macro', f1_macro)
+        self.log_on_epoch('test_f1_micro', f1_micro)
 
 
 def load_pretrained_encoder(checkpoint_path):
