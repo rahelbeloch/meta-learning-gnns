@@ -15,12 +15,9 @@ class GatNet(torch.nn.Module):
         self.layer1 = SparseGATLayer(model_hparams['input_dim'], model_hparams['hid_dim'],
                                      model_hparams['feat_reduce_dim'], concat=model_hparams['concat'])
 
-        in_layer2 = model_hparams['hid_dim']
-        if model_hparams['concat']:
-            in_layer2 = 2 * in_layer2
-        print(f'input size layer 2: {in_layer2}')
-
-        self.layer2 = SparseGATLayer(in_layer2, model_hparams['hid_dim'],
+        # TODO: Check if we should really concatenate or not?
+        # no multiple times hidden dim needed because Pushkar's version does not realy concatenate
+        self.layer2 = SparseGATLayer(model_hparams['hid_dim'], model_hparams['hid_dim'],
                                      model_hparams['feat_reduce_dim'], concat=model_hparams['concat'])
 
         self.classifier = self.get_classifier(model_hparams['output_dim'])
