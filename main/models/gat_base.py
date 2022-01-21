@@ -37,8 +37,10 @@ class GatBase(pl.LightningModule):
 
         self.classifier = self.get_classifier(model_hparams['output_dim'])
 
-        # TODO: flip the weights
-        self.loss_module = nn.CrossEntropyLoss(weight=model_hparams["class_weight"])
+        # flipping the weights
+        flipped_weights = torch.flip(model_hparams["class_weight"], dims=[0])
+
+        self.loss_module = nn.CrossEntropyLoss(weight=flipped_weights)
 
     def reset_classifier_dimensions(self, num_classes):
         # adapting the classifier dimensions
