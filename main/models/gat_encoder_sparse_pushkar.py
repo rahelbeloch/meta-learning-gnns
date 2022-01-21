@@ -1,5 +1,4 @@
 import torch
-import torch.functional as func
 import torch.nn.functional as func
 from torch import nn
 
@@ -8,6 +7,8 @@ class GatNet(torch.nn.Module):
 
     def __init__(self, model_hparams):
         super(GatNet, self).__init__()
+
+        self.dropout = model_hparams['dropout']
 
         self.layer1 = SparseGATLayer(model_hparams['input_dim'], model_hparams['hid_dim'],
                                      model_hparams['feat_reduce_dim'])
