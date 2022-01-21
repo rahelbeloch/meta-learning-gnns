@@ -15,7 +15,10 @@ class GatNet(torch.nn.Module):
         self.layer1 = SparseGATLayer(model_hparams['input_dim'], model_hparams['hid_dim'],
                                      model_hparams['feat_reduce_dim'])
 
-        self.layer2 = SparseGATLayer(2 * model_hparams['hid_dim'], model_hparams['hid_dim'],
+        in_layer2 = 2 * model_hparams['hid_dim']
+        print(f'input size layer 2: {in_layer2}')
+
+        self.layer2 = SparseGATLayer(in_layer2, model_hparams['hid_dim'],
                                      model_hparams['feat_reduce_dim'])
 
         self.classifier = self.get_classifier(model_hparams['output_dim'])
@@ -39,7 +42,8 @@ class GatNet(torch.nn.Module):
 
     def forward(self, x, edge_index, mode):
         x = self.layer1(x, edge_index)
-        print(f'x is sparse after layer 1 {x.is_sparse}')
+        # print(f'x is sparse after layer 1 {x.is_sparse}')
+        print(f'output size after layer 1: {x.shape}')
 
         # TODO: check if we need this
         # x = func.relu(x)
@@ -50,7 +54,7 @@ class GatNet(torch.nn.Module):
         # print(f'x is sparse after layer 2 {x.is_sparse}')
         if not x.is_sparse:
             x = x.to_sparse()
-
+        print(f'output size after dropout: {x.shape}')
         x = self.layer2(x, edge_index)
 
         out = self.classifier(x)
