@@ -40,10 +40,17 @@ class GatNet(torch.nn.Module):
     def forward(self, x, edge_index, mode):
         x = self.layer1(x, edge_index)
         print(f'x is sparse after layer 1 {x.is_sparse}')
-        x = func.relu(x)
-        print(f'x is sparse after relu {x.is_sparse}')
+
+        # TODO: check if we need this
+        # x = func.relu(x)
+        # print(f'x is sparse after relu {x.is_sparse}')
+
         x = func.dropout(x, p=self.dropout, training=mode == 'train')
-        print(f'x is sparse after layer 2 {x.is_sparse}')
+
+        # print(f'x is sparse after layer 2 {x.is_sparse}')
+        if not x.is_sparse:
+            x = x.to_sparse()
+
         x = self.layer2(x, edge_index)
 
         out = self.classifier(x)
@@ -113,4 +120,6 @@ class SparseGATLayer(nn.Module):
         sparse_coefs = torch.sparse_coo_tensor(edges, coefs)
         seq_fts = self.dropout(torch.transpose(seq_fts.squeeze(0), 0, 1))
         ret = torch.sparse.mm(sparse_coefs, seq_fts).div(coef_sum) + self.bias
+
+        # TODO: return sparse here?
         return func.elu(ret) if self.concat else ret
