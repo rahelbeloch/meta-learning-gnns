@@ -8,7 +8,9 @@ class GatNet(torch.nn.Module):
     def __init__(self, model_hparams):
         super(GatNet, self).__init__()
 
+        self.dropout_lin = model_hparams['dropout_lin']
         self.dropout = model_hparams['dropout']
+        self.hidden_dim = model_hparams['hid_dim']
 
         self.layer1 = SparseGATLayer(model_hparams['input_dim'], model_hparams['hid_dim'],
                                      model_hparams['feat_reduce_dim'])
@@ -16,12 +18,32 @@ class GatNet(torch.nn.Module):
         self.layer2 = SparseGATLayer(2 * model_hparams['hid_dim'], model_hparams['hid_dim'],
                                      model_hparams['feat_reduce_dim'])
 
+        self.classifier = self.get_classifier(model_hparams['output_dim'])
+
+    def reset_classifier_dimensions(self, num_classes):
+        # adapting the classifier dimensions
+        self.classifier = self.get_classifier(num_classes)
+
+    def get_classifier(self, num_classes):
+        # Phillips implementation
+        return nn.Sequential(
+            nn.Dropout(self.dropout_lin),
+            nn.Linear(self.hidden_dim, num_classes)
+        )
+
+        # Shans implementation
+        # self.classifier = nn.Sequential(nn.Dropout(config["dropout"]),
+        #                                 nn.Linear(3 * self.embed_dim, self.fc_dim), 3 is number of heads
+        #                                 nn.ReLU(),
+        #                                 nn.Linear(self.fc_dim, config['n_classes']))
+
     def forward(self, x, edge_index, mode):
         x = self.layer1(x, edge_index)
-
+        print(f'x is sparse after layer 1 {x.is_sparse}')
         x = func.relu(x)
+        print(f'x is sparse after relu {x.is_sparse}')
         x = func.dropout(x, p=self.dropout, training=mode == 'train')
-
+        print(f'x is sparse after layer 2 {x.is_sparse}')
         x = self.layer2(x, edge_index)
 
         out = self.classifier(x)

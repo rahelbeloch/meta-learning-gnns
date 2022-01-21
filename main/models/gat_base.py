@@ -32,36 +32,15 @@ class GatBase(pl.LightningModule):
         #                             model_hparams['feat_reduce_dim'])
         self.model = GatNet(model_hparams)
 
+        # TODO: move this to GatNet
         if checkpoint is not None:
             encoder = load_pretrained_encoder(checkpoint)
             self.model.load_state_dict(encoder)
-
-        self.classifier = self.get_classifier(model_hparams['output_dim'])
 
         # flipping the weights
         flipped_weights = torch.flip(model_hparams["class_weight"], dims=[0])
 
         self.loss_module = nn.CrossEntropyLoss(weight=flipped_weights)
-
-    def reset_classifier_dimensions(self, num_classes):
-        # adapting the classifier dimensions
-        self.classifier = self.get_classifier(num_classes)
-
-    def get_classifier(self, num_classes):
-        hidden_dim = self.hparams['model_hparams']['hid_dim']
-        dropout = self.hparams['model_hparams']['dropout_lin']
-
-        # Phillips implementation
-        return nn.Sequential(
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim, num_classes)
-        )
-
-        # Shans implementation
-        # self.classifier = nn.Sequential(nn.Dropout(config["dropout"]),
-        #                                 nn.Linear(3 * self.embed_dim, self.fc_dim), 3 is number of heads
-        #                                 nn.ReLU(),
-        #                                 nn.Linear(self.fc_dim, config['n_classes']))
 
     def configure_optimizers(self):
         """
