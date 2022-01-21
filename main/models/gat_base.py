@@ -3,7 +3,7 @@ import torch
 from torch import nn
 from torch_geometric.data import Batch
 
-from models.gat_encoder_sparse_pushkar import SparseGATLayer
+from models.gat_encoder_sparse_pushkar import GatNet
 from models.train_utils import *
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
@@ -28,8 +28,9 @@ class GatBase(pl.LightningModule):
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace
         self.save_hyperparameters()
 
-        self.model = SparseGATLayer(model_hparams['input_dim'], model_hparams['hid_dim'],
-                                    model_hparams['feat_reduce_dim'])
+        # self.model = SparseGATLayer(model_hparams['input_dim'], model_hparams['hid_dim'],
+        #                             model_hparams['feat_reduce_dim'])
+        self.model = GatNet(model_hparams)
 
         if checkpoint is not None:
             encoder = load_pretrained_encoder(checkpoint)
@@ -119,7 +120,7 @@ class GatBase(pl.LightningModule):
         # make a batch out of all sub graphs and push the batch through the model
         # [Data, Data, Data(x, y, ..)]
         x, edge_index = get_subgraph_batch(sub_graphs)
-        feats = self.model(x, edge_index)
+        feats = self.model(x, edge_index, mode)
 
         feats = get_classify_node_features(sub_graphs, feats)
 

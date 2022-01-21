@@ -1,6 +1,30 @@
 import torch
+import torch.functional as func
 import torch.nn.functional as func
 from torch import nn
+
+
+class GatNet(torch.nn.Module):
+
+    def __init__(self, model_hparams):
+        super(GatNet, self).__init__()
+
+        self.layer1 = SparseGATLayer(model_hparams['input_dim'], model_hparams['hid_dim'],
+                                     model_hparams['feat_reduce_dim'])
+
+        self.layer2 = SparseGATLayer(2 * model_hparams['hid_dim'], model_hparams['hid_dim'],
+                                     model_hparams['feat_reduce_dim'])
+
+    def forward(self, x, edge_index, mode):
+        x = self.layer1(x, edge_index)
+
+        x = func.relu(x)
+        x = func.dropout(x, p=self.dropout, training=mode == 'train')
+
+        x = self.layer2(x, edge_index)
+
+        out = self.classifier(x)
+        return out, x
 
 
 class SparseGATLayer(nn.Module):
