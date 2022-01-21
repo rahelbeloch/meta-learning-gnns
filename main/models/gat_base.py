@@ -185,4 +185,4 @@ def get_classify_mask(graphs):
     for graph in graphs:
         cl_n_indices.append(n_count + graph.center_idx)
         n_count += graph.num_nodes
-    return torch.BoolTensor(cl_n_indices)
+    return torch.LongTensor(cl_n_indices)
