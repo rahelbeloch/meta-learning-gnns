@@ -9,3 +9,8 @@
 --model gat --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 5 --epochs 2 --feature-reduce-dim 256 --epochs 1
 
 --model prototypical --seed 82 --lr 1e-4 --dataset-train gossipcop --dataset-eval twitterHateSpeech --feature-type one-hot --k-shot 2 --n-workers 5 --epochs 2 --feature-reduce-dim 256 --epochs 1
+
+
+# Different Split Sizes for Gossipcop (train and test on gossipcop)
+
+--model gat --seed 82 --lr 1e-4 --hidden-dim 64 --dataset-train gossipcop --dataset-eval gossipcop --feature-type one-hot --k-shot 20 --n-workers 5 --epochs 20 --feature-reduce-dim 256 --top-users-excluded 1 --train-size 0.7 --val-size 0.1 --test-size 0.2
