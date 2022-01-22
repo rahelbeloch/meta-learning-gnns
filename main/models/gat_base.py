@@ -137,6 +137,8 @@ class GatBase(pl.LightningModule):
 
         f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, f1_target_label)
         self.log_on_epoch('val_accuracy', acc)
+        if f1 is None:
+            f1 = -1
         self.log_on_epoch('val_f1', f1)
         self.log_on_epoch('val_f1_macro', f1_macro)
         self.log_on_epoch('val_f1_micro', f1_micro)
@@ -153,6 +155,8 @@ class GatBase(pl.LightningModule):
 
         f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, f1_target_label)
         self.log_on_epoch('test_accuracy', acc)
+        if f1 is None:
+            f1 = -1
         self.log_on_epoch('test_f1', f1)
         self.log_on_epoch('test_f1_macro', f1_macro)
         self.log_on_epoch('test_f1_micro', f1_micro)
