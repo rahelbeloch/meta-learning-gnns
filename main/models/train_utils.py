@@ -12,7 +12,7 @@ def evaluation_metrics(predictions, labels, f1_target_label):
 
     # F1 score of the target class (fake for gossipcop and racism for twitter)
     f1 = f1_score(labels_cpu, pred_cpu, average='binary',
-                  pos_label=f1_target_label) if f1_target_label is not None else None
+                  pos_label=f1_target_label) if f1_target_label is not None else 0.0
 
     f1_macro = f1_score(labels_cpu, pred_cpu, average='macro')
     f1_micro = f1_score(labels_cpu, pred_cpu, average='micro')
