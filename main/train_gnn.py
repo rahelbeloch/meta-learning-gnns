@@ -84,7 +84,8 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
         'class_weight': train_class_ratio,
         'dropout': dropout,
         'dropout_lin': dropout_lin,
-        'concat': True
+        'concat': True,
+        'n_heads': 2
     }
 
     train_loader, train_val_loader, test_loader, test_val_loader = loaders

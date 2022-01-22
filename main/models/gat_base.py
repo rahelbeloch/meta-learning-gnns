@@ -3,7 +3,7 @@ import torch
 from torch import nn
 from torch_geometric.data import Batch
 
-from models.gat_encoder_sparse_pushkar import GatNet
+from models.gat_encoder_sparse_pushkar import GatNetSparse
 from models.train_utils import *
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
@@ -30,7 +30,7 @@ class GatBase(pl.LightningModule):
 
         # self.model = SparseGATLayer(model_hparams['input_dim'], model_hparams['hid_dim'],
         #                             model_hparams['feat_reduce_dim'])
-        self.model = GatNet(model_hparams)
+        self.model = GatNetSparse(model_hparams)
 
         # TODO: move this to GatNet
         if checkpoint is not None:
