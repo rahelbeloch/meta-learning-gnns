@@ -130,7 +130,12 @@ class GatBase(pl.LightningModule):
         sub_graphs, targets = batch
         predictions = self.forward(sub_graphs, mode='val')
 
-        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
+        f1_target_label = self.hparams['f1_target_label']
+        if f1_target_label not in targets:
+            print(f"Wanting to compute F1 score on label {f1_target_label}, but targets do not contain this label.")
+            f1_target_label = None
+
+        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, f1_target_label)
         self.log_on_epoch('val_accuracy', acc)
         self.log_on_epoch('val_f1', f1)
         self.log_on_epoch('val_f1_macro', f1_macro)
@@ -141,7 +146,12 @@ class GatBase(pl.LightningModule):
         sub_graphs, targets = batch
         predictions = self.forward(sub_graphs, mode='test')
 
-        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
+        f1_target_label = self.hparams['f1_target_label']
+        if f1_target_label not in targets:
+            print(f"Wanting to compute F1 score on label {f1_target_label}, but targets do not contain this label.")
+            f1_target_label = None
+
+        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, f1_target_label)
         self.log_on_epoch('test_accuracy', acc)
         self.log_on_epoch('test_f1', f1)
         self.log_on_epoch('test_f1_macro', f1_macro)

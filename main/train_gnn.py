@@ -72,8 +72,6 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
                                                                                                    dirs,
                                                                                                    num_workers)
 
-    print(f"F1 target labels: {f1_targets}")
-
     optimizer_hparams = {
         "lr_cl": lr_cl,
         "lr": lr,
