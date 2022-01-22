@@ -3,14 +3,14 @@ import torch.nn.functional as func
 from torch import nn
 
 
-class GatNetSparse(torch.nn.Module):
+class GatNet(torch.nn.Module):
     """
     Graph Attention Networks
     https://arxiv.org/abs/1710.10903
     """
 
     def __init__(self, model_params):
-        super(GatNetSparse, self).__init__()
+        super(GatNet, self).__init__()
         self.n_heads = model_params["n_heads"]
 
         self.in_dim = model_params["input_dim"]
@@ -80,130 +80,6 @@ class GatNetSparse(torch.nn.Module):
         out = self.classifier(x)
 
         return out
-
-
-class GatNet(torch.nn.Module):
-
-    def __init__(self, model_hparams):
-        super(GatNet, self).__init__()
-
-        self.dropout_lin = model_hparams['dropout_lin']
-        self.dropout = model_hparams['dropout']
-        self.hidden_dim = model_hparams['hid_dim']
-
-        self.layer1 = SparseGATLayer(model_hparams['input_dim'], model_hparams['hid_dim'],
-                                     model_hparams['feat_reduce_dim'], concat=model_hparams['concat'])
-
-        # TODO: Check if we should really concatenate or not?
-        # no multiple times hidden dim needed because Pushkar's version does not realy concatenate
-        self.layer2 = SparseGATLayer(model_hparams['hid_dim'], model_hparams['hid_dim'],
-                                     model_hparams['feat_reduce_dim'], concat=model_hparams['concat'])
-
-        self.classifier = self.get_classifier(model_hparams['output_dim'])
-
-    def reset_classifier_dimensions(self, num_classes):
-        # adapting the classifier dimensions
-        self.classifier = self.get_classifier(num_classes)
-
-    def get_classifier(self, num_classes):
-        # Phillips implementation
-        return nn.Sequential(
-            nn.Dropout(self.dropout_lin),
-            nn.Linear(self.hidden_dim, num_classes)
-        )
-
-        # Shans implementation
-        # self.classifier = nn.Sequential(nn.Dropout(config["dropout"]),
-        #                                 nn.Linear(3 * self.embed_dim, self.fc_dim), 3 is number of heads
-        #                                 nn.ReLU(),
-        #                                 nn.Linear(self.fc_dim, config['n_classes']))
-
-    def forward(self, x, edge_index, cl_node_mask, train=False):
-        x = self.layer1(x, edge_index)
-
-        # TODO: check if we need this (Pushkar's version is already doing this whe concatenating)
-        # x = func.relu(x)
-        # print(f'x is sparse after relu {x.is_sparse}')
-
-        x = func.dropout(x, p=self.dropout, training=train)
-
-        if not x.is_sparse:
-            x = x.to_sparse()
-
-        x = self.layer2(x, edge_index)
-
-        x = x[cl_node_mask]
-
-        out = self.classifier(x)
-        return out
-
-
-class GAT(nn.Module):
-    """
-    Graph Attention Networks
-    https://arxiv.org/abs/1710.10903
-    """
-
-    def __init__(self, model_params):
-        super(GAT, self).__init__()
-        self.nheads = model_params["num_conv_layers"]
-        self.nfeat = model_params["in_feature_dim"]
-        self.nclass = model_params["output_dim"]
-        self.nhid = model_params["embed_dim"]
-        self.mask = model_params["mask_rate"]
-        self.dropout = model_params.get("gat_dropout", 0.6)
-        self.attn_drop = model_params.get("gat_mask", 0.6)
-        self.attn = model_params.get("gat_attn", False)
-        self.alpha = model_params.get("gat_alpha", 0.2)
-        self.sparse = model_params.get("gat_sparse", False)
-        self.elu = nn.ELU()
-        gat_layer = layers.SparseGATLayer if self.sparse else layers.GATLayer
-        self.attentions = [
-            gat_layer(
-                self.nfeat,
-                self.nhid,
-                self.dropout,
-                self.attn_drop,
-                self.alpha,
-                self.attn,
-            )
-            for _ in range(self.nheads)
-        ]
-        for i, attention in enumerate(self.attentions):
-            self.add_module("attention_{}".format(i), attention)
-        self.out_att = gat_layer(
-            self.nhid * self.nheads,
-            self.nclass,
-            self.dropout,
-            self.attn_drop,
-            self.alpha,
-            self.attn,
-        )
-        # Flag to return embeddings
-        self.embeddings = False
-
-    def forward(self, adj, x):
-
-        # adj should be a sparse matrix
-
-        if not self.sparse:
-            adj = (
-                adj.to_dense()
-                    .fill_(-9e15)
-                    .fill_diagonal_(0.0)
-                    .index_put(tuple(adj._indices()), torch.tensor([0.0]).to(adj))
-            )
-        else:
-            # these 2 lines are only adding self loops; if I have them already, comment out
-            r = torch.arange(adj.size(0)).repeat(2, 1).to(adj.device)
-            adj = adj + torch.sparse_coo_tensor(r, torch.ones(len(adj)).to(r))
-
-        x = torch.cat([att(x, adj) for att in self.attentions], dim=1)
-        if self.embeddings:
-            return x
-        x = self.elu(x)
-        x = self.out_att(x, adj)
-        return x
 
 
 class SparseGATLayer(nn.Module):
