@@ -12,7 +12,10 @@ from models.train_utils import evaluation_metrics
 from samplers.batch_sampler import split_list
 
 
-class ProtoMAML(pl.LightningModule):
+class MAML(pl.LightningModule):
+    """
+    First-Order MAML (FOML) which only uses first-order gradients.
+    """
 
     # noinspection PyUnusedLocal
     def __init__(self, input_dim, hid_dim, feat_reduce_dim, opt_hparams, n_inner_updates, batch_size, f1_target_label):
@@ -85,24 +88,21 @@ class ProtoMAML(pl.LightningModule):
         return (classes[None, :] == targets[:, None]).long().argmax(dim=-1)
 
     def outer_loop(self, batch, mode="train"):
-        accuracies = []
-        f1_macros = []
-        f1_micros = []
-        losses = []
+        accuracies, f1, f1_macros, f1_micros, losses = [], [], [], [], []
 
         self.model.zero_grad()
 
         # Determine gradients for batch of tasks
-        for task_batch in batch:
+        for task in batch:
 
-            graphs, targets = task_batch
+            graphs, targets = task
             support_graphs, query_graphs = split_list(graphs)
             support_targets, query_targets = split_list(targets)
 
-            # Perform inner loop adaptation
+            # Perform inner loop adaptation (optimize model f_theta on support set via SGD)
             local_model, output_weight, output_bias, classes = self.adapt_few_shot(support_graphs, support_targets)
 
-            # Determine loss of query set
+            # Determine loss of query set; calculate gradients of original parameter theta wrt query loss
             query_labels = self.get_labels(classes, query_targets)
             loss, predictions, acc, f1, f1_macro, f1_micro = run_model(local_model, output_weight, output_bias,
                                                                        query_graphs, query_labels,
@@ -116,6 +116,7 @@ class ProtoMAML(pl.LightningModule):
                     p_global.grad += p_local.grad  # First-order approx. -> add gradients of fine-tuned and base model
 
             accuracies.append(acc.mean().detach())
+            f1.append(f1)
             f1_macros.append(f1_macro)
             f1_micros.append(f1_micro)
             losses.append(loss.detach())
@@ -165,5 +166,4 @@ def run_model(local_model, output_weight, output_bias, graphs, targets, f1_targe
     loss = func.cross_entropy(predictions, targets)
 
     f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, f1_target_label)
-
     return loss, predictions, acc, f1, f1_macro, f1_micro

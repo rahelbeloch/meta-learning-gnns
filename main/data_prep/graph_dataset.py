@@ -5,6 +5,8 @@ from scipy.sparse import load_npz
 from torch_geometric.data import Data
 from torch_geometric.data import Dataset as GeometricDataset
 
+import data_prep.fake_news_tsv_processor
+import data_prep.twitter_tsv_processor
 from data_prep.config import *
 from data_prep.data_preprocess_utils import load_json_file
 from data_prep.graph_io import GraphIO
@@ -226,6 +228,20 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
     @property
     def labels(self):
         return self._labels
+
+    @property
+    def f1_target_label(self):
+        if self.dataset == 'gossipcop':
+            d = data_prep.fake_news_tsv_processor.LABELS
+            key = 'fake'
+        elif self.dataset == 'twitterHateSpeech':
+            d = data_prep.twitter_tsv_processor.LABELS
+            key = 'racism'
+        else:
+            raise ValueError(f"Dataset with name '{self.dataset}' does not exist.")
+
+        # inverse the dict and return the index for the key
+        return {v: k for k, v in d.items()}[key]
 
     @property
     def data(self):

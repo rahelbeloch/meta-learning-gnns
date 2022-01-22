@@ -16,7 +16,7 @@ class GatBase(pl.LightningModule):
     """
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_hparams, optimizer_hparams, batch_size, checkpoint=None):
+    def __init__(self, model_hparams, optimizer_hparams, batch_size, f1_target_label, checkpoint=None):
         """
         Args:
             model_hparams - Hyperparameters for the whole model, as dictionary.
@@ -113,7 +113,7 @@ class GatBase(pl.LightningModule):
         loss = self.loss_module(predictions, targets)
         self.log(f"train_loss", loss)
 
-        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets)
+        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
         self.log_on_epoch('train_accuracy', acc)
         self.log_on_epoch('train_f1', f1)
         self.log_on_epoch('train_f1_macro', f1_macro)
@@ -130,7 +130,7 @@ class GatBase(pl.LightningModule):
         sub_graphs, targets = batch
         predictions = self.forward(sub_graphs, mode='val')
 
-        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets)
+        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
         self.log_on_epoch('val_accuracy', acc)
         self.log_on_epoch('val_f1', f1)
         self.log_on_epoch('val_f1_macro', f1_macro)
@@ -141,7 +141,7 @@ class GatBase(pl.LightningModule):
         sub_graphs, targets = batch
         predictions = self.forward(sub_graphs, mode='test')
 
-        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets)
+        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
         self.log_on_epoch('test_accuracy', acc)
         self.log_on_epoch('test_f1', f1)
         self.log_on_epoch('test_f1_macro', f1_macro)

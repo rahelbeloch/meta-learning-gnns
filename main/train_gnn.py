@@ -58,14 +58,21 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
     # if we only want to evaluate, model should be initialized with nr of labels from evaluation data
     evaluation = checkpoint is not None and Path(checkpoint).exists()
 
-    loaders, train_graph_size, eval_graph_size, labels, b_size, train_class_ratio = get_data(data_train, data_eval,
-                                                                                             model_name, h_size,
-                                                                                             top_users,
-                                                                                             top_users_excluded,
-                                                                                             k_shot, train_split_size,
-                                                                                             eval_split_size,
-                                                                                             feature_type, vocab_size,
-                                                                                             dirs, num_workers)
+    loaders, train_graph_size, eval_graph_size, labels, b_size, class_ratio, f1_targets = get_data(data_train,
+                                                                                                   data_eval,
+                                                                                                   model_name,
+                                                                                                   h_size,
+                                                                                                   top_users,
+                                                                                                   top_users_excluded,
+                                                                                                   k_shot,
+                                                                                                   train_split_size,
+                                                                                                   eval_split_size,
+                                                                                                   feature_type,
+                                                                                                   vocab_size,
+                                                                                                   dirs,
+                                                                                                   num_workers)
+
+    print(f"F1 target labels: {f1_targets}")
 
     optimizer_hparams = {
         "lr_cl": lr_cl,
@@ -81,7 +88,7 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
         'input_dim': train_graph_size[1],
         'output_dim': len(labels[0]),
         'proto_dim': proto_dim,
-        'class_weight': train_class_ratio,
+        'class_weight': class_ratio,
         'dropout': dropout,
         'dropout_lin': dropout_lin,
         'concat': True,
@@ -95,13 +102,13 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
                                  data_eval, k_shot, h_size, feature_type, checkpoint)
 
     if model_name == 'gat':
-        model = GatBase(model_params, optimizer_hparams, b_size, checkpoint)
+        model = GatBase(model_params, optimizer_hparams, b_size, f1_targets[0], checkpoint)
     elif model_name == 'prototypical':
         model = ProtoNet(model_params['input_dim'], model_params['hid_dim'], model_params['feat_reduce_dim'],
-                         optimizer_hparams['lr'], b_size)
+                         optimizer_hparams['lr'], b_size, f1_targets[0])
     elif model_name == 'gmeta':
         model = ProtoMAML(model_params['input_dim'], model_params['hid_dim'], model_params['feat_reduce_dim'],
-                          optimizer_hparams, n_inner_updates, b_size)
+                          optimizer_hparams, n_inner_updates, b_size, f1_targets[0])
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 
@@ -129,6 +136,9 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
     # model was trained on another dataset --> reinitialize gat classifier
     if model_name == 'gat' and data_eval is not None and data_eval != data_train:
         model.reset_classifier_dimensions(len(labels[1]))
+
+        # TODO: set also the target label for f1 score
+        # f1_targets[1]
 
     evaluate(trainer, model, test_loader, test_val_loader)
 
@@ -205,10 +215,12 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
     print(str(val_results))
 
     test_accuracy = test_results['test_accuracy/dataloader_idx_0']
+    test_f1 = val_results['test_f1/dataloader_idx_0']
     test_f1_macro = test_results['test_f1_macro/dataloader_idx_0']
     test_f1_micro = test_results['test_f1_micro/dataloader_idx_0']
 
     val_accuracy = val_results['test_accuracy/dataloader_idx_1']
+    val_f1 = val_results['test_f1/dataloader_idx_1']
     val_f1_macro = val_results['test_f1_macro/dataloader_idx_1']
     val_f1_micro = val_results['test_f1_micro/dataloader_idx_1']
 
@@ -218,9 +230,11 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
     print(f'\nRequired time for testing: {int(test_elapsed / 60)} minutes.\n')
     print(f'Test Results:\n '
           f'test accuracy: {round(test_accuracy, 3)} ({test_accuracy})\n '
+          f'test f1: {round(test_f1, 3)} ({test_f1})\n '
           f'test f1 micro: {round(test_f1_micro, 3)} ({test_f1_micro})\n '
           f'test f1 macro: {round(test_f1_macro, 3)} ({test_f1_macro})\n '
           f'validation accuracy: {round(val_accuracy, 3)} ({val_accuracy})\n '
+          f'validation f1: {round(val_f1, 3)} ({val_f1})\n '
           f'validation f1 macro: {round(val_f1_micro, 3)} ({val_f1_micro})\n '
           f'validation f1 micro: {round(val_f1_macro, 3)} ({val_f1_macro})\n '
           f'\nepochs: {trainer.current_epoch + 1}\n')

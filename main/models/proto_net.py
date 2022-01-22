@@ -11,7 +11,7 @@ from models.train_utils import *
 class ProtoNet(pl.LightningModule):
 
     # noinspection PyUnusedLocal
-    def __init__(self, input_dim, hidden_dim, feat_reduce_dim, lr, batch_size):
+    def __init__(self, input_dim, hidden_dim, feat_reduce_dim, lr, batch_size, f1_target_label):
         """
         Inputs
             proto_dim - Dimensionality of prototype feature space
@@ -108,7 +108,7 @@ class ProtoNet(pl.LightningModule):
         if mode == 'train':
             self.log(f"{mode}_loss", meta_loss)
 
-        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets)
+        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
         self.log_on_epoch(f"{mode}_accuracy", acc)
         self.log_on_epoch(f'{mode}_train_f1', f1)
         self.log_on_epoch(f"{mode}_f1_macro", f1_macro)

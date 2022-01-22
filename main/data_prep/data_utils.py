@@ -54,7 +54,7 @@ def get_data(data_train, data_eval, model, hop_size, top_k, top_users_excluded,
 
     train_labels = graph_data_train.labels
     train_graph_size = graph_data_train.size
-    graph_train_class_ratio = graph_data_train.class_ratio
+    train_class_ratio = graph_data_train.class_ratio
     train_b_size = train_loader.b_size
     eval_graph_size = None
 
@@ -82,7 +82,10 @@ def get_data(data_train, data_eval, model, hop_size, top_k, top_users_excluded,
     loaders = (train_loader, train_val_loader, test_loader, test_val_loader)
     labels = (train_labels, eval_labels)
 
-    return loaders, train_graph_size, eval_graph_size, labels, train_b_size, graph_train_class_ratio
+    f1_train_label, f1_eval_label = graph_data_train.f1_target_label, graph_data_eval.f1_target_label
+
+    return loaders, train_graph_size, eval_graph_size, labels, train_b_size, train_class_ratio, \
+           (f1_train_label, f1_eval_label)
 
 
 def get_loader(graph_data, model, hop_size, k_shot, num_workers, mode):
