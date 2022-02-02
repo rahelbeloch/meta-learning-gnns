@@ -88,21 +88,20 @@ class GatBase(pl.LightningModule):
         super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=self.hparams['batch_size'])
 
     def validation_epoch_end(self, outputs) -> None:
-        print(f"val epoch end: {str(outputs)}")
-        return
-        # outs is a list of whatever you returned in `validation_step`
-        loss = torch.stack(outs).mean()
-        self.log("val_loss", loss)
-
-        correct = 0
-        total = 0
-        for o in outputs:
-            correct += o["log"]["correct"]
-            total += o["log"]["total"]
-        self.log("train_epoch_acc", correct / total)
+        f1_scores = torch.FloatTensor([d['f1'] for d in outputs if d['f1'] is not None])
+        f1_mean = f1_scores.mean()
+        self.log('f1', f1_mean)
+        print(f"Val averaged F1 score for {len(f1_scores)} batches: {f1_mean}")
 
     def training_epoch_end(self, outputs) -> None:
-        print(f"train epoch end: {str(outputs)}")
+        """
+        Outputs is a list of dicts: {'loss': tensor(0.3119, device='cuda:0'), 'f1': 0.04878048780487806}
+        """
+
+        f1_scores = torch.FloatTensor([d['f1'] for d in outputs if d['f1'] is not None])
+        f1_mean = f1_scores.mean()
+        self.log('f1', f1_mean)
+        print(f"Train averaged F1 score for {len(f1_scores)} batches: {f1_mean}")
 
     def forward(self, sub_graphs, mode=None):
 
