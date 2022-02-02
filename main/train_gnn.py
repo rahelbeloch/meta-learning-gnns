@@ -28,7 +28,7 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
           train_split_size, feature_type, vocab_size, n_inner_updates, num_workers, dropout, dropout_lin):
     os.makedirs(LOG_PATH, exist_ok=True)
 
-    eval_split_size = (0.0, 0.25, 0.75)
+    eval_split_size = (0.0, 0.25, 0.75) if data_eval != data_train else None
 
     if model_name not in SUPPORTED_MODELS:
         raise ValueError("Model type '%s' is not supported." % model_name)

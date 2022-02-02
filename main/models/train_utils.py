@@ -19,5 +19,5 @@ def evaluation_metrics(predictions, labels, f1_target_label):
     f1_micro = f1_score(labels_cpu, pred_cpu, average='micro')
     # recall = recall_score(labels, predictions, average='binary', pos_label=1)
     # precision = precision_score(labels, predictions, average='binary', pos_label=1)
-    acc = accuracy(labels, predictions)
-    return f1, f1_macro, f1_micro, acc
+
+    return f1, f1_macro, f1_micro, accuracy(predictions, labels)

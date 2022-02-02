@@ -14,3 +14,14 @@
 --model gat --seed 1234 --lr 1e-4 --hidden-dim 256 --dataset-train gossipcop --dataset-eval gossipcop --feature-type one-hot --k-shot 40 --n-workers 5 --epochs 50 --feature-reduce-dim 256 --top-users-excluded 1 --train-size 0.7 --val-size 0.1 --test-size 0.2
 --model gat --seed 82 --lr 5e-4 --hidden-dim 256 --dataset-train gossipcop --dataset-eval gossipcop --feature-type one-hot --k-shot 40 --n-workers 5 --epochs 50 --feature-reduce-dim 256 --top-users-excluded 1 --train-size 0.7 --val-size 0.1 --test-size 0.2
 --model gat --seed 1234 --lr 5e-4 --hidden-dim 256 --dataset-train gossipcop --dataset-eval gossipcop --feature-type one-hot --k-shot 40 --n-workers 5 --epochs 50 --feature-reduce-dim 256 --top-users-excluded 1 --train-size 0.7 --val-size 0.1 --test-size 0.2
+
+
+(--hidden-size 64)
+(--hidden-size 128)
+--hidden-size 256
+--hidden-size 512
+
+--lr 1e-4
+--lr 5e-4
+
+Shots: [5,10,20,40]
