@@ -88,6 +88,7 @@ class GatBase(pl.LightningModule):
         super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=self.hparams['batch_size'])
 
     def validation_epoch_end(self, outputs) -> None:
+        print(outputs)
         f1_scores = torch.FloatTensor([d['f1'] for d in outputs if d['f1'] is not None])
         f1_mean = f1_scores.mean()
         self.log('f1', f1_mean)
