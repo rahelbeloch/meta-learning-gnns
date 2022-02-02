@@ -88,44 +88,36 @@ class GatBase(pl.LightningModule):
         super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=self.hparams['batch_size'])
 
     def validation_epoch_end(self, outputs) -> None:
-        f1_scores = torch.FloatTensor([d['f1'] for d in outputs if d['f1'] is not None])
-        print(f"\nF1 scores: {str(f1_scores)}")
-        f1_mean = f1_scores.mean()
-        self.log('f1', f1_mean, on_step=False, on_epoch=True)
-        print(f"Val averaged F1 score for {len(f1_scores)} batches: {f1_mean}\n")
+        super().validation_epoch_end(outputs)
+        self.log_f1(outputs)
 
     def test_epoch_end(self, outputs) -> None:
-        f1_scores = torch.FloatTensor([d['f1'] for d in outputs if d['f1'] is not None])
-        print(f"\nF1 scores: {str(f1_scores)}")
-        f1_mean = f1_scores.mean()
-        self.log('f1', f1_mean, on_step=False, on_epoch=True)
-        print(f"Test averaged F1 score for {len(f1_scores)} batches: {f1_mean}\n")
+        super().test_epoch_end(outputs)
+        self.log_f1(outputs)
 
     def training_epoch_end(self, outputs) -> None:
+        super().training_epoch_end(outputs)
+        self.log_f1(outputs)
+
+    def log_f1(self, outputs):
         """
         Outputs is a list of dicts: {'loss': tensor(0.3119, device='cuda:0'), 'f1': 0.04878048780487806}
         """
 
         f1_scores = torch.FloatTensor([d['f1'] for d in outputs if d['f1'] is not None])
-        print(f"\nF1 scores: {str(f1_scores)}")
+        # print(f"\nF1 scores: {str(f1_scores)}")
         f1_mean = f1_scores.mean()
         self.log('f1', f1_mean, on_step=False, on_epoch=True)
-        print(f"Train averaged F1 score for {len(f1_scores)} batches: {f1_mean}\n")
+        # print(f"Averaged F1 score for {len(f1_scores)} batches: {f1_mean}\n")
 
     def forward(self, sub_graphs, mode=None):
-
-        # if mode == 'test' or mode == 'val':
-        #     print(f"\nMode {mode}")
-        #     num_nodes = [g.num_nodes for g in sub_graphs]
-        #     print(f"Nums nodes: {str(num_nodes)}")
 
         # make a batch out of all sub graphs and push the batch through the model
         # [Data, Data, Data(x, y, ..)]
         x, edge_index = get_subgraph_batch(sub_graphs)
         cl_mask = get_classify_mask(sub_graphs)
 
-        predictions = self.model(x, edge_index, cl_mask, mode == 'train')
-        return predictions
+        return self.model(x, edge_index, cl_mask, mode == 'train')
 
     def training_step(self, batch, batch_idx):
 
@@ -167,12 +159,12 @@ class GatBase(pl.LightningModule):
         predictions = self.forward(sub_graphs, mode='test')
 
         f1_target_label = self.hparams['f1_target_label']
-        print(targets)
+        # print(targets)
         f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, f1_target_label)
-        print(accuracy(predictions, targets))
-        print(f1)
-        print(f1_macro)
-        print(f1_micro)
+        # print(accuracy(predictions, targets))
+        # print(f1)
+        # print(f1_macro)
+        # print(f1_micro)
 
         self.log_on_epoch('test_accuracy', accuracy(predictions, targets))
         self.log_on_epoch('test_f1_macro', f1_macro)
