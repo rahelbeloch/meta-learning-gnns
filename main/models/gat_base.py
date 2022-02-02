@@ -87,6 +87,23 @@ class GatBase(pl.LightningModule):
     def log(self, metric, value, on_step=True, on_epoch=False, **kwargs):
         super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=self.hparams['batch_size'])
 
+    def validation_epoch_end(self, outputs) -> None:
+        print(f"val epoch end: {str(outputs)}")
+        return
+        # outs is a list of whatever you returned in `validation_step`
+        loss = torch.stack(outs).mean()
+        self.log("val_loss", loss)
+
+        correct = 0
+        total = 0
+        for o in outputs:
+            correct += o["log"]["correct"]
+            total += o["log"]["total"]
+        self.log("train_epoch_acc", correct / total)
+
+    def training_epoch_end(self, outputs) -> None:
+        print(f"train epoch end: {str(outputs)}")
+
     def forward(self, sub_graphs, mode=None):
 
         # if mode == 'test' or mode == 'val':
@@ -115,8 +132,8 @@ class GatBase(pl.LightningModule):
 
         f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
         self.log_on_epoch('train_accuracy', accuracy(predictions, targets))
-        if f1 is not None:
-            self.log_on_epoch('train_f1', f1)
+        # if f1 is not None:
+        #     self.log_on_epoch('train_f1', f1)
         self.log_on_epoch('train_f1_macro', f1_macro)
         self.log_on_epoch('train_f1_micro', f1_micro)
 
@@ -124,7 +141,7 @@ class GatBase(pl.LightningModule):
         # logging in optimizer step does not work, therefore here
         # self.log('lr_rate', self.lr_scheduler.get_lr()[0])
 
-        return loss
+        return loss, f1
 
     def validation_step(self, batch, batch_idx):
 
@@ -136,8 +153,8 @@ class GatBase(pl.LightningModule):
 
         f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
         self.log_on_epoch('val_accuracy', accuracy(predictions, targets))
-        if f1 is not None:
-            self.log_on_epoch('val_f1', f1)
+        # if f1 is not None:
+        #     self.log_on_epoch('val_f1', f1)
         self.log_on_epoch('val_f1_macro', f1_macro)
         self.log_on_epoch('val_f1_micro', f1_micro)
 
@@ -145,6 +162,7 @@ class GatBase(pl.LightningModule):
         # print(f1)
         # print(f1_macro)
         # print(f1_micro)
+        return f1
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default, logs it per epoch (weighted average over batches)
