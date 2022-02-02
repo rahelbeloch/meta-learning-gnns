@@ -146,5 +146,4 @@ class SparseGATLayer(nn.Module):
         seq_fts = self.dropout(torch.transpose(seq_fts.squeeze(0), 0, 1))
         ret = torch.sparse.mm(sparse_coefs, seq_fts).div(coef_sum) + self.bias
 
-        # TODO: return sparse here?
         return func.elu(ret) if self.concat else ret

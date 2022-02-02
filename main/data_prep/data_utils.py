@@ -91,11 +91,15 @@ def get_data(data_train, data_eval, model, hop_size, top_k, top_users_excluded,
 def get_loader(graph_data, model, hop_size, k_shot, num_workers, mode):
     n_classes = len(graph_data.labels)
 
+    mask = graph_data.mask(f"{mode}_mask")
+    shuffle = mode == 'train'
+    shuffle_once = mode == 'val'
+
     if model in ['gat', 'prototypical']:
-        batch_sampler = FewShotSampler(graph_data.data.y, graph_data.mask(f"{mode}_mask"), n_way=n_classes,
-                                       k_shot=k_shot, include_query=True)
+        batch_sampler = FewShotSampler(graph_data.data.y, mask, n_way=n_classes, k_shot=k_shot, include_query=True,
+                                       shuffle=shuffle, shuffle_once=shuffle_once)
     elif model == 'gmeta':
-        batch_sampler = FewShotMamlSampler(graph_data.data.y, graph_data.mask(f"{mode}_mask"), n_way=n_classes,
+        batch_sampler = FewShotMamlSampler(graph_data.data.y, mask, n_way=n_classes,
                                            k_shot=k_shot, include_query=True)
 
     else:

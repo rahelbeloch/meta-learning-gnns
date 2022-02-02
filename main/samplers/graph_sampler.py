@@ -91,19 +91,21 @@ class KHopSampler(GraphSAINTSampler):
             data.y = None
             data.edge_attr = None
 
-            target = self.data.y[data.center_idx].item()
+            target = self.data.y[node_idx[data.center_idx]].item()
 
             data_list_collated.append((data, target))
 
         if self.model_type == 'gat':
             sup_graphs, labels = list(map(list, zip(*data_list_collated)))
             return sup_graphs, torch.LongTensor(labels)
+
         elif self.model_type == 'prototypical':
             sup_graphs, labels = list(map(list, zip(*data_list_collated)))
 
             supp_sub_graphs, query_sub_graphs = split_list(sup_graphs)
             supp_labels, query_labels = split_list(labels)
             return supp_sub_graphs, query_sub_graphs, torch.LongTensor(supp_labels), torch.LongTensor(query_labels)
+
         elif self.model_type == 'gmeta':
 
             # converts list of all given samples (e.g. (local batch size * task batch size) x 3) into a list of

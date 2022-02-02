@@ -95,6 +95,19 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
 
     train_loader, train_val_loader, test_loader, test_val_loader = loaders
 
+    # not_all_classes_support, not_all_classes_query = 0, 0
+    # for sub_graphs, targets in iter(train_loader):
+    #
+    #     should_count = int(targets.shape[0] / len(class_ratio) / 2)
+    #     t_reshaped = targets.reshape((2, 4))
+    #     bin_1 = torch.bincount(t_reshaped[0])
+    #     bin_2 = torch.bincount(t_reshaped[1])
+    #
+    #     if False in (bin_1 == should_count):
+    #         not_all_classes_support += 1
+    #     if False in (bin_2 == should_count):
+    #         not_all_classes_query += 1
+
     print('\nInitializing trainer ..........\n')
     trainer = initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_outer, seed, data_train,
                                  data_eval, k_shot, h_size, feature_type, checkpoint)
@@ -230,8 +243,8 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
           f'test f1 macro: {round(test_f1_macro, 3)} ({test_f1_macro})\n '
           f'validation accuracy: {round(val_accuracy, 3)} ({val_accuracy})\n '
           f'validation f1: {round(val_f1, 3)} ({val_f1})\n '
-          f'validation f1 macro: {round(val_f1_micro, 3)} ({val_f1_micro})\n '
-          f'validation f1 micro: {round(val_f1_macro, 3)} ({val_f1_macro})\n '
+          f'validation f1 micro: {round(val_f1_micro, 3)} ({val_f1_micro})\n '
+          f'validation f1 macro: {round(val_f1_macro, 3)} ({val_f1_macro})\n '
           f'\nepochs: {trainer.current_epoch + 1}\n')
 
     return test_accuracy, val_accuracy
