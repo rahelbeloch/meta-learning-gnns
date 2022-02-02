@@ -44,11 +44,11 @@ class GatNet(torch.nn.Module):
         for i, attention in enumerate(self.attentions):
             self.add_module("attention_{}".format(i), attention)
 
-        self.classifier = SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim, self.dropout,
-                                      # self.attn_drop, self.alpha
-                                      )
+        # self.classifier = SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim, self.dropout,
+        #                               # self.attn_drop, self.alpha
+        #                               )
 
-        # self.classifier = self.get_classifier(self.out_dim)
+        self.classifier = self.get_classifier(self.out_dim)
 
     def reset_classifier_dimensions(self, num_classes):
         # adapting the classifier dimensions
@@ -56,16 +56,16 @@ class GatNet(torch.nn.Module):
 
     def get_classifier(self, num_classes):
         # Phillips implementation
-        return nn.Sequential(
-            nn.Dropout(self.dropout_lin),
-            nn.Linear(self.hid_dim * self.n_heads, num_classes)
-        )
+        # return nn.Sequential(
+        #     nn.Dropout(self.dropout_lin),
+        #     nn.Linear(self.hid_dim * self.n_heads, num_classes)
+        # )
 
         # Shans implementation
-        # self.classifier = nn.Sequential(nn.Dropout(config["dropout"]),
-        #                                 nn.Linear(self.n_heads * self.hid_dim, self.fc_dim),
-        #                                 nn.ReLU(),
-        #                                 nn.Linear(self.fc_dim, num_classes))
+        self.classifier = nn.Sequential(nn.Dropout(self.dropout_lin),
+                                        nn.Linear(self.n_heads * self.hid_dim, self.feat_reduce_dim),
+                                        nn.ReLU(),
+                                        nn.Linear(self.feat_reduce_dim, num_classes))
 
     def forward(self, x, edge_index, cl_mask, mode):
         # adj should be a sparse matrix
@@ -78,7 +78,7 @@ class GatNet(torch.nn.Module):
         x = self.elu(x)
 
         x = x[cl_mask]
-        out = self.classifier(x.to_sparse(), edge_index)
+        out = self.classifier(x, edge_index)
 
         return out
 
