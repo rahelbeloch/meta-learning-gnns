@@ -113,14 +113,17 @@ class GatBase(pl.LightningModule):
         loss = self.loss_module(predictions, targets)
         self.log(f"train_loss", loss)
 
-        # print(f'\n{str(targets)}\n')
         f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
         self.log_on_epoch('train_accuracy', acc)
-
         if f1 is not None:
             self.log_on_epoch('train_f1', f1)
         self.log_on_epoch('train_f1_macro', f1_macro)
         self.log_on_epoch('train_f1_micro', f1_micro)
+
+        print(acc)
+        print(f1)
+        print(f1_macro)
+        print(f1_micro)
 
         # TODO: add scheduler
         # logging in optimizer step does not work, therefore here
@@ -147,10 +150,6 @@ class GatBase(pl.LightningModule):
 
         f1_target_label = self.hparams['f1_target_label']
         print(targets)
-        # if f1_target_label not in targets:
-        #     print(f"Wanting to compute F1 score on label {f1_target_label}, but targets do not contain this label.")
-        #     f1_target_label = None
-
         f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, f1_target_label)
         print(acc)
         print(f1)
