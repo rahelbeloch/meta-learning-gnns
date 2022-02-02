@@ -43,11 +43,11 @@ class GatNet(torch.nn.Module):
         for i, attention in enumerate(self.attentions):
             self.add_module("attention_{}".format(i), attention)
 
-        # self.out_att = SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim, self.dropout,
-        #                               # self.attn_drop, self.alpha
-        #                               )
+        self.classifier = SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim, self.dropout,
+                                      # self.attn_drop, self.alpha
+                                      )
 
-        self.classifier = self.get_classifier(self.out_dim)
+        # self.classifier = self.get_classifier(self.out_dim)
 
     def reset_classifier_dimensions(self, num_classes):
         # adapting the classifier dimensions
