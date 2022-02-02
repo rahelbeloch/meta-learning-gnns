@@ -88,11 +88,16 @@ class GatBase(pl.LightningModule):
         super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=self.hparams['batch_size'])
 
     def validation_epoch_end(self, outputs) -> None:
-        print(outputs)
         f1_scores = torch.FloatTensor([d['f1'] for d in outputs if d['f1'] is not None])
         f1_mean = f1_scores.mean()
         self.log('f1', f1_mean)
         print(f"Val averaged F1 score for {len(f1_scores)} batches: {f1_mean}")
+
+    def test_epoch_end(self, outputs) -> None:
+        f1_scores = torch.FloatTensor([d['f1'] for d in outputs if d['f1'] is not None])
+        f1_mean = f1_scores.mean()
+        self.log('f1', f1_mean)
+        print(f"Test averaged F1 score for {len(f1_scores)} batches: {f1_mean}")
 
     def training_epoch_end(self, outputs) -> None:
         """
@@ -132,8 +137,6 @@ class GatBase(pl.LightningModule):
 
         f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
         self.log_on_epoch('train_accuracy', accuracy(predictions, targets))
-        # if f1 is not None:
-        #     self.log_on_epoch('train_f1', f1)
         self.log_on_epoch('train_f1_macro', f1_macro)
         self.log_on_epoch('train_f1_micro', f1_micro)
 
@@ -148,21 +151,12 @@ class GatBase(pl.LightningModule):
         sub_graphs, targets = batch
         predictions = self.forward(sub_graphs, mode='val')
 
-        # print(predictions.argmax(dim=-1))
-        # print(targets)
-
         f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
         self.log_on_epoch('val_accuracy', accuracy(predictions, targets))
-        # if f1 is not None:
-        #     self.log_on_epoch('val_f1', f1)
         self.log_on_epoch('val_f1_macro', f1_macro)
         self.log_on_epoch('val_f1_micro', f1_micro)
 
-        # print(acc)
-        # print(f1)
-        # print(f1_macro)
-        # print(f1_micro)
-        return f1
+        return dict(f1=f1)
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default, logs it per epoch (weighted average over batches)
@@ -178,10 +172,10 @@ class GatBase(pl.LightningModule):
         print(f1_micro)
 
         self.log_on_epoch('test_accuracy', accuracy(predictions, targets))
-        if f1 is not None:
-            self.log_on_epoch('test_f1', f1)
         self.log_on_epoch('test_f1_macro', f1_macro)
         self.log_on_epoch('test_f1_micro', f1_micro)
+
+        return dict(f1=f1)
 
 
 def load_pretrained_encoder(checkpoint_path):
