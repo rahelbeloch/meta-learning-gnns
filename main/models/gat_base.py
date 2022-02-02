@@ -120,11 +120,6 @@ class GatBase(pl.LightningModule):
         self.log_on_epoch('train_f1_macro', f1_macro)
         self.log_on_epoch('train_f1_micro', f1_micro)
 
-        print(acc)
-        print(f1)
-        print(f1_macro)
-        print(f1_micro)
-
         # TODO: add scheduler
         # logging in optimizer step does not work, therefore here
         # self.log('lr_rate', self.lr_scheduler.get_lr()[0])
@@ -142,6 +137,11 @@ class GatBase(pl.LightningModule):
             self.log_on_epoch('val_f1', f1)
         self.log_on_epoch('val_f1_macro', f1_macro)
         self.log_on_epoch('val_f1_micro', f1_micro)
+
+        print(acc)
+        print(f1)
+        print(f1_macro)
+        print(f1_micro)
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default, logs it per epoch (weighted average over batches)
