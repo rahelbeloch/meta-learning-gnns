@@ -90,13 +90,13 @@ class GatBase(pl.LightningModule):
     def validation_epoch_end(self, outputs) -> None:
         f1_scores = torch.FloatTensor([d['f1'] for d in outputs if d['f1'] is not None])
         f1_mean = f1_scores.mean()
-        self.log('f1', f1_mean, on_step=False, on_epoch=False)
+        self.log('f1', f1_mean, on_step=False, on_epoch=True)
         print(f"Val averaged F1 score for {len(f1_scores)} batches: {f1_mean}")
 
     def test_epoch_end(self, outputs) -> None:
         f1_scores = torch.FloatTensor([d['f1'] for d in outputs if d['f1'] is not None])
         f1_mean = f1_scores.mean()
-        self.log('f1', f1_mean, on_step=False, on_epoch=False)
+        self.log('f1', f1_mean, on_step=False, on_epoch=True)
         print(f"Test averaged F1 score for {len(f1_scores)} batches: {f1_mean}")
 
     def training_epoch_end(self, outputs) -> None:
@@ -106,7 +106,7 @@ class GatBase(pl.LightningModule):
 
         f1_scores = torch.FloatTensor([d['f1'] for d in outputs if d['f1'] is not None])
         f1_mean = f1_scores.mean()
-        self.log('f1', f1_mean, on_step=False, on_epoch=False)
+        self.log('f1', f1_mean, on_step=False, on_epoch=True)
         print(f"Train averaged F1 score for {len(f1_scores)} batches: {f1_mean}")
 
     def forward(self, sub_graphs, mode=None):
