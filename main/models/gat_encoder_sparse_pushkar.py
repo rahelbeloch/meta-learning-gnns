@@ -34,6 +34,7 @@ class GatNet(torch.nn.Module):
                 self.hid_dim,
                 self.feat_reduce_dim,
                 self.dropout,
+                concat=True
                 # self.attn_drop,
                 # self.alpha
             )
@@ -77,7 +78,7 @@ class GatNet(torch.nn.Module):
         x = self.elu(x)
 
         x = x[cl_mask]
-        out = self.classifier(x)
+        out = self.classifier(x, edge_index)
 
         return out
 
