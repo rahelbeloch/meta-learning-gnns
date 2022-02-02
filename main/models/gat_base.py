@@ -113,10 +113,12 @@ class GatBase(pl.LightningModule):
         loss = self.loss_module(predictions, targets)
         self.log(f"train_loss", loss)
 
-        print(f'\n{str(targets)}\n')
+        # print(f'\n{str(targets)}\n')
         f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
         self.log_on_epoch('train_accuracy', acc)
-        self.log_on_epoch('train_f1', f1)
+
+        if f1 is not None:
+            self.log_on_epoch('train_f1', f1)
         self.log_on_epoch('train_f1_macro', f1_macro)
         self.log_on_epoch('train_f1_micro', f1_micro)
 
@@ -133,7 +135,8 @@ class GatBase(pl.LightningModule):
 
         f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
         self.log_on_epoch('val_accuracy', acc)
-        self.log_on_epoch('val_f1', f1)
+        if f1 is not None:
+            self.log_on_epoch('val_f1', f1)
         self.log_on_epoch('val_f1_macro', f1_macro)
         self.log_on_epoch('val_f1_micro', f1_micro)
 
@@ -155,7 +158,8 @@ class GatBase(pl.LightningModule):
         print(f1_micro)
 
         self.log_on_epoch('test_accuracy', acc)
-        self.log_on_epoch('test_f1', f1)
+        if f1 is not None:
+            self.log_on_epoch('test_f1', f1)
         self.log_on_epoch('test_f1_macro', f1_macro)
         self.log_on_epoch('test_f1_micro', f1_micro)
 
