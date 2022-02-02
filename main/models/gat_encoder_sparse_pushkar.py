@@ -62,7 +62,7 @@ class GatNet(torch.nn.Module):
         # )
 
         # Shans implementation
-        self.classifier = nn.Sequential(nn.Dropout(self.dropout_lin),
+        return nn.Sequential(nn.Dropout(self.dropout_lin),
                                         nn.Linear(self.n_heads * self.hid_dim, self.feat_reduce_dim),
                                         nn.ReLU(),
                                         nn.Linear(self.feat_reduce_dim, num_classes))
