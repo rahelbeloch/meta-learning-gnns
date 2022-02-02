@@ -131,6 +131,9 @@ class GatBase(pl.LightningModule):
         sub_graphs, targets = batch
         predictions = self.forward(sub_graphs, mode='val')
 
+        print(predictions.argmax(dim=-1))
+        print(targets)
+
         f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
         self.log_on_epoch('val_accuracy', acc)
         if f1 is not None:

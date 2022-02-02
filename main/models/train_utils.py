@@ -10,9 +10,6 @@ def evaluation_metrics(predictions, labels, f1_target_label):
     pred_cpu = predictions.argmax(dim=-1).detach().cpu()
     labels_cpu = labels.detach().cpu()
 
-    print(pred_cpu)
-    print(labels_cpu)
-
     # F1 score of the target class (fake for gossipcop and racism for twitter)
     f1 = None
     if f1_target_label is not None and f1_target_label in labels:
