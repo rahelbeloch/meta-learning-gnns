@@ -95,18 +95,10 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
 
     train_loader, train_val_loader, test_loader, test_val_loader = loaders
 
-    # not_all_classes_support, not_all_classes_query = 0, 0
-    # for sub_graphs, targets in iter(train_loader):
-    #
-    #     should_count = int(targets.shape[0] / len(class_ratio) / 2)
-    #     t_reshaped = targets.reshape((2, 4))
-    #     bin_1 = torch.bincount(t_reshaped[0])
-    #     bin_2 = torch.bincount(t_reshaped[1])
-    #
-    #     if False in (bin_1 == should_count):
-    #         not_all_classes_support += 1
-    #     if False in (bin_2 == should_count):
-    #         not_all_classes_query += 1
+    # verify_not_overlapping_samples(train_loader)
+    # verify_not_overlapping_samples(train_val_loader)
+    # verify_not_overlapping_samples(test_val_loader)
+    # verify_not_overlapping_samples(test_loader)
 
     print('\nInitializing trainer ..........\n')
     trainer = initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_outer, seed, data_train,
@@ -152,6 +144,33 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
         # f1_targets[1]
 
     evaluate(trainer, model, test_loader, test_val_loader)
+
+
+def verify_not_overlapping_samples(train_val_loader):
+    # support and query set should have same classes, but distinct examples
+    first_n_equal, second_n_equal, not_different_examples = 0, 0, 0
+    for sub_graphs, targets in iter(train_val_loader):
+        chunked = targets.chunk(2, dim=0)
+        bin_1 = torch.bincount(chunked[0])
+        bin_2 = torch.bincount(chunked[1])
+        # support and query should have same classes
+        comp = bin_1 == bin_2
+        sh = comp.shape[0]
+
+        if sh == 1 and comp[0].item() is False:
+            first_n_equal += 1
+
+        if sh == 2 and comp[1].item() is False:
+            second_n_equal += 1
+
+        # different examples...
+        center_indices = [s.orig_center_idx.item() for s in sub_graphs]
+        not_different = len(center_indices) != len(set(center_indices))
+        if not_different:
+            not_different_examples += 1
+    assert first_n_equal == 0
+    assert second_n_equal == 0
+    assert not_different_examples == 0
 
 
 def initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_output, seed, data_train, data_eval,
@@ -278,7 +297,7 @@ if __name__ == "__main__":
     parser.add_argument('--patience', dest='patience', type=int, default=10)
     parser.add_argument('--dropout', dest='dropout', type=float, default=0.1)
     parser.add_argument('--dropout-linear', dest='dropout_lin', type=float, default=0.5)
-    parser.add_argument('--k-shot', dest='k_shot', type=int, default=2, help="Number of examples per task/batch.")
+    parser.add_argument('--k-shot', dest='k_shot', type=int, default=20, help="Number of examples per task/batch.")
     parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
     parser.add_argument('--lr-cl', dest='lr_cl', type=float, default=0.001,
                         help="Classifier learning rate for baseline.")
@@ -310,7 +329,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset-train', dest='dataset_train', default='gossipcop', choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use for training. '
                              'If a checkpoint is provided we do not train again.')
-    parser.add_argument('--dataset-eval', dest='dataset_eval', default='twitterHateSpeech', choices=SUPPORTED_DATASETS,
+    parser.add_argument('--dataset-eval', dest='dataset_eval', default='gossipcop', choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use for evaluation.')
     parser.add_argument('--num-train-docs', dest='num_train_docs', type=int, default=num_nodes,
                         help="Inner gradient updates during meta learning.")
@@ -320,9 +339,12 @@ if __name__ == "__main__":
     parser.add_argument('--data-dir', dest='data_dir', default='data',
                         help='Select the dataset you want to use.')
 
-    parser.add_argument('--train-size', dest='train_size', type=float, default=0.875)
-    parser.add_argument('--val-size', dest='val_size', type=float, default=0.125)
-    parser.add_argument('--test-size', dest='test_size', type=float, default=0.0)
+    # parser.add_argument('--train-size', dest='train_size', type=float, default=0.875)
+    # parser.add_argument('--val-size', dest='val_size', type=float, default=0.125)
+    # parser.add_argument('--test-size', dest='test_size', type=float, default=0.0)
+    parser.add_argument('--train-size', dest='train_size', type=float, default=0.7)
+    parser.add_argument('--val-size', dest='val_size', type=float, default=0.1)
+    parser.add_argument('--test-size', dest='test_size', type=float, default=0.2)
 
     parser.add_argument('--tsv-dir', dest='tsv_dir', default=tsv_dir,
                         help='Select the dataset you want to use.')

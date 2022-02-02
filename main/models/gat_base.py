@@ -191,6 +191,6 @@ def get_subgraph_batch(graphs):
 def get_classify_mask(graphs):
     cl_n_indices, n_count = [], 0
     for graph in graphs:
-        cl_n_indices.append(n_count + graph.center_idx)
+        cl_n_indices.append(n_count + graph.new_center_idx)
         n_count += graph.num_nodes
     return torch.LongTensor(cl_n_indices)

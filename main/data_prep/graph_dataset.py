@@ -215,10 +215,6 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         self._data.val_mask = self.split_masks['val_mask']
         self._data.test_mask = self.split_masks['val_mask']
 
-        # TODO: for what is this needed?
-        # self._data.node2id = torch.tensor(list(self.node2id.values()))
-        # self._data.node_type = self.node_type
-
         if self._verbose:
             print(f"No. of edges in graph = {self._data.num_edges}")
             print(f"\nNo. of train instances = {self._data.train_mask.sum().item()}")

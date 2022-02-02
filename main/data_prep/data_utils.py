@@ -63,6 +63,7 @@ def get_data(data_train, data_eval, model, hop_size, top_k, top_users_excluded,
     if data_train == data_eval:
         print(f'\nData eval and data train are equal, loading graph data only once.')
         graph_data_eval = graph_data_train
+        test_val_loader = train_val_loader
     else:
         # creating a val and test loader from the eval dataset
         data_config['top_users_excluded'] = 0
@@ -75,8 +76,10 @@ def get_data(data_train, data_eval, model, hop_size, top_k, top_users_excluded,
         eval_graph_size = graph_data_eval.size
         print(f"\nTest graph size: \n num_features: {eval_graph_size[1]}\n total_nodes: {eval_graph_size[0]}")
 
+        test_val_loader = get_loader(graph_data_eval, model, hop_size, k_shot, num_workers, 'val')
+
     test_loader = get_loader(graph_data_eval, model, hop_size, k_shot, num_workers, 'test')
-    test_val_loader = get_loader(graph_data_eval, model, hop_size, k_shot, num_workers, 'val')
+
     eval_labels = graph_data_eval.labels
 
     loaders = (train_loader, train_val_loader, test_loader, test_val_loader)

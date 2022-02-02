@@ -36,7 +36,7 @@ class KHopSampler(GraphSAINTSampler):
         node_idx = self.__sample_nodes__(idx).unique()
         adj, _ = self.adj.saint_subgraph(node_idx)
         # noinspection PyTypeChecker
-        return node_idx, adj, torch.where(node_idx == idx)[0].item()
+        return node_idx, adj, (idx, torch.where(node_idx == idx)[0].item())
 
     def __sample_nodes__(self, node_id):
         node_idx, edge_index, node_mapping_idx, edge_mask = k_hop_subgraph(node_id.unsqueeze(dim=0),
@@ -61,10 +61,8 @@ class KHopSampler(GraphSAINTSampler):
 
         data_list_collated = []
 
-        # TODO
-        for node_idx, adj, center_node in data_list:
+        for node_idx, adj, center_indices in data_list:
             # data_collated = super().__collate__(data)
-
             data = self.data.__class__()
             data.num_nodes = node_idx.size(0)
             row, col, edge_idx = adj.coo()
@@ -87,11 +85,12 @@ class KHopSampler(GraphSAINTSampler):
 
             data.x = self.data.x[node_idx]
             data.mask = self.batch_sampler.mask[node_idx]
-            data.center_idx = center_node
+
+            data.orig_center_idx, data.new_center_idx = center_indices
             data.y = None
             data.edge_attr = None
 
-            target = self.data.y[node_idx[data.center_idx]].item()
+            target = self.data.y[center_indices[0]].item()
 
             data_list_collated.append((data, target))
 
