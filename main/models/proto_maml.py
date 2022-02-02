@@ -8,7 +8,7 @@ from torch import optim
 from models.gat_base import get_subgraph_batch, get_classify_mask
 from models.gat_encoder_sparse_pushkar import SparseGATLayer
 from models.proto_net import ProtoNet
-from models.train_utils import evaluation_metrics
+from models.train_utils import evaluation_metrics, accuracy
 from samplers.batch_sampler import split_list
 
 
@@ -164,6 +164,6 @@ def run_model(local_model, output_weight, output_bias, graphs, targets, f1_targe
 
     loss = func.cross_entropy(predictions, targets)
 
-    f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, f1_target_label)
+    f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, f1_target_label)
 
-    return loss, predictions, acc, f1, f1_macro, f1_micro
+    return loss, predictions, accuracy(predictions, targets), f1, f1_macro, f1_micro

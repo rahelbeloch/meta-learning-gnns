@@ -113,8 +113,8 @@ class GatBase(pl.LightningModule):
         loss = self.loss_module(predictions, targets)
         self.log(f"train_loss", loss)
 
-        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
-        self.log_on_epoch('train_accuracy', acc)
+        f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
+        self.log_on_epoch('train_accuracy', accuracy(predictions, targets))
         if f1 is not None:
             self.log_on_epoch('train_f1', f1)
         self.log_on_epoch('train_f1_macro', f1_macro)
@@ -131,20 +131,20 @@ class GatBase(pl.LightningModule):
         sub_graphs, targets = batch
         predictions = self.forward(sub_graphs, mode='val')
 
-        print(predictions.argmax(dim=-1))
-        print(targets)
+        # print(predictions.argmax(dim=-1))
+        # print(targets)
 
-        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
-        self.log_on_epoch('val_accuracy', acc)
+        f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
+        self.log_on_epoch('val_accuracy', accuracy(predictions, targets))
         if f1 is not None:
             self.log_on_epoch('val_f1', f1)
         self.log_on_epoch('val_f1_macro', f1_macro)
         self.log_on_epoch('val_f1_micro', f1_micro)
 
-        print(acc)
-        print(f1)
-        print(f1_macro)
-        print(f1_micro)
+        # print(acc)
+        # print(f1)
+        # print(f1_macro)
+        # print(f1_micro)
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default, logs it per epoch (weighted average over batches)
@@ -153,13 +153,13 @@ class GatBase(pl.LightningModule):
 
         f1_target_label = self.hparams['f1_target_label']
         print(targets)
-        f1, f1_macro, f1_micro, acc = evaluation_metrics(predictions, targets, f1_target_label)
-        print(acc)
+        f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, f1_target_label)
+        print(accuracy(predictions, targets))
         print(f1)
         print(f1_macro)
         print(f1_micro)
 
-        self.log_on_epoch('test_accuracy', acc)
+        self.log_on_epoch('test_accuracy', accuracy(predictions, targets))
         if f1 is not None:
             self.log_on_epoch('test_f1', f1)
         self.log_on_epoch('test_f1_macro', f1_macro)
