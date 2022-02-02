@@ -138,9 +138,6 @@ class GatBase(pl.LightningModule):
         self.log_on_epoch('val_f1_macro', f1_macro)
         self.log_on_epoch('val_f1_micro', f1_micro)
 
-        print(predictions)
-        print(targets)
-
         print(acc)
         print(f1)
         print(f1_macro)
