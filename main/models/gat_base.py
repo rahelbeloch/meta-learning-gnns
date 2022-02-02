@@ -141,7 +141,7 @@ class GatBase(pl.LightningModule):
         # logging in optimizer step does not work, therefore here
         # self.log('lr_rate', self.lr_scheduler.get_lr()[0])
 
-        return loss, f1
+        return dict(loss=loss, f1=f1)
 
     def validation_step(self, batch, batch_idx):
 
