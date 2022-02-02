@@ -78,7 +78,7 @@ class GatNet(torch.nn.Module):
         x = self.elu(x)
 
         x = x[cl_mask]
-        out = self.classifier(x, edge_index)
+        out = self.classifier(x.to_sparse(), edge_index)
 
         return out
 
