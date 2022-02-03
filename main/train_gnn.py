@@ -1,4 +1,5 @@
 import argparse
+import locale
 import os
 import time
 from pathlib import Path
@@ -266,10 +267,16 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
           f'validation f1 macro: {round(val_f1_macro, 3)} ({val_f1_macro})\n '
           f'\nepochs: {trainer.current_epoch + 1}\n')
 
-    print(f'{round(test_f1, 3)}\n{round(test_f1_micro, 3)}\n{round(test_f1_macro, 3)}\n{round(test_accuracy, 3)}\n'
-          f'{round(val_f1, 3)}\n{round(val_f1_micro, 3)}\n{round(val_f1_macro, 3)}\n{round(val_accuracy, 3)}')
+    print(f'{round_format(test_f1)}\n{round_format(test_f1_micro)}\n{round_format(test_f1_macro)}\n'
+          f'{round_format(test_accuracy)}\n{round_format(val_f1)}\n{round_format(val_f1_micro)}\n'
+          f'{round_format(val_f1_macro)}\n{round_format(val_accuracy)}')
 
     return test_accuracy, val_accuracy
+
+
+def round_format(metric):
+    locale.setlocale(locale.LC_ALL, 'de_DE')
+    return locale.format_string("%d", round(metric, 3), grouping=True)
 
 
 if __name__ == "__main__":
