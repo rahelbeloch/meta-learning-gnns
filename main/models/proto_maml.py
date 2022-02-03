@@ -110,16 +110,16 @@ class ProtoMAML(GraphTrainer):
             if mode == "train":
                 loss.backward()
 
-                print("Model parameters.")
+                # print("Model parameters.")
                 count = 0
                 for i, (p_global, p_local) in enumerate(zip(self.model.parameters(), local_model.parameters())):
                     if p_global.grad is None or p_local.grad is None:
-                        print(f"Grad none at position: {i}")
+                        # print(f"Grad none at position: {i}")
                         count += 1
                     else:
                         p_global.grad += p_local.grad  # First-order approx. -> add gradients of fine-tuned and base model
 
-                print(f"Grads None: {count}")
+                # print(f"Grads None: {count}")
 
             accuracies.append(acc)
             f1_macros.append(f1_macro)
