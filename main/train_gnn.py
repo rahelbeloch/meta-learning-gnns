@@ -38,7 +38,10 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
 
     nr_train_docs = 'all' if (train_docs is None or train_docs == -1) else str(train_docs)
 
-    print(f'\nConfiguration:\n\n mode: {"TEST" if eval else "TRAIN"}\n seed: {seed}\n max epochs: {epochs}\n '
+    # if we only want to evaluate, model should be initialized with nr of labels from evaluation data
+    evaluation = checkpoint is not None and Path(checkpoint).exists()
+
+    print(f'\nConfiguration:\n\n mode: {"TEST" if evaluation else "TRAIN"}\n seed: {seed}\n max epochs: {epochs}\n '
           f'patience:{patience}\n k_shot: {k_shot}\n\n model_name: {model_name}\n hidden_dim: {hidden_dim}\n '
           f'feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n\n data_train: {data_train} '
           f'(splits: {str(train_split_size)})\n data_eval: {data_eval} (splits: {str(eval_split_size)})\n '
@@ -54,9 +57,6 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
 
     # the data preprocessing
     print('\nLoading data ..........')
-
-    # if we only want to evaluate, model should be initialized with nr of labels from evaluation data
-    evaluation = checkpoint is not None and Path(checkpoint).exists()
 
     loaders, train_graph_size, eval_graph_size, labels, b_size, class_ratio, f1_targets = get_data(data_train,
                                                                                                    data_eval,
