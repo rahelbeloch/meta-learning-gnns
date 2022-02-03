@@ -1,14 +1,12 @@
-import pytorch_lightning as pl
-import torch
 import torch.nn.functional as func
 from torch import optim
 
-from models.gat_base import get_subgraph_batch, get_classify_mask
+from models.GraphTrainer import GraphTrainer
 from models.gat_encoder_sparse_pushkar import SparseGATLayer
 from models.train_utils import *
 
 
-class ProtoNet(pl.LightningModule):
+class ProtoNet(GraphTrainer):
 
     # noinspection PyUnusedLocal
     def __init__(self, input_dim, hidden_dim, feat_reduce_dim, lr, batch_size, f1_target_label):
@@ -19,6 +17,7 @@ class ProtoNet(pl.LightningModule):
         """
         super().__init__()
         self.save_hyperparameters()
+
         self.model = SparseGATLayer(in_features=input_dim, out_features=hidden_dim,
                                     feat_reduce_dim=feat_reduce_dim)
 
@@ -115,12 +114,6 @@ class ProtoNet(pl.LightningModule):
 
         return meta_loss, f1
 
-    def log_on_epoch(self, metric, value):
-        self.log(metric, value, on_step=False, on_epoch=True)
-
-    def log(self, metric, value, on_step=True, on_epoch=False, **kwargs):
-        super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=self.hparams['batch_size'])
-
     def training_step(self, batch, batch_idx):
         loss, f1 = self.calculate_loss(batch, mode="train")
         return dict(loss=loss, f1=f1)
@@ -132,18 +125,3 @@ class ProtoNet(pl.LightningModule):
     def test_step(self, batch, batch_idx1, batch_idx2):
         _, f1 = self.calculate_loss(batch, mode="test")
         return dict(f1=f1)
-
-    def validation_epoch_end(self, outputs) -> None:
-        super().validation_epoch_end(outputs)
-        self.log_f1(outputs, 'val')
-
-    def training_epoch_end(self, outputs) -> None:
-        super().test_epoch_end(outputs)
-        self.log_f1(outputs, 'train')
-
-    def test_epoch_end(self, outputs) -> None:
-        super().training_epoch_end(outputs)
-        test_metrics = outputs[0]
-        self.log_f1(test_metrics, 'test')
-        val_test_metrics = outputs[1]
-        self.log_f1(val_test_metrics, 'test_val')

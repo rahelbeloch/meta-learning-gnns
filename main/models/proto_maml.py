@@ -5,10 +5,9 @@ import torch
 import torch.nn.functional as func
 from torch import optim
 
-from models.gat_base import get_subgraph_batch, get_classify_mask
 from models.gat_encoder_sparse_pushkar import SparseGATLayer
 from models.proto_net import ProtoNet
-from models.train_utils import evaluation_metrics, accuracy
+from models.train_utils import *
 from samplers.batch_sampler import split_list
 
 

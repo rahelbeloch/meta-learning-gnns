@@ -1,15 +1,13 @@
-import pytorch_lightning as pl
-import torch
 from torch import nn
-from torch_geometric.data import Batch
 
+from models.GraphTrainer import GraphTrainer
 from models.gat_encoder_sparse_pushkar import GatNet
 from models.train_utils import *
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
 
-class GatBase(pl.LightningModule):
+class GatBase(GraphTrainer):
     """
     PyTorch Lightning module containing all model setup: Picking the correct encoder, initializing the classifier,
     and overwriting standard functions for training and optimization.
@@ -81,38 +79,6 @@ class GatBase(pl.LightningModule):
 
         return [optimizer], []
 
-    def log_on_epoch(self, metric, value):
-        self.log(metric, value, on_step=False, on_epoch=True)
-
-    def log(self, metric, value, on_step=True, on_epoch=False, **kwargs):
-        super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=self.hparams['batch_size'])
-
-    def validation_epoch_end(self, outputs) -> None:
-        super().validation_epoch_end(outputs)
-        self.log_f1(outputs, 'val')
-
-    def training_epoch_end(self, outputs) -> None:
-        super().test_epoch_end(outputs)
-        self.log_f1(outputs, 'train')
-
-    def test_epoch_end(self, outputs) -> None:
-        super().training_epoch_end(outputs)
-        test_metrics = outputs[0]
-        self.log_f1(test_metrics, 'test')
-        val_test_metrics = outputs[1]
-        self.log_f1(val_test_metrics, 'test_val')
-
-    def log_f1(self, outputs, mode):
-        """
-        Outputs is a list of dicts: {'loss': tensor(0.3119, device='cuda:0'), 'f1': 0.04878048780487806}
-        """
-
-        f1_scores = torch.FloatTensor([d['f1'] for d in outputs if d['f1'] is not None])
-        # print(f"\nF1 scores: {str(f1_scores)}")
-        f1_mean = f1_scores.mean()
-        self.log(f'{mode}_f1', f1_mean, on_step=False, on_epoch=True)
-        # print(f"Averaged F1 score for {len(f1_scores)} batches: {f1_mean}\n")
-
     def forward(self, sub_graphs, targets, mode=None):
 
         # make a batch out of all sub graphs and push the batch through the model
@@ -174,21 +140,3 @@ def load_pretrained_encoder(checkpoint_path):
             encoder_state_dict[new_layer] = param
 
     return encoder_state_dict
-
-
-def get_subgraph_batch(graphs):
-    batch = Batch.from_data_list(graphs)
-
-    x = batch.x.float()
-    if not x.is_sparse:
-        x = x.to_sparse()
-
-    return x, batch.edge_index
-
-
-def get_classify_mask(graphs):
-    cl_n_indices, n_count = [], 0
-    for graph in graphs:
-        cl_n_indices.append(n_count + graph.new_center_idx)
-        n_count += graph.num_nodes
-    return torch.LongTensor(cl_n_indices)
