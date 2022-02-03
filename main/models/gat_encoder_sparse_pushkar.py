@@ -18,7 +18,7 @@ class GatNet(torch.nn.Module):
         self.hid_dim = model_params["hid_dim"]
         self.feat_reduce_dim = model_params["feat_reduce_dim"]
 
-        self.gat_dropout = model_params.get["gat_dropout"]
+        self.gat_dropout = model_params["gat_dropout"]
         self.lin_dropout = model_params["lin_dropout"]
         self.attn_dropout = model_params["attn_dropout"]
 
