@@ -1,17 +1,16 @@
 from copy import deepcopy
 
-import pytorch_lightning as pl
-import torch
 import torch.nn.functional as func
 from torch import optim
 
+from models.GraphTrainer import GraphTrainer
 from models.gat_encoder_sparse_pushkar import SparseGATLayer
 from models.proto_net import ProtoNet
 from models.train_utils import *
 from samplers.batch_sampler import split_list
 
 
-class ProtoMAML(pl.LightningModule):
+class ProtoMAML(GraphTrainer):
 
     # noinspection PyUnusedLocal
     def __init__(self, input_dim, hid_dim, feat_reduce_dim, opt_hparams, n_inner_updates, batch_size, f1_target_label):
@@ -130,12 +129,6 @@ class ProtoMAML(pl.LightningModule):
         self.log(f"{mode}_acc", sum(accuracies) / len(accuracies))
         self.log_on_epoch(f"{mode}_f1_macro", sum(f1_macros) / len(f1_macros))
         self.log_on_epoch(f"{mode}_f1_micro", sum(f1_micros) / len(f1_micros))
-
-    def log_on_epoch(self, metric, value):
-        self.log(metric, value, on_step=False, on_epoch=True)
-
-    def log(self, metric, value, on_step=True, on_epoch=False, **kwargs):
-        super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=self.hparams['batch_size'])
 
     def training_step(self, batch, batch_idx):
         self.outer_loop(batch, mode="train")

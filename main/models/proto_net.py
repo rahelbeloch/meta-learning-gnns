@@ -18,8 +18,7 @@ class ProtoNet(GraphTrainer):
         super().__init__()
         self.save_hyperparameters()
 
-        self.model = SparseGATLayer(in_features=input_dim, out_features=hidden_dim,
-                                    feat_reduce_dim=feat_reduce_dim)
+        self.model = SparseGATLayer(in_features=input_dim, out_features=hidden_dim, feat_reduce_dim=feat_reduce_dim)
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.lr)
