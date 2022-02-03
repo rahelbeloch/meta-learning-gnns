@@ -113,7 +113,7 @@ class MAML(pl.LightningModule):
                 for p_global, p_local in zip(self.model.parameters(), local_model.parameters()):
                     p_global.grad += p_local.grad  # First-order approx. -> add gradients of fine-tuned and base model
 
-            accuracies.append(acc.mean().detach())
+            accuracies.append(acc.detach())
             f1.append(f1)
             f1_macros.append(f1_macro)
             f1_micros.append(f1_micro)
