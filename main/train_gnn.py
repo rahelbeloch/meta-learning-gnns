@@ -1,5 +1,4 @@
 import argparse
-import locale
 import os
 import time
 from pathlib import Path
@@ -275,8 +274,9 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
 
 
 def round_format(metric):
-    locale.setlocale(locale.LC_ALL, 'de_DE')
-    return locale.format_string("%.3f", round(metric, 3), grouping=True)
+    # locale.setlocale(locale.LC_ALL, 'de_DE')
+    # return locale.format_string('%.3f', round(metric, 3), grouping=True)
+    return f"{round(metric, 3):%.3f}".replace(".", ",")
 
 
 if __name__ == "__main__":
