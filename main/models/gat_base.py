@@ -93,6 +93,7 @@ class GatBase(pl.LightningModule):
 
     def test_epoch_end(self, outputs) -> None:
         super().test_epoch_end(outputs)
+        print(outputs)
         self.log_f1(outputs)
 
     def training_epoch_end(self, outputs) -> None:
