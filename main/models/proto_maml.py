@@ -110,6 +110,9 @@ class ProtoMAML(GraphTrainer):
             if mode == "train":
                 loss.backward()
 
+                print("Model parameters.")
+                print(str(self.model.parameters()))
+                print(str(local_model.parameters()))
                 for p_global, p_local in zip(self.model.parameters(), local_model.parameters()):
                     p_global.grad += p_local.grad  # First-order approx. -> add gradients of fine-tuned and base model
 

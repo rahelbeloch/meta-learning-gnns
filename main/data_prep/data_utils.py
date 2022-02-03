@@ -102,9 +102,8 @@ def get_loader(graph_data, model, hop_size, k_shot, num_workers, mode):
         batch_sampler = FewShotSampler(graph_data.data.y, mask, n_way=n_classes, k_shot=k_shot, include_query=True,
                                        shuffle=shuffle, shuffle_once=shuffle_once)
     elif model == 'gmeta':
-        batch_sampler = FewShotMamlSampler(graph_data.data.y, mask, n_way=n_classes,
-                                           k_shot=k_shot, include_query=True)
-
+        batch_sampler = FewShotMamlSampler(graph_data.data.y, mask, n_way=n_classes, k_shot=k_shot, include_query=True,
+                                           shuffle=shuffle)
     else:
         raise ValueError(f"Model with name '{model}' is not supported.")
 
