@@ -18,13 +18,13 @@ class GatNet(torch.nn.Module):
         self.hid_dim = model_params["hid_dim"]
         self.feat_reduce_dim = model_params["feat_reduce_dim"]
 
-        # self.mask = model_params["mask_rate"]
-        self.dropout = model_params.get("gat_dropout", 0.6)
-        self.dropout_lin = model_params["dropout_lin"]
+        self.gat_dropout = model_params.get["gat_dropout"]
+        self.lin_dropout = model_params["lin_dropout"]
+        self.attn_dropout = model_params["attn_dropout"]
 
+        # self.mask = model_params["mask_rate"]
         # self.attn_drop = model_params.get("gat_mask", 0.6)
         # self.attn = model_params.get("gat_attn", False)
-        # self.alpha = model_params.get("gat_alpha", 0.2)
 
         self.elu = nn.ELU()
 
@@ -33,10 +33,9 @@ class GatNet(torch.nn.Module):
                 self.in_dim,
                 self.hid_dim,
                 self.feat_reduce_dim,
-                self.dropout,
-                concat=True
-                # self.attn_drop,
-                # self.alpha
+                self.gat_dropout,
+                concat=True,
+                attn_drop=self.attn_dropout
             )
             for _ in range(self.n_heads)
         ]
@@ -44,8 +43,8 @@ class GatNet(torch.nn.Module):
         for i, attention in enumerate(self.attentions):
             self.add_module("attention_{}".format(i), attention)
 
-        # self.classifier = SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim, self.dropout,
-        #                               # self.attn_drop, self.alpha
+        # self.classifier = SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim, self.gat_dropout,
+        #                               # self.attn_dropout, self.alpha
         #                               )
 
         self.classifier = self.get_classifier(self.out_dim)
@@ -57,15 +56,15 @@ class GatNet(torch.nn.Module):
     def get_classifier(self, num_classes):
         # Phillips implementation
         # return nn.Sequential(
-        #     nn.Dropout(self.dropout_lin),
+        #     nn.Dropout(self.lin_dropout),
         #     nn.Linear(self.hid_dim * self.n_heads, num_classes)
         # )
 
         # Shans implementation
-        return nn.Sequential(nn.Dropout(self.dropout_lin),
-                                        nn.Linear(self.n_heads * self.hid_dim, self.feat_reduce_dim),
-                                        nn.ReLU(),
-                                        nn.Linear(self.feat_reduce_dim, num_classes))
+        return nn.Sequential(nn.Dropout(self.lin_dropout),
+                             nn.Linear(self.n_heads * self.hid_dim, self.feat_reduce_dim),
+                             nn.ReLU(),
+                             nn.Linear(self.feat_reduce_dim, num_classes))
 
     def forward(self, x, edge_index, cl_mask, mode):
         # adj should be a sparse matrix

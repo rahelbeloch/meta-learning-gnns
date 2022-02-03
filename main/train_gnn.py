@@ -25,7 +25,8 @@ if torch.cuda.is_available():
 
 def train(model_name, seed, epochs, patience, h_size, top_users, top_users_excluded, k_shot, lr, lr_cl, lr_inner,
           lr_outer, hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_docs,
-          train_split_size, feature_type, vocab_size, n_inner_updates, num_workers, dropout, dropout_lin):
+          train_split_size, feature_type, vocab_size, n_inner_updates, num_workers, gat_dropout, lin_dropout,
+          attn_dropout):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     eval_split_size = (0.0, 0.25, 0.75) if data_eval != data_train else None
@@ -87,8 +88,9 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
         'output_dim': len(labels[0]),
         'proto_dim': proto_dim,
         'class_weight': class_ratio,
-        'dropout': dropout,
-        'dropout_lin': dropout_lin,
+        'gat_dropout': gat_dropout,
+        'lin_dropout': lin_dropout,
+        'attn_dropout': attn_dropout,
         'concat': True,
         'n_heads': 2
     }
@@ -305,8 +307,9 @@ if __name__ == "__main__":
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--epochs', dest='epochs', type=int, default=20)
     parser.add_argument('--patience', dest='patience', type=int, default=10)
-    parser.add_argument('--dropout', dest='dropout', type=float, default=0.1)
-    parser.add_argument('--dropout-linear', dest='dropout_lin', type=float, default=0.5)
+    parser.add_argument('--gat-dropout', dest='gat_dropout', type=float, default=0.6)
+    parser.add_argument('--lin-dropout', dest='lin_dropout', type=float, default=0.5)
+    parser.add_argument('--attn-dropout', dest='attn_dropout', type=float, default=0.6)
     parser.add_argument('--k-shot', dest='k_shot', type=int, default=20, help="Number of examples per task/batch.")
     parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
     parser.add_argument('--lr-cl', dest='lr_cl', type=float, default=0.001,
@@ -389,6 +392,7 @@ if __name__ == "__main__":
         vocab_size=params["vocab_size"],
         n_inner_updates=params["n_updates"],
         num_workers=params["n_workers"],
-        dropout=params["dropout"],
-        dropout_lin=params["dropout_lin"]
+        gat_dropout=params["gat_dropout"],
+        lin_dropout=params["lin_dropout"],
+        attn_dropout=params["attn_dropout"]
     )
