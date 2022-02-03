@@ -121,7 +121,7 @@ class ProtoMAML(GraphTrainer):
 
                 print(f"Grads None: {count}")
 
-            accuracies.append(acc.detach())
+            accuracies.append(acc)
             f1_macros.append(f1_macro)
             f1_micros.append(f1_micro)
             losses.append(loss.detach())
