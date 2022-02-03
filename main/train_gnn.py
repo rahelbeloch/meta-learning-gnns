@@ -276,7 +276,7 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
 
 def round_format(metric):
     locale.setlocale(locale.LC_ALL, 'de_DE')
-    return locale.format_string("%d", round(metric, 3), grouping=True)
+    return locale.format_string("%.3f", round(metric, 3), grouping=True)
 
 
 if __name__ == "__main__":
