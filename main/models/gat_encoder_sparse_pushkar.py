@@ -23,7 +23,6 @@ class GatNet(torch.nn.Module):
         self.attn_dropout = model_params["attn_dropout"]
 
         # self.mask = model_params["mask_rate"]
-        # self.attn_drop = model_params.get("gat_mask", 0.6)
         # self.attn = model_params.get("gat_attn", False)
 
         self.elu = nn.ELU()

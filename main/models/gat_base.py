@@ -113,14 +113,21 @@ class GatBase(pl.LightningModule):
         self.log(f'{mode}_f1', f1_mean, on_step=False, on_epoch=True)
         # print(f"Averaged F1 score for {len(f1_scores)} batches: {f1_mean}\n")
 
-    def forward(self, sub_graphs, mode=None):
+    def forward(self, sub_graphs, targets, mode=None):
 
         # make a batch out of all sub graphs and push the batch through the model
         # [Data, Data, Data(x, y, ..)]
         x, edge_index = get_subgraph_batch(sub_graphs)
         cl_mask = get_classify_mask(sub_graphs)
 
-        return self.model(x, edge_index, cl_mask, mode == 'train')
+        predictions = self.model(x, edge_index, cl_mask, mode == 'train')
+
+        f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
+        self.log_on_epoch(f'{mode}_accuracy', accuracy(predictions, targets))
+        self.log_on_epoch(f'{mode}_f1_macro', f1_macro)
+        self.log_on_epoch(f'{mode}_f1_micro', f1_micro)
+
+        return predictions, f1
 
     def training_step(self, batch, batch_idx):
 
@@ -128,15 +135,10 @@ class GatBase(pl.LightningModule):
             torch.cuda.empty_cache()
 
         sub_graphs, targets = batch
-        predictions = self.forward(sub_graphs, mode='train')
+        predictions, f1 = self.forward(sub_graphs, targets, mode='train')
 
         loss = self.loss_module(predictions, targets)
         self.log(f"train_loss", loss)
-
-        f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
-        self.log_on_epoch('train_accuracy', accuracy(predictions, targets))
-        self.log_on_epoch('train_f1_macro', f1_macro)
-        self.log_on_epoch('train_f1_micro', f1_micro)
 
         # TODO: add scheduler
         # logging in optimizer step does not work, therefore here
@@ -145,34 +147,12 @@ class GatBase(pl.LightningModule):
         return dict(loss=loss, f1=f1)
 
     def validation_step(self, batch, batch_idx):
-
-        sub_graphs, targets = batch
-        predictions = self.forward(sub_graphs, mode='val')
-
-        f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
-        self.log_on_epoch('val_accuracy', accuracy(predictions, targets))
-        self.log_on_epoch('val_f1_macro', f1_macro)
-        self.log_on_epoch('val_f1_micro', f1_micro)
-
+        _, f1 = self.forward(*batch, mode='val')
         return dict(f1=f1)
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default, logs it per epoch (weighted average over batches)
-        sub_graphs, targets = batch
-        predictions = self.forward(sub_graphs, mode='test')
-
-        f1_target_label = self.hparams['f1_target_label']
-        # print(targets)
-        f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, f1_target_label)
-        # print(accuracy(predictions, targets))
-        # print(f1)
-        # print(f1_macro)
-        # print(f1_micro)
-
-        self.log_on_epoch('test_accuracy', accuracy(predictions, targets))
-        self.log_on_epoch('test_f1_macro', f1_macro)
-        self.log_on_epoch('test_f1_micro', f1_micro)
-
+        _, f1 = self.forward(*batch, mode='test')
         return dict(f1=f1)
 
 

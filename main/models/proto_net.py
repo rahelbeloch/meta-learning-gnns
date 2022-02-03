@@ -110,11 +110,10 @@ class ProtoNet(pl.LightningModule):
 
         f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
         self.log_on_epoch(f"{mode}_accuracy", accuracy(predictions, targets))
-        self.log_on_epoch(f'{mode}_train_f1', f1)
         self.log_on_epoch(f"{mode}_f1_macro", f1_macro)
         self.log_on_epoch(f"{mode}_f1_micro", f1_micro)
 
-        return meta_loss
+        return meta_loss, f1
 
     def log_on_epoch(self, metric, value):
         self.log(metric, value, on_step=False, on_epoch=True)
@@ -123,10 +122,28 @@ class ProtoNet(pl.LightningModule):
         super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=self.hparams['batch_size'])
 
     def training_step(self, batch, batch_idx):
-        return self.calculate_loss(batch, mode="train")
+        loss, f1 = self.calculate_loss(batch, mode="train")
+        return dict(loss=loss, f1=f1)
 
     def validation_step(self, batch, batch_idx):
-        _ = self.calculate_loss(batch, mode="val")
+        _, f1 = self.calculate_loss(batch, mode="val")
+        return dict(f1=f1)
 
     def test_step(self, batch, batch_idx1, batch_idx2):
-        _ = self.calculate_loss(batch, mode="test")
+        _, f1 = self.calculate_loss(batch, mode="test")
+        return dict(f1=f1)
+
+    def validation_epoch_end(self, outputs) -> None:
+        super().validation_epoch_end(outputs)
+        self.log_f1(outputs, 'val')
+
+    def training_epoch_end(self, outputs) -> None:
+        super().test_epoch_end(outputs)
+        self.log_f1(outputs, 'train')
+
+    def test_epoch_end(self, outputs) -> None:
+        super().training_epoch_end(outputs)
+        test_metrics = outputs[0]
+        self.log_f1(test_metrics, 'test')
+        val_test_metrics = outputs[1]
+        self.log_f1(val_test_metrics, 'test_val')
