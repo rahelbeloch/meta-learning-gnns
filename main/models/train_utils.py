@@ -1,6 +1,7 @@
 import torch
 from sklearn.metrics import f1_score
 from torch_geometric.data import Batch
+from torchmetrics import F1
 
 
 def accuracy(predictions, labels):
@@ -8,22 +9,24 @@ def accuracy(predictions, labels):
     return (labels == predictions.argmax(dim=-1)).float().mean().item()
 
 
-def evaluation_metrics(predictions, labels, f1_target_label):
-    pred_cpu = predictions.argmax(dim=-1).detach().cpu()
-    labels_cpu = labels.detach().cpu()
-
-    # F1 score of the target class (fake for gossipcop and racism for twitter)
-    f1 = None
-    if f1_target_label is not None and f1_target_label in labels:
-        f1 = f1_score(labels_cpu, pred_cpu, average='binary', pos_label=f1_target_label)
-
-    f1_macro = f1_score(labels_cpu, pred_cpu, average='macro')
-    f1_micro = f1_score(labels_cpu, pred_cpu, average='micro')
-
-    # recall = recall_score(labels, predictions, average='binary', pos_label=1)
-    # precision = precision_score(labels, predictions, average='binary', pos_label=1)
-
-    return f1, f1_macro, f1_micro
+# def evaluation_metrics(predictions, labels, f1_target_label):
+#     pred_cpu = predictions.argmax(dim=-1).detach().cpu()
+#     labels_cpu = labels.detach().cpu()
+#
+#     # TODO: use torch metrics for F1 computation: Multi batch compilation for compuuting F1 score over all batches of one episode
+#     # metric.compute --> at the end finish computation
+#     # only then fair comparison
+#
+#     # F1 score of the target class (fake for gossipcop and racism for twitter)
+#
+#     # We cant to report macro --> for the positive class
+#     # f1_macro = f1_score(labels_cpu, pred_cpu, average='macro')
+#     # f1_micro = f1_score(labels_cpu, pred_cpu, average='micro')
+#
+#     # recall = recall_score(labels, predictions, average='binary', pos_label=1)
+#     # precision = precision_score(labels, predictions, average='binary', pos_label=1)
+#
+#     return f1, f1_macro, f1_micro
 
 
 def get_subgraph_batch(graphs):

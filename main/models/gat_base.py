@@ -1,3 +1,4 @@
+import torchmetrics
 from torch import nn
 
 from models.GraphTrainer import GraphTrainer
@@ -21,7 +22,7 @@ class GatBase(GraphTrainer):
             optimizer_hparams - Hyperparameters for the optimizer, as dictionary. This includes learning rate,
             weight decay, etc.
         """
-        super().__init__()
+        super().__init__(model_hparams["output_dim"])
 
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace
         self.save_hyperparameters()
@@ -37,6 +38,7 @@ class GatBase(GraphTrainer):
         flipped_weights = torch.flip(model_hparams["class_weight"], dims=[0])
 
         self.loss_module = nn.CrossEntropyLoss(weight=flipped_weights)
+
 
     def configure_optimizers(self):
         """
@@ -88,12 +90,15 @@ class GatBase(GraphTrainer):
 
         predictions = self.model(x, edge_index, cl_mask, mode == 'train')
 
-        f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
-        self.log_on_epoch(f'{mode}_accuracy', accuracy(predictions, targets))
-        self.log_on_epoch(f'{mode}_f1_macro', f1_macro)
-        self.log_on_epoch(f'{mode}_f1_micro', f1_micro)
+        self.f1_scores[mode].update(predictions, targets)
 
-        return predictions, f1
+        self.log_on_epoch(f'{mode}_accuracy', accuracy(predictions, targets))
+
+        # f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
+        # self.log_on_epoch(f'{mode}_f1_macro', f1_macro)
+        # self.log_on_epoch(f'{mode}_f1_micro', f1_micro)
+
+        return predictions
 
     def training_step(self, batch, batch_idx):
 
@@ -101,8 +106,9 @@ class GatBase(GraphTrainer):
             torch.cuda.empty_cache()
 
         sub_graphs, targets = batch
-        predictions, f1 = self.forward(sub_graphs, targets, mode='train')
+        predictions = self.forward(sub_graphs, targets, mode='train')
 
+        # TODO: maybe make probabilities out of logits via softmax --> especially for the metrics; makes it more interpretable
         loss = self.loss_module(predictions, targets)
         self.log(f"train_loss", loss)
 
@@ -110,16 +116,16 @@ class GatBase(GraphTrainer):
         # logging in optimizer step does not work, therefore here
         # self.log('lr_rate', self.lr_scheduler.get_lr()[0])
 
-        return dict(loss=loss, f1=f1)
+        return dict(loss=loss)
 
     def validation_step(self, batch, batch_idx):
-        _, f1 = self.forward(*batch, mode='val')
-        return dict(f1=f1)
+        _ = self.forward(*batch, mode='val')
+        return dict()
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default, logs it per epoch (weighted average over batches)
-        _, f1 = self.forward(*batch, mode='test')
-        return dict(f1=f1)
+        _ = self.forward(*batch, mode='test')
+        return dict()
 
 
 def load_pretrained_encoder(checkpoint_path):

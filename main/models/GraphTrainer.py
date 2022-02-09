@@ -1,8 +1,21 @@
 import pytorch_lightning as pl
 import torch
+import torchmetrics
 
 
 class GraphTrainer(pl.LightningModule):
+
+    def __init__(self, num_classes):
+        super().__init__()
+
+        # Metrics from torchmetrics
+        self.f1_scores = {
+            'train': torchmetrics.F1(num_classes=num_classes),
+            'test': torchmetrics.F1(num_classes=num_classes),
+            'val': torchmetrics.F1(num_classes=num_classes)
+        }
+
+        # self.f1_test = torchmetrics.F1Score
 
     def log_on_epoch(self, metric, value):
         self.log(metric, value, on_step=False, on_epoch=True)
@@ -12,18 +25,21 @@ class GraphTrainer(pl.LightningModule):
 
     def validation_epoch_end(self, outputs) -> None:
         super().validation_epoch_end(outputs)
-        self.log_f1(outputs, 'val')
+        self.compute_and_log_f1('val')
 
     def training_epoch_end(self, outputs) -> None:
         super().test_epoch_end(outputs)
-        self.log_f1(outputs, 'train')
+        self.compute_and_log_f1('train')
+
+    def compute_and_log_f1(self, mode):
+        f1 = self.f1_scores[mode].compute()
+        self.log(f'{mode}_f1', f1, on_step=False, on_epoch=True)
 
     def test_epoch_end(self, outputs) -> None:
         super().training_epoch_end(outputs)
-        test_metrics = outputs[0]
-        self.log_f1(test_metrics, 'test')
-        val_test_metrics = outputs[1]
-        self.log_f1(val_test_metrics, 'test_val')
+        self.compute_and_log_f1('test')
+        # val_test_metrics = outputs[1]
+        # self.log_f1(val_test_metrics, 'test_val')
 
     def log_f1(self, outputs, mode):
         """
