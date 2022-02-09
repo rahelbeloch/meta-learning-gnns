@@ -52,13 +52,7 @@ def get_data(data_train, data_eval, model, hop_size, top_k, top_users_excluded,
     train_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'train')
     train_val_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'val')
 
-    train_labels = graph_data_train.labels
-    train_graph_size = graph_data_train.size
-    train_class_ratio = graph_data_train.class_ratio
-    train_b_size = train_loader.b_size
-    eval_graph_size = None
-
-    print(f"\nTrain graph size: \n num_features: {train_graph_size[1]}\n total_nodes: {train_graph_size[0]}")
+    print(f"\nTrain graph size: \n num_features: {graph_data_train.size[1]}\n total_nodes: {graph_data_train.size[0]}")
 
     if data_train == data_eval:
         print(f'\nData eval and data train are equal, loading graph data only once.')
@@ -73,22 +67,15 @@ def get_data(data_train, data_eval, model, hop_size, top_k, top_users_excluded,
 
         graph_data_eval = TorchGeomGraphDataset(eval_config, eval_split_size, *dirs)
 
-        eval_graph_size = graph_data_eval.size
-        print(f"\nTest graph size: \n num_features: {eval_graph_size[1]}\n total_nodes: {eval_graph_size[0]}")
+        print(f"\nTest graph size: \n num_features: {graph_data_eval.size[1]}\n total_nodes: {graph_data_eval.size[0]}")
 
         test_val_loader = get_loader(graph_data_eval, model, hop_size, k_shot, num_workers, 'val')
 
     test_loader = get_loader(graph_data_eval, model, hop_size, k_shot, num_workers, 'test')
 
-    eval_labels = graph_data_eval.labels
-
     loaders = (train_loader, train_val_loader, test_loader, test_val_loader)
-    labels = (train_labels, eval_labels)
 
-    f1_train_label, f1_eval_label = graph_data_train.f1_target_label, graph_data_eval.f1_target_label
-
-    return loaders, train_graph_size, eval_graph_size, labels, train_b_size, train_class_ratio, \
-           (f1_train_label, f1_eval_label)
+    return loaders, train_loader.b_size, graph_data_train, graph_data_eval
 
 
 def get_loader(graph_data, model, hop_size, k_shot, num_workers, mode):

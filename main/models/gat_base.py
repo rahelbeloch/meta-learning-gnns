@@ -1,11 +1,8 @@
-import torchmetrics
 from torch import nn
 
 from models.GraphTrainer import GraphTrainer
 from models.gat_encoder_sparse_pushkar import GatNet
 from models.train_utils import *
-
-device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
 
 class GatBase(GraphTrainer):
@@ -15,7 +12,7 @@ class GatBase(GraphTrainer):
     """
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_hparams, optimizer_hparams, batch_size, f1_target_label, checkpoint=None):
+    def __init__(self, model_hparams, optimizer_hparams, batch_size, label_names, checkpoint=None):
         """
         Args:
             model_hparams - Hyperparameters for the whole model, as dictionary.
@@ -38,7 +35,6 @@ class GatBase(GraphTrainer):
         flipped_weights = torch.flip(model_hparams["class_weight"], dims=[0])
 
         self.loss_module = nn.CrossEntropyLoss(weight=flipped_weights)
-
 
     def configure_optimizers(self):
         """
@@ -90,9 +86,8 @@ class GatBase(GraphTrainer):
 
         predictions = self.model(x, edge_index, cl_mask, mode == 'train')
 
-        print(targets.device)
-        print(predictions.device)
-        self.f1_scores[mode].update(predictions, targets)
+        self.f1_target[mode].update(predictions, targets)
+        self.f1_macro[mode].update(predictions, targets)
 
         self.log_on_epoch(f'{mode}_accuracy', accuracy(predictions, targets))
 
@@ -121,13 +116,11 @@ class GatBase(GraphTrainer):
         return dict(loss=loss)
 
     def validation_step(self, batch, batch_idx):
-        _ = self.forward(*batch, mode='val')
-        return dict()
+        self.forward(*batch, mode='val')
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default, logs it per epoch (weighted average over batches)
-        _ = self.forward(*batch, mode='test')
-        return dict()
+        self.forward(*batch, mode='test')
 
 
 def load_pretrained_encoder(checkpoint_path):

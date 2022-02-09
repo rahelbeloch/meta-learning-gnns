@@ -12,6 +12,7 @@ from data_prep.graph_io import GraphIO
 
 USER_CONTEXTS = ['user_followers', 'user_following']
 USER_CONTEXTS_FILTERED = ['user_followers_filtered', 'user_following_filtered']
+SPLITS = ['train', 'val', 'test']
 
 
 class GraphPreprocessor(GraphIO):
@@ -281,7 +282,7 @@ class GraphPreprocessor(GraphIO):
                                         self.get_file_name(DOC_SPLITS_FOLDER_NAME))
 
         all_texts = {}
-        for split in ['test', 'train', 'val']:
+        for split in SPLITS:
             try:
                 reader = csv.DictReader(open(split_path / f'{split}.tsv', encoding='utf-8'), delimiter='\t')
             except FileNotFoundError:

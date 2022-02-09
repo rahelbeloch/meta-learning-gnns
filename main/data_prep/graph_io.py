@@ -19,7 +19,7 @@ NIV_IDX = (-1, 'NIV')
 
 class GraphIO:
 
-    def __init__(self, config, data_dir, tsv_dir=TSV_DIR, complete_dir=COMPLETE_DIR):
+    def __init__(self, config, data_dir, tsv_dir=TSV_DIR, complete_dir=COMPLETE_DIR, enforce_raw=True):
         self.dataset = config['data_set']
 
         self.top_users = config['top_users']
@@ -27,7 +27,7 @@ class GraphIO:
 
         data_path = files(data_dir)
         raw_path = data_path / RAW_DIR
-        if not (raw_path / self.dataset).exists():
+        if enforce_raw and not (raw_path / self.dataset).exists():
             raise ValueError(f"Wanting to preprocess data for dataset '{self.dataset}', but raw data in path"
                              f" with raw data '{raw_path / self.dataset}' does not exist!")
 

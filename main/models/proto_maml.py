@@ -13,7 +13,7 @@ from samplers.batch_sampler import split_list
 class ProtoMAML(GraphTrainer):
 
     # noinspection PyUnusedLocal
-    def __init__(self, input_dim, hid_dim, feat_reduce_dim, opt_hparams, n_inner_updates, batch_size, f1_target_label):
+    def __init__(self, model_params, opt_hparams, n_inner_updates, batch_size, label_names):
         """
         Inputs
             lr - Learning rate of the outer loop Adam optimizer
@@ -21,16 +21,16 @@ class ProtoMAML(GraphTrainer):
             lr_output - Learning rate for the output layer in the inner loop
             n_inner_updates - Number of inner loop updates to perform
         """
-        super().__init__()
+        super().__init__(n_classes=model_params['output_dim'])
         self.save_hyperparameters()
-        self.model = SparseGATLayer(input_dim, hid_dim, feat_reduce_dim)
+        self.model = SparseGATLayer(model_params['input_dim'], model_params['hid_dim'], model_params['feat_reduce_dim'])
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.opt_hparams['lr'])
         scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[140, 180], gamma=0.1)
         return [optimizer], [scheduler]
 
-    def adapt_few_shot(self, support_graphs, support_targets):
+    def adapt_few_shot(self, support_graphs, support_targets, mode):
 
         x, edge_index = get_subgraph_batch(support_graphs)
 
@@ -56,7 +56,8 @@ class ProtoMAML(GraphTrainer):
         # Optimize inner loop model on support set
         for _ in range(self.hparams.n_inner_updates):
             # Determine loss on the support set
-            loss, _, _, _, _, _ = run_model(local_model, output_weight, output_bias, support_graphs, support_labels)
+            loss = run_model(local_model, output_weight, output_bias, support_graphs, support_labels, mode,
+                             metrics=False)
 
             # Calculate gradients and perform inner loop update
             loss.backward()
@@ -98,13 +99,12 @@ class ProtoMAML(GraphTrainer):
             support_targets, query_targets = split_list(targets)
 
             # Perform inner loop adaptation
-            local_model, output_weight, output_bias, classes = self.adapt_few_shot(support_graphs, support_targets)
+            local_model, output_weight, output_bias, classes = self.adapt_few_shot(support_graphs, support_targets,
+                                                                                   mode)
 
             # Determine loss of query set
             query_labels = self.get_labels(classes, query_targets)
-            loss, predictions, acc, f1, f1_macro, f1_micro = run_model(local_model, output_weight, output_bias,
-                                                                       query_graphs, query_labels,
-                                                                       self.hparams['f1_target_label'])
+            loss = run_model(local_model, output_weight, output_bias, query_graphs, query_labels, mode)
 
             # Calculate gradients for query set loss
             if mode == "train":
@@ -117,14 +117,20 @@ class ProtoMAML(GraphTrainer):
                         # print(f"Grad none at position: {i}")
                         count += 1
                     else:
-                        p_global.grad += p_local.grad  # First-order approx. -> add gradients of fine-tuned and base model
+                        # First-order approx. -> add gradients of fine-tuned and base model
+                        p_global.grad += p_local.grad
 
                 # print(f"Grads None: {count}")
 
+            f1_1, f1_2, f1_macro, acc = local_model.compute_and_log_f1(mode, verbose=False)
             accuracies.append(acc)
+            f1_1.append(f1_1)
+            f1_2.append(f1_2)
             f1_macros.append(f1_macro)
-            f1_micros.append(f1_micro)
             losses.append(loss.detach())
+
+            self.f1_target[mode].reset()
+            self.f1_macro[mode].reset()
 
         # Perform update of base model
         if mode == "train":
@@ -151,7 +157,7 @@ class ProtoMAML(GraphTrainer):
         torch.set_grad_enabled(False)
 
 
-def run_model(local_model, output_weight, output_bias, graphs, targets, f1_target_label=None):
+def run_model(local_model, output_weight, output_bias, graphs, targets, mode, metrics=True):
     """
     Execute a model with given output layer weights and inputs.
     """
@@ -164,6 +170,9 @@ def run_model(local_model, output_weight, output_bias, graphs, targets, f1_targe
 
     loss = func.cross_entropy(predictions, targets)
 
-    f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, f1_target_label)
+    if metrics:
+        local_model.f1_target[mode].update(predictions, targets)
+        local_model.f1_macro[mode].update(predictions, targets)
+        local_model.accuracies[mode].update(predictions, targets)
 
-    return loss, predictions, accuracy(predictions, targets), f1, f1_macro, f1_micro
+    return loss

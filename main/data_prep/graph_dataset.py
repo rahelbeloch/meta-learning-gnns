@@ -27,7 +27,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
     """
 
     def __init__(self, config, split_size, data_dir, tsv_dir, complete_dir, verbose=True, analyse_node_degrees=False):
-        super().__init__(config, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir)
+        super().__init__(config, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir, enforce_raw=False)
 
         self._device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
         self._verbose = verbose
@@ -238,6 +238,16 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         # inverse the dict and return the index for the key
         return {v: k for k, v in d.items()}[key]
+
+    @property
+    def label_names(self):
+        if self.dataset == 'gossipcop':
+            preprocessor = data_prep.fake_news_tsv_processor
+        elif self.dataset == 'twitterHateSpeech':
+            preprocessor = data_prep.twitter_tsv_processor
+        else:
+            raise ValueError(f"Dataset with name '{self.dataset}' does not exist.")
+        return preprocessor.LABELS
 
     @property
     def data(self):

@@ -59,19 +59,14 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
     # the data preprocessing
     print('\nLoading data ..........')
 
-    loaders, train_graph_size, eval_graph_size, labels, b_size, class_ratio, f1_targets = get_data(data_train,
-                                                                                                   data_eval,
-                                                                                                   model_name,
-                                                                                                   h_size,
-                                                                                                   top_users,
-                                                                                                   top_users_excluded,
-                                                                                                   k_shot,
-                                                                                                   train_split_size,
-                                                                                                   eval_split_size,
-                                                                                                   feature_type,
-                                                                                                   vocab_size,
-                                                                                                   dirs,
-                                                                                                   num_workers)
+    loaders, b_size, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
+                                                        top_users_excluded, k_shot, train_split_size, eval_split_size,
+                                                        feature_type, vocab_size, dirs, num_workers)
+
+    train_labels, eval_labels = train_graph.labels, train_graph.labels
+    train_graph_size, _ = train_graph.size, eval_graph.size
+    train_class_ratio = train_graph.class_ratio
+    f1_train_label, _ = train_graph.f1_target_label, eval_graph.f1_target_label
 
     optimizer_hparams = {
         "lr_cl": lr_cl,
@@ -85,9 +80,9 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
         'hid_dim': hidden_dim,
         'feat_reduce_dim': feat_reduce_dim,
         'input_dim': train_graph_size[1],
-        'output_dim': len(labels[0]),
+        'output_dim': len(train_labels),
         'proto_dim': proto_dim,
-        'class_weight': class_ratio,
+        'class_weight': train_class_ratio,
         'gat_dropout': gat_dropout,
         'lin_dropout': lin_dropout,
         'attn_dropout': attn_dropout,
@@ -107,13 +102,11 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
                                  data_eval, k_shot, h_size, feature_type, checkpoint)
 
     if model_name == 'gat':
-        model = GatBase(model_params, optimizer_hparams, b_size, f1_targets[0], checkpoint)
+        model = GatBase(model_params, optimizer_hparams, b_size, train_graph.label_names, checkpoint)
     elif model_name == 'prototypical':
-        model = ProtoNet(model_params['input_dim'], model_params['hid_dim'], model_params['feat_reduce_dim'],
-                         optimizer_hparams['lr'], b_size, f1_targets[0])
+        model = ProtoNet(model_params, optimizer_hparams['lr'], b_size, train_graph.label_names)
     elif model_name == 'gmeta':
-        model = ProtoMAML(model_params['input_dim'], model_params['hid_dim'], model_params['feat_reduce_dim'],
-                          optimizer_hparams, n_inner_updates, b_size, f1_targets[0])
+        model = ProtoMAML(model_params, optimizer_hparams, n_inner_updates, b_size, train_graph.label_names)
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 
@@ -140,7 +133,7 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
 
     # model was trained on another dataset --> reinitialize gat classifier
     if model_name == 'gat' and data_eval is not None and data_eval != data_train:
-        model.reset_classifier_dimensions(len(labels[1]))
+        model.reset_classifier_dimensions(len(eval_labels))
 
         # TODO: set also the target label for f1 score
         # f1_targets[1]
@@ -244,14 +237,14 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
     val_results = results[1]
 
     test_accuracy = test_results['test_accuracy/dataloader_idx_0']
-    test_f1 = test_results['test_f1']
-    test_f1_macro = test_results['test_f1_macro/dataloader_idx_0']
-    test_f1_micro = test_results['test_f1_micro/dataloader_idx_0']
+    test_f1_fake = test_results['test_f1_fake']
+    test_f1_real = test_results['test_f1_real']
+    test_f1_macro = test_results['test_f1_macro']
 
     val_accuracy = val_results['test_accuracy/dataloader_idx_1']
-    val_f1 = val_results['test_val_f1']
-    val_f1_macro = val_results['test_f1_macro/dataloader_idx_1']
-    val_f1_micro = val_results['test_f1_micro/dataloader_idx_1']
+    val_f1_fake = val_results['test_f1_fake']
+    val_f1_real = val_results['test_f1_real']
+    val_f1_macro = test_results['test_f1_macro']
 
     test_end = time.time()
     test_elapsed = test_end - test_start
@@ -259,17 +252,17 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
     print(f'\nRequired time for testing: {int(test_elapsed / 60)} minutes.\n')
     print(f'Test Results:\n '
           f'test accuracy: {round(test_accuracy, 3)} ({test_accuracy})\n '
-          f'test f1: {round(test_f1, 3)} ({test_f1})\n '
-          f'test f1 micro: {round(test_f1_micro, 3)} ({test_f1_micro})\n '
+          f'test f1 fake: {round(test_f1_fake, 3)} ({test_f1_fake})\n '
+          f'test f1 real: {round(test_f1_real, 3)} ({test_f1_real})\n '
           f'test f1 macro: {round(test_f1_macro, 3)} ({test_f1_macro})\n '
           f'validation accuracy: {round(val_accuracy, 3)} ({val_accuracy})\n '
-          f'validation f1: {round(val_f1, 3)} ({val_f1})\n '
-          f'validation f1 micro: {round(val_f1_micro, 3)} ({val_f1_micro})\n '
+          f'validation f1 fake: {round(val_f1_fake, 3)} ({val_f1_fake})\n '
+          f'validation f1 real: {round(val_f1_real, 3)} ({val_f1_real})\n '
           f'validation f1 macro: {round(val_f1_macro, 3)} ({val_f1_macro})\n '
           f'\nepochs: {trainer.current_epoch + 1}\n')
 
-    print(f'{round_format(test_f1)}\n{round_format(test_f1_micro)}\n{round_format(test_f1_macro)}\n'
-          f'{round_format(test_accuracy)}\n{round_format(val_f1)}\n{round_format(val_f1_micro)}\n'
+    print(f'{round_format(test_f1_fake)}\n{round_format(test_f1_real)}\n{round_format(test_f1_macro)}\n'
+          f'{round_format(test_accuracy)}\n{round_format(val_f1_fake)}\n{round_format(val_f1_real)}\n'
           f'{round_format(val_f1_macro)}\n{round_format(val_accuracy)}')
 
     return test_accuracy, val_accuracy
@@ -305,19 +298,19 @@ if __name__ == "__main__":
     # TRAINING PARAMETERS
 
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
-    parser.add_argument('--epochs', dest='epochs', type=int, default=20)
+    parser.add_argument('--epochs', dest='epochs', type=int, default=2)
     parser.add_argument('--patience', dest='patience', type=int, default=10)
     parser.add_argument('--gat-dropout', dest='gat_dropout', type=float, default=0.6)
     parser.add_argument('--lin-dropout', dest='lin_dropout', type=float, default=0.5)
     parser.add_argument('--attn-dropout', dest='attn_dropout', type=float, default=0.6)
-    parser.add_argument('--k-shot', dest='k_shot', type=int, default=20, help="Number of examples per task/batch.")
+    parser.add_argument('--k-shot', dest='k_shot', type=int, default=5, help="Number of examples per task/batch.")
     parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
     parser.add_argument('--lr-cl', dest='lr_cl', type=float, default=0.001,
                         help="Classifier learning rate for baseline.")
 
     # MODEL CONFIGURATION
 
-    parser.add_argument('--model', dest='model', default='gat', choices=SUPPORTED_MODELS,
+    parser.add_argument('--model', dest='model', default='gmeta', choices=SUPPORTED_MODELS,
                         help='Select the model you want to use.')
     parser.add_argument('--hidden-dim', dest='hidden_dim', type=int, default=512)
     parser.add_argument('--feature-reduce-dim', dest='feat_reduce_dim', type=int, default=10000)

@@ -9,16 +9,17 @@ from models.train_utils import *
 class ProtoNet(GraphTrainer):
 
     # noinspection PyUnusedLocal
-    def __init__(self, input_dim, hidden_dim, feat_reduce_dim, lr, batch_size, f1_target_label):
+    def __init__(self, model_params, lr, batch_size, label_names):
         """
         Inputs
             proto_dim - Dimensionality of prototype feature space
             lr - Learning rate of Adam optimizer
         """
-        super().__init__()
+        super().__init__(model_params['output_dim'])
         self.save_hyperparameters()
 
-        self.model = SparseGATLayer(in_features=input_dim, out_features=hidden_dim, feat_reduce_dim=feat_reduce_dim)
+        self.model = SparseGATLayer(in_features=model_params['input_dim'], out_features=model_params['hid_dim'],
+                                    feat_reduce_dim=model_params['feat_reduce_dim'])
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.lr)
@@ -106,21 +107,17 @@ class ProtoNet(GraphTrainer):
         if mode == 'train':
             self.log(f"{mode}_loss", meta_loss)
 
-        f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
+        self.f1_target[mode].update(predictions, targets)
+        self.f1_macro[mode].update(predictions, targets)
         self.log_on_epoch(f"{mode}_accuracy", accuracy(predictions, targets))
-        self.log_on_epoch(f"{mode}_f1_macro", f1_macro)
-        self.log_on_epoch(f"{mode}_f1_micro", f1_micro)
 
-        return meta_loss, f1
+        return meta_loss
 
     def training_step(self, batch, batch_idx):
-        loss, f1 = self.calculate_loss(batch, mode="train")
-        return dict(loss=loss, f1=f1)
+        return self.calculate_loss(batch, mode="train")
 
     def validation_step(self, batch, batch_idx):
-        _, f1 = self.calculate_loss(batch, mode="val")
-        return dict(f1=f1)
+        self.calculate_loss(batch, mode="val")
 
     def test_step(self, batch, batch_idx1, batch_idx2):
-        _, f1 = self.calculate_loss(batch, mode="test")
-        return dict(f1=f1)
+        self.calculate_loss(batch, mode="test")
