@@ -34,6 +34,7 @@ class GraphTrainer(pl.LightningModule):
     def compute_and_log_f1(self, mode):
         f1 = self.f1_scores[mode].compute()
         self.log(f'{mode}_f1', f1, on_step=False, on_epoch=True)
+        self.f1_scores[mode].reset()
 
     def test_epoch_end(self, outputs) -> None:
         super().training_epoch_end(outputs)
