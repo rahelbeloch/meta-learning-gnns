@@ -90,6 +90,8 @@ class GatBase(GraphTrainer):
 
         predictions = self.model(x, edge_index, cl_mask, mode == 'train')
 
+        print(targets.device)
+        print(predictions.device)
         self.f1_scores[mode].update(predictions, targets)
 
         self.log_on_epoch(f'{mode}_accuracy', accuracy(predictions, targets))
