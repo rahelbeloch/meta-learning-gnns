@@ -2,7 +2,7 @@ import torch.nn.functional as func
 from torch import optim
 
 from models.GraphTrainer import GraphTrainer
-from models.gat_encoder_sparse_pushkar import SparseGATLayer
+from models.gat_encoder_sparse_pushkar import GatNet
 from models.train_utils import *
 
 
@@ -18,8 +18,9 @@ class ProtoNet(GraphTrainer):
         super().__init__(model_params['output_dim'])
         self.save_hyperparameters()
 
-        self.model = SparseGATLayer(in_features=model_params['input_dim'], out_features=model_params['hid_dim'],
-                                    feat_reduce_dim=model_params['feat_reduce_dim'])
+        self.model = GatNet(model_params)
+        # self.model = SparseGATLayer(in_features=model_params['input_dim'], out_features=model_params['hid_dim'],
+        #                             feat_reduce_dim=model_params['feat_reduce_dim'])
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.lr)
@@ -83,7 +84,8 @@ class ProtoNet(GraphTrainer):
         support_graphs, query_graphs, support_targets, query_targets = batch
 
         x, edge_index = get_subgraph_batch(support_graphs)
-        support_feats = self.model(x, edge_index).squeeze()
+        cl_mask = get_classify_mask(support_graphs)
+        support_feats = self.model(x, edge_index, cl_mask, mode).squeeze()
 
         # select only the features for the nodes we actually want to classify and compute prototypes for these
         support_feats = support_feats[get_classify_mask(support_graphs)]
@@ -94,7 +96,8 @@ class ProtoNet(GraphTrainer):
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
         x, edge_index = get_subgraph_batch(query_graphs)
-        query_feats = self.model(x, edge_index).squeeze()
+        cl_mask = get_classify_mask(query_graphs)
+        query_feats = self.model(x, edge_index, cl_mask, mode).squeeze()
         query_feats = query_feats[get_classify_mask(query_graphs)]
 
         assert query_feats.shape[0] == query_targets.shape[0], \

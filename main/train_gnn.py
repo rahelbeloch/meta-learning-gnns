@@ -190,7 +190,7 @@ def initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_out
     logger = TensorBoardLogger(LOG_PATH, name=model_name, version=version_str)
 
     early_stop_callback = EarlyStopping(
-        monitor='val_accuracy',
+        monitor='val_f1_macro',
         min_delta=0.00,
         patience=patience,  # validation happens per default after each training epoch
         verbose=False,
@@ -310,7 +310,7 @@ if __name__ == "__main__":
 
     # MODEL CONFIGURATION
 
-    parser.add_argument('--model', dest='model', default='gmeta', choices=SUPPORTED_MODELS,
+    parser.add_argument('--model', dest='model', default='prototypical', choices=SUPPORTED_MODELS,
                         help='Select the model you want to use.')
     parser.add_argument('--hidden-dim', dest='hidden_dim', type=int, default=512)
     parser.add_argument('--feature-reduce-dim', dest='feat_reduce_dim', type=int, default=10000)

@@ -32,19 +32,19 @@ class GraphTrainer(pl.LightningModule):
 
     def validation_epoch_end(self, outputs) -> None:
         super().validation_epoch_end(outputs)
-        self.compute_and_log_f1('val')
+        self.compute_and_log_metrics('val')
 
     def training_epoch_end(self, outputs) -> None:
         super().test_epoch_end(outputs)
-        self.compute_and_log_f1('train')
+        self.compute_and_log_metrics('train')
 
     def test_epoch_end(self, outputs) -> None:
         super().training_epoch_end(outputs)
-        self.compute_and_log_f1('test')
+        self.compute_and_log_metrics('test')
         # val_test_metrics = outputs[1]
         # self.log_f1(val_test_metrics, 'test_val')
 
-    def compute_and_log_f1(self, mode, verbose=True):
+    def compute_and_log_metrics(self, mode, verbose=True):
         f1_1, f1_2 = self.f1_target[mode].compute()
         f1_macro = self.f1_macro[mode].compute()
         accuracy = self.accuracies[mode].compute()

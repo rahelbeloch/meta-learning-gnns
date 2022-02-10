@@ -84,7 +84,7 @@ class GatBase(GraphTrainer):
         x, edge_index = get_subgraph_batch(sub_graphs)
         cl_mask = get_classify_mask(sub_graphs)
 
-        predictions = self.model(x, edge_index, cl_mask, mode == 'train')
+        predictions = self.model(x, edge_index, cl_mask, mode)
 
         self.f1_target[mode].update(predictions, targets)
         self.f1_macro[mode].update(predictions, targets)
