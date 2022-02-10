@@ -236,12 +236,12 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
     test_results = results[0]
     val_results = results[1]
 
-    test_accuracy = test_results['test_accuracy/accuracy']
+    test_accuracy = test_results['test_accuracy']
     test_f1_fake = test_results['test_f1_fake']
     test_f1_real = test_results['test_f1_real']
     test_f1_macro = test_results['test_f1_macro']
 
-    val_accuracy = val_results['test_accuracy/accuracy']
+    val_accuracy = val_results['test_accuracy']
     val_f1_fake = val_results['test_f1_fake']
     val_f1_real = val_results['test_f1_real']
     val_f1_macro = test_results['test_f1_macro']
