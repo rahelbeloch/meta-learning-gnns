@@ -104,9 +104,9 @@ class ProtoNet(GraphTrainer):
         if mode == 'train':
             self.log(f"{mode}_loss", meta_loss)
 
-        self.f1_target[mode].update(predictions, targets)
-        self.f1_macro[mode].update(predictions, targets)
-        self.log_on_epoch(f"{mode}_accuracy", accuracy(predictions, targets))
+        pred = predictions.argmax(dim=-1)
+        for mode_dict, _ in self.metrics.values():
+            mode_dict[mode].update(pred, targets)
 
         return meta_loss
 

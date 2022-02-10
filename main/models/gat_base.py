@@ -85,14 +85,9 @@ class GatBase(GraphTrainer):
 
         predictions = self.model(x, edge_index, cl_mask, mode)
 
-        self.f1_target[mode].update(predictions, targets)
-        self.f1_macro[mode].update(predictions, targets)
-
-        self.log_on_epoch(f'{mode}_accuracy', accuracy(predictions, targets))
-
-        # f1, f1_macro, f1_micro = evaluation_metrics(predictions, targets, self.hparams['f1_target_label'])
-        # self.log_on_epoch(f'{mode}_f1_macro', f1_macro)
-        # self.log_on_epoch(f'{mode}_f1_micro', f1_micro)
+        pred = predictions.argmax(dim=-1)
+        for mode_dict, _ in self.metrics.values():
+            mode_dict[mode].update(pred, targets)
 
         return predictions
 

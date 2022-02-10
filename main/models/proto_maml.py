@@ -55,18 +55,10 @@ class ProtoMAML(GraphTrainer):
         output_weight = init_weight.detach().requires_grad_()
         output_bias = init_bias.detach().requires_grad_()
 
-        # f1_target_train = tm.F1(num_classes=n_classes, average='none', multiclass=True).to(self.model.device)
-        # f1_macro_train = tm.F1(num_classes=n_classes, average='macro', multiclass=True).to(self.model.device)
-        # accuracy_train = tm.Accuracy(num_classes=n_classes, average='macro', multiclass=True).to(self.model.device)
-
         # Optimize inner loop model on support set
         for _ in range(self.hparams.n_inner_updates):
             # Determine loss on the support set
             loss, predictions = run_model(local_model, output_weight, output_bias, support_graphs, support_labels, mode)
-
-            # f1_target_train.update(predictions, support_labels)
-            # f1_macro_train.update(predictions, support_labels)
-            # accuracy_train.update(predictions, support_labels)
 
             # Calculate gradients and perform inner loop update
             loss.backward()
@@ -112,9 +104,9 @@ class ProtoMAML(GraphTrainer):
             query_labels = self.get_labels(classes, query_targets)
             loss, predictions = run_model(local_model, output_weight, output_bias, query_graphs, query_labels, mode)
 
-            self.f1_macro[mode].update(predictions, query_labels)
-            self.f1_target[mode].update(predictions, query_labels)
-            self.accuracies[mode].update(predictions, query_labels)
+            pred = predictions.argmax(dim=-1)
+            for mode_dict, _ in self.metrics.values():
+                mode_dict[mode].update(pred, targets)
 
             # Calculate gradients for query set loss
             if mode == "train":

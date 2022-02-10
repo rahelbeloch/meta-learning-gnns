@@ -236,12 +236,12 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
     test_results = results[0]
     val_results = results[1]
 
-    test_accuracy = test_results['test_accuracy/dataloader_idx_0']
+    test_accuracy = test_results['test_accuracy/accuracy']
     test_f1_fake = test_results['test_f1_fake']
     test_f1_real = test_results['test_f1_real']
     test_f1_macro = test_results['test_f1_macro']
 
-    val_accuracy = val_results['test_accuracy/dataloader_idx_1']
+    val_accuracy = val_results['test_accuracy/accuracy']
     val_f1_fake = val_results['test_f1_fake']
     val_f1_real = val_results['test_f1_real']
     val_f1_macro = test_results['test_f1_macro']
@@ -298,7 +298,7 @@ if __name__ == "__main__":
     # TRAINING PARAMETERS
 
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
-    parser.add_argument('--epochs', dest='epochs', type=int, default=2)
+    parser.add_argument('--epochs', dest='epochs', type=int, default=1)
     parser.add_argument('--patience', dest='patience', type=int, default=10)
     parser.add_argument('--gat-dropout', dest='gat_dropout', type=float, default=0.6)
     parser.add_argument('--lin-dropout', dest='lin_dropout', type=float, default=0.5)
