@@ -1,7 +1,5 @@
 import torch
-from sklearn.metrics import f1_score
 from torch_geometric.data import Batch
-from torchmetrics import F1
 
 
 def accuracy(predictions, labels):
@@ -36,12 +34,10 @@ def get_subgraph_batch(graphs):
     if not x.is_sparse:
         x = x.to_sparse()
 
-    return x, batch.edge_index
-
-
-def get_classify_mask(graphs):
+    # create the classification node mask
     cl_n_indices, n_count = [], 0
     for graph in graphs:
         cl_n_indices.append(n_count + graph.new_center_idx)
         n_count += graph.num_nodes
-    return torch.LongTensor(cl_n_indices)
+
+    return x, batch.edge_index, torch.LongTensor(cl_n_indices)

@@ -35,12 +35,10 @@ class ProtoMAML(GraphTrainer):
 
     def adapt_few_shot(self, support_graphs, support_targets, mode):
 
-        x, edge_index = get_subgraph_batch(support_graphs)
-        cl_mask = get_classify_mask(support_graphs)
+        x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
 
         # Determine prototype initialization
         support_feats = self.model(x, edge_index, cl_mask, mode).squeeze()
-        support_feats = support_feats[cl_mask]
 
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
         support_labels = self.get_labels(classes, support_targets)
@@ -64,7 +62,7 @@ class ProtoMAML(GraphTrainer):
         # Optimize inner loop model on support set
         for _ in range(self.hparams.n_inner_updates):
             # Determine loss on the support set
-            loss, predictions = run_model(local_model, output_weight, output_bias, support_graphs, support_labels)
+            loss, predictions = run_model(local_model, output_weight, output_bias, support_graphs, support_labels, mode)
 
             # f1_target_train.update(predictions, support_labels)
             # f1_macro_train.update(predictions, support_labels)
@@ -112,11 +110,11 @@ class ProtoMAML(GraphTrainer):
 
             # Determine loss of query set
             query_labels = self.get_labels(classes, query_targets)
-            loss, predictions = run_model(local_model, output_weight, output_bias, query_graphs, query_labels)
+            loss, predictions = run_model(local_model, output_weight, output_bias, query_graphs, query_labels, mode)
 
-            self.f1_macro['train'].update(predictions, query_labels)
-            self.f1_target['train'].update(predictions, query_labels)
-            self.accuracies['train'].update(predictions, query_labels)
+            self.f1_macro[mode].update(predictions, query_labels)
+            self.f1_target[mode].update(predictions, query_labels)
+            self.accuracies[mode].update(predictions, query_labels)
 
             # Calculate gradients for query set loss
             if mode == "train":
@@ -159,14 +157,13 @@ class ProtoMAML(GraphTrainer):
         torch.set_grad_enabled(False)
 
 
-def run_model(local_model, output_weight, output_bias, graphs, targets):
+def run_model(local_model, output_weight, output_bias, graphs, targets, mode):
     """
     Execute a model with given output layer weights and inputs.
     """
 
-    x, edge_index = get_subgraph_batch(graphs)
-    feats = local_model(x, edge_index).squeeze()
-    feats = feats[get_classify_mask(graphs)]
+    x, edge_index, cl_mask = get_subgraph_batch(graphs)
+    feats = local_model(x, edge_index, cl_mask, mode).squeeze()
 
     predictions = func.linear(feats, output_weight, output_bias)
 

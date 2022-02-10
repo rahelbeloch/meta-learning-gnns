@@ -81,8 +81,7 @@ class GatBase(GraphTrainer):
 
         # make a batch out of all sub graphs and push the batch through the model
         # [Data, Data, Data(x, y, ..)]
-        x, edge_index = get_subgraph_batch(sub_graphs)
-        cl_mask = get_classify_mask(sub_graphs)
+        x, edge_index, cl_mask = get_subgraph_batch(sub_graphs)
 
         predictions = self.model(x, edge_index, cl_mask, mode)
 

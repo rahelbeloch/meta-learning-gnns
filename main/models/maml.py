@@ -35,11 +35,10 @@ class MAML(pl.LightningModule):
 
     def adapt_few_shot(self, support_graphs, support_targets):
 
-        x, edge_index = get_subgraph_batch(support_graphs)
+        x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
 
         # Determine prototype initialization
-        support_feats = self.model(x, edge_index).squeeze()
-        support_feats = support_feats[get_classify_mask(support_graphs)]
+        support_feats = self.model(x, edge_index, cl_mask, mode).squeeze()
 
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
         support_labels = self.get_labels(classes, support_targets)
@@ -155,9 +154,8 @@ def run_model(local_model, output_weight, output_bias, graphs, targets, f1_targe
     Execute a model with given output layer weights and inputs.
     """
 
-    x, edge_index = get_subgraph_batch(graphs)
-    feats = local_model(x, edge_index).squeeze()
-    feats = feats[get_classify_mask(graphs)]
+    x, edge_index, cl_mask = get_subgraph_batch(graphs)
+    feats = local_model(x, edge_index, cl_mask, mode).squeeze()
 
     predictions = func.linear(feats, output_weight, output_bias)
 

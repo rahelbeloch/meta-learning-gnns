@@ -83,22 +83,16 @@ class ProtoNet(GraphTrainer):
 
         support_graphs, query_graphs, support_targets, query_targets = batch
 
-        x, edge_index = get_subgraph_batch(support_graphs)
-        cl_mask = get_classify_mask(support_graphs)
-        support_feats = self.model(x, edge_index, cl_mask, mode).squeeze()
-
-        # select only the features for the nodes we actually want to classify and compute prototypes for these
-        support_feats = support_feats[get_classify_mask(support_graphs)]
+        x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
+        support_feats = self.model(x, edge_index, cl_mask, mode)
 
         assert support_feats.shape[0] == support_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
 
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
-        x, edge_index = get_subgraph_batch(query_graphs)
-        cl_mask = get_classify_mask(query_graphs)
-        query_feats = self.model(x, edge_index, cl_mask, mode).squeeze()
-        query_feats = query_feats[get_classify_mask(query_graphs)]
+        x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
+        query_feats = self.model(x, edge_index, cl_mask, mode)
 
         assert query_feats.shape[0] == query_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
