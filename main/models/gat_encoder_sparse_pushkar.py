@@ -75,7 +75,8 @@ class GatNet(torch.nn.Module):
         x = torch.cat([att(x, edge_index) for att in self.attentions], dim=1)
         x = self.elu(x)
 
-        x = x[cl_mask]
+        if cl_mask is not None:
+            x = x[cl_mask]
         out = self.classifier(x)
 
         return out
@@ -134,11 +135,16 @@ class SparseGATLayer(nn.Module):
         seq = torch.transpose(x, 0, 1).unsqueeze(0)
         seq_fts = self.seq_transformation(seq)
 
-        f_1 = self.f_1(seq_fts).squeeze()
-        f_2 = self.f_2(seq_fts).squeeze()
+        f_1 = self.f_1(seq_fts)
+        f_2 = self.f_2(seq_fts)
+
+        # TODO: generalize this in method
+        # if there is a single data point, we loose all dimensions which should not be the case!
+        f_1 = f_1.squeeze().unsqueeze(dim=0) if len(f_1.shape) == 0 else f_1.squeeze()
+        f_2 = f_2.squeeze().unsqueeze(dim=0) if len(f_2.shape) == 0 else f_2.squeeze()
+
         logits = f_1[edges[0]] + f_2[edges[1]]
         coefs = self.leaky_relu(logits).exp()  # E
-
         coef_sum = torch.zeros_like(x[:, 0]).index_add_(0, edges[0], coefs).view(-1, 1)
         coefs = self.attn_dropout(coefs)
         sparse_coefs = torch.sparse_coo_tensor(edges, coefs)

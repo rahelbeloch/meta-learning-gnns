@@ -14,7 +14,7 @@ from data_prep.data_utils import SUPPORTED_DATASETS
 from data_prep.data_utils import get_data
 from models.gat_base import GatBase
 from models.proto_maml import ProtoMAML
-from models.proto_net import ProtoNet
+from models.proto_net import ProtoNet, test_proto_net
 
 SUPPORTED_MODELS = ['gat', 'prototypical', 'gmeta']
 LOG_PATH = "../logs/"
@@ -138,7 +138,45 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
         # TODO: set also the target label for f1 score
         # f1_targets[1]
 
-    evaluate(trainer, model, test_loader, test_val_loader)
+    val_accuracy, val_f1_fake, val_f1_real, val_f1_macro = None, None, None, None
+
+    if model_name == 'gat':
+        test_accuracy, test_f1_fake, test_f1_real, test_f1_macro, val_accuracy, val_f1_fake, val_f1_real, \
+        val_f1_macro, test_elapsed = evaluate(trainer, model, test_loader, test_val_loader)
+
+    elif model_name == 'prototypical':
+        (test_accuracy, acc_stdv), (test_f1_fake, stvd1, test_f1_real, stdv2), (
+            test_f1_macro, f1stdev), test_elapsed, _ \
+            = test_proto_net(model, eval_graph, len(eval_graph.labels), data_feats=None, k_shot=k_shot)
+        # print(f"Accuracy for k={k_shot}: {100.0 * accuracy[0]:4.2f}% (+-{100 * accuracy[1]:4.2f}%)")
+        # print(f"F1 target for k={k_shot}: {100.0 * f1_target[0]:4.2f}% (+-{100 * f1_target[1]:4.2f}%)")
+        # print(f"F1 macro for k={k_shot}: {100.0 * f1_macro[0]:4.2f}% (+-{100 * f1_macro[1]:4.2f}%)")
+    else:
+        return
+    # print metrics
+
+    print(f'\nRequired time for testing: {int(test_elapsed / 60)} minutes.\n')
+    print(f'Test Results:\n '
+          f'test accuracy: {round(test_accuracy, 3)} ({test_accuracy})\n '
+          f'test f1 fake: {round(test_f1_fake, 3)} ({test_f1_fake})\n '
+          f'test f1 real: {round(test_f1_real, 3)} ({test_f1_real})\n '
+          f'test f1 macro: {round(test_f1_macro, 3)} ({test_f1_macro})\n '
+          f'validation accuracy: {round(val_accuracy, 3)} ({val_accuracy})\n '
+          f'validation f1 fake: {round(val_f1_fake, 3)} ({val_f1_fake})\n '
+          f'validation f1 real: {round(val_f1_real, 3)} ({val_f1_real})\n '
+          f'validation f1 macro: {round(val_f1_macro, 3)} ({val_f1_macro})\n '
+          f'\nepochs: {trainer.current_epoch + 1}\n')
+
+    print(f'{trainer.current_epoch + 1}\n{round_format(test_f1_fake)}\n{round_format(test_f1_real)}\n'
+          f'{round_format(test_f1_macro)}\n{round_format(test_accuracy)}\n{round_format(val_f1_fake)}\n'
+          f'{round_format(val_f1_real)}\n{round_format(val_f1_macro)}\n{round_format(val_accuracy)}\n'
+          f'{get_epoch_num(model_path)}')
+
+
+def get_epoch_num(model_path):
+    epoch_str = 'epoch='
+    start_idx = model_path.find(epoch_str) + len(epoch_str)
+    epoch_num = int(model_path[start_idx: start_idx + 2])
 
 
 def verify_not_overlapping_samples(train_val_loader):
@@ -249,23 +287,8 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
     test_end = time.time()
     test_elapsed = test_end - test_start
 
-    print(f'\nRequired time for testing: {int(test_elapsed / 60)} minutes.\n')
-    print(f'Test Results:\n '
-          f'test accuracy: {round(test_accuracy, 3)} ({test_accuracy})\n '
-          f'test f1 fake: {round(test_f1_fake, 3)} ({test_f1_fake})\n '
-          f'test f1 real: {round(test_f1_real, 3)} ({test_f1_real})\n '
-          f'test f1 macro: {round(test_f1_macro, 3)} ({test_f1_macro})\n '
-          f'validation accuracy: {round(val_accuracy, 3)} ({val_accuracy})\n '
-          f'validation f1 fake: {round(val_f1_fake, 3)} ({val_f1_fake})\n '
-          f'validation f1 real: {round(val_f1_real, 3)} ({val_f1_real})\n '
-          f'validation f1 macro: {round(val_f1_macro, 3)} ({val_f1_macro})\n '
-          f'\nepochs: {trainer.current_epoch + 1}\n')
-
-    print(f'{round_format(test_f1_fake)}\n{round_format(test_f1_real)}\n{round_format(test_f1_macro)}\n'
-          f'{round_format(test_accuracy)}\n{round_format(val_f1_fake)}\n{round_format(val_f1_real)}\n'
-          f'{round_format(val_f1_macro)}\n{round_format(val_accuracy)}')
-
-    return test_accuracy, val_accuracy
+    return test_accuracy, test_f1_fake, test_f1_real, test_f1_macro, \
+           val_accuracy, val_f1_fake, val_f1_real, val_f1_macro, test_elapsed
 
 
 def round_format(metric):
@@ -279,9 +302,10 @@ if __name__ == "__main__":
     # complete_dir = COMPLETE_small_DIR
     # num_nodes = int(COMPLETE_small_DIR.split('-')[1])
 
+    model_checkpoint = '../logs/prototypical/dtrain=gossipcop_deval=gossipcop_seed=1234_shots=5_hops=2_ftype=one-hot_lr=0.0001/checkpoints/epoch=1-step=709-v1.ckpt'
     # model_checkpoint = '../logs/gat/dtrain=gossipcop_deval=None_seed=82_shots=2_hops=2_ftype=one-hot_lr=0.0001_lr-cl=0.001/checkpoints/epoch=16-step=27488.ckpt'
     # model_checkpoint = '../logs/prototypical/dname=gossipcop_seed=1234_lr=0.01/checkpoints/epoch=0-step=8-v4.ckpt'
-    model_checkpoint = None
+    # model_checkpoint = None
 
     tsv_dir = TSV_DIR
     complete_dir = COMPLETE_DIR

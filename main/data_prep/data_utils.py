@@ -8,14 +8,14 @@ from samplers.maml_batch_sampler import FewShotMamlSampler
 SUPPORTED_DATASETS = ['gossipcop', 'twitterHateSpeech']
 
 
-def get_data(data_train, data_eval, model, hop_size, top_k, top_users_excluded,
+def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_excluded,
              k_shot, train_split_size, eval_split_size, feature_type, vocab_size, dirs, num_workers=None):
     """
     Creates and returns the correct data object depending on data_name.
     Args:
         data_train (str): Name of the data corpus which should be used for training.
         data_eval (str): Name of the data corpus which should be used for testing/evaluation.
-        model (str): Name of the model should be used.
+        model_name (str): Name of the model should be used.
         hop_size (int): Number of hops used to create sub graphs.
         top_k (int): Number of top users to be used in graph.
         k_shot (int): Number of examples used per task/batch.
@@ -49,8 +49,8 @@ def get_data(data_train, data_eval, model, hop_size, top_k, top_users_excluded,
                                       'val_size': train_split_size[1], 'test_size': train_split_size[2]}}
     graph_data_train = TorchGeomGraphDataset(train_config, train_split_size, *dirs)
 
-    train_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'train')
-    train_val_loader = get_loader(graph_data_train, model, hop_size, k_shot, num_workers, 'val')
+    train_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, 'train')
+    train_val_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, 'val')
 
     print(f"\nTrain graph size: \n num_features: {graph_data_train.size[1]}\n total_nodes: {graph_data_train.size[0]}")
 
@@ -69,32 +69,32 @@ def get_data(data_train, data_eval, model, hop_size, top_k, top_users_excluded,
 
         print(f"\nTest graph size: \n num_features: {graph_data_eval.size[1]}\n total_nodes: {graph_data_eval.size[0]}")
 
-        test_val_loader = get_loader(graph_data_eval, model, hop_size, k_shot, num_workers, 'val')
+        test_val_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'val')
 
-    test_loader = get_loader(graph_data_eval, model, hop_size, k_shot, num_workers, 'test')
+    test_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'test')
 
     loaders = (train_loader, train_val_loader, test_loader, test_val_loader)
 
     return loaders, train_loader.b_size, graph_data_train, graph_data_eval
 
 
-def get_loader(graph_data, model, hop_size, k_shot, num_workers, mode):
+def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode):
     n_classes = len(graph_data.labels)
 
     mask = graph_data.mask(f"{mode}_mask")
     shuffle = mode == 'train'
     shuffle_once = mode == 'val'
 
-    if model in ['gat', 'prototypical']:
+    if model_name in ['gat', 'prototypical']:
         batch_sampler = FewShotSampler(graph_data.data.y, mask, n_way=n_classes, k_shot=k_shot, include_query=True,
                                        shuffle=shuffle, shuffle_once=shuffle_once)
-    elif model == 'gmeta':
+    elif model_name == 'gmeta':
         batch_sampler = FewShotMamlSampler(graph_data.data.y, mask, n_way=n_classes, k_shot=k_shot, include_query=True,
                                            shuffle=shuffle)
     else:
-        raise ValueError(f"Model with name '{model}' is not supported.")
+        raise ValueError(f"Model with name '{model_name}' is not supported.")
 
-    sampler = KHopSampler(graph_data, model, batch_sampler, n_classes, k_shot, hop_size, num_workers=num_workers)
+    sampler = KHopSampler(graph_data, model_name, batch_sampler, n_classes, k_shot, hop_size, num_workers=num_workers)
 
     print(f"\n{mode} sampler amount of episodes / batches: {len(sampler)}")
 

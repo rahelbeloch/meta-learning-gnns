@@ -57,40 +57,12 @@ class KHopSampler(GraphSAINTSampler):
         """
         # The Saint Graph Sampler expects 1 data point (and we have more) and normalizes them. This method overrides
         # the graph saint normalizing method and normalizes every single point in our list.
-        # Returns the subgraphs in TorchGerom Batches
+        # Returns the sub graphs in TorchGeom Batches
 
         data_list_collated = []
 
         for node_idx, adj, center_indices in data_list:
-            # data_collated = super().__collate__(data)
-            data = self.data.__class__()
-            data.num_nodes = node_idx.size(0)
-            row, col, edge_idx = adj.coo()
-            data.edge_index = torch.stack([row, col], dim=0)
-
-            # for key, item in self.data:
-            #     if key in ['edge_index', 'num_nodes']:
-            #         continue
-            #     if isinstance(item, torch.Tensor) and item.size(0) == self.N:
-            #         data[key] = item[node_idx]
-            #     elif isinstance(item, torch.Tensor) and item.size(0) == self.E:
-            #         data[key] = item[edge_idx]
-            #     else:
-            #         data[key] = item
-
-            # TODO: normalization
-            #     if self.sample_coverage > 0:
-            #         data.node_norm = self.node_norm[node_idx]
-            #         data.edge_norm = self.edge_norm[edge_idx]
-
-            data.x = self.data.x[node_idx]
-            data.mask = self.batch_sampler.mask[node_idx]
-
-            data.orig_center_idx, data.new_center_idx = center_indices
-            data.y = None
-            data.edge_attr = None
-
-            target = self.data.y[center_indices[0]].item()
+            data, target = self.as_data_target(adj, center_indices, node_idx)
 
             data_list_collated.append((data, target))
 
@@ -131,5 +103,83 @@ class KHopSampler(GraphSAINTSampler):
 
             return list(zip(graphs, targets))
 
+    def as_data_target(self, adj, center_indices, node_idx):
+        # data_collated = super().__collate__(data)
+        data = self.data.__class__()
+        data.num_nodes = node_idx.size(0)
+        row, col, edge_idx = adj.coo()
+        data.edge_index = torch.stack([row, col], dim=0)
+        # for key, item in self.data:
+        #     if key in ['edge_index', 'num_nodes']:
+        #         continue
+        #     if isinstance(item, torch.Tensor) and item.size(0) == self.N:
+        #         data[key] = item[node_idx]
+        #     elif isinstance(item, torch.Tensor) and item.size(0) == self.E:
+        #         data[key] = item[edge_idx]
+        #     else:
+        #         data[key] = item
+        # TODO: normalization
+        #     if self.sample_coverage > 0:
+        #         data.node_norm = self.node_norm[node_idx]
+        #         data.edge_norm = self.edge_norm[edge_idx]
+        data.x = self.data.x[node_idx]
+        data.mask = self.batch_sampler.mask[node_idx]
+        data.orig_center_idx, data.new_center_idx = center_indices
+        data.y = None
+        data.edge_attr = None
+        target = self.data.y[center_indices[0]].item()
+        return data, target
+
     def __len__(self):
         return len(self.batch_sampler)
+
+
+class KHopSamplerSimple(GraphSAINTSampler):
+
+    def __init__(self, graph, k_hops: int = 1, save_dir: Optional[str] = None, log: bool = True, **kwargs):
+        super().__init__(graph.data, batch_size=1, save_dir=save_dir, log=log, batch_sampler=None, **kwargs)
+
+        self.k_hops = k_hops
+        self.edge_index = graph.edge_index
+
+    def __getitem__(self, idx):
+        node_indices = self.__sample_nodes__(idx).unique()
+        adj, _ = self.adj.saint_subgraph(node_indices)
+        # noinspection PyTypeChecker
+        return self.as_data_target(adj, (idx, torch.where(node_indices == idx)[0].item()), node_indices)
+
+    def __sample_nodes__(self, node_id):
+        node_indices, edge_index, node_mapping_idx, edge_mask = k_hop_subgraph(node_id.unsqueeze(dim=0),
+                                                                               self.k_hops,
+                                                                               self.edge_index,
+                                                                               relabel_nodes=True,
+                                                                               flow="target_to_source")
+
+        return node_indices
+
+    def as_data_target(self, adj, center_indices, node_idx):
+        # data_collated = super().__collate__(data)
+        data = self.data.__class__()
+        data.num_nodes = node_idx.size(0)
+        row, col, edge_idx = adj.coo()
+        data.edge_index = torch.stack([row, col], dim=0)
+        # for key, item in self.data:
+        #     if key in ['edge_index', 'num_nodes']:
+        #         continue
+        #     if isinstance(item, torch.Tensor) and item.size(0) == self.N:
+        #         data[key] = item[node_idx]
+        #     elif isinstance(item, torch.Tensor) and item.size(0) == self.E:
+        #         data[key] = item[edge_idx]
+        #     else:
+        #         data[key] = item
+        # TODO: normalization
+        #     if self.sample_coverage > 0:
+        #         data.node_norm = self.node_norm[node_idx]
+        #         data.edge_norm = self.edge_norm[edge_idx]
+        data.x = self.data.x[node_idx]
+        # data.mask = self.batch_sampler.mask[node_idx]
+        data.orig_center_idx, data.new_center_idx = center_indices
+        data.y = None
+        data.edge_attr = None
+        target = self.data.y[center_indices[0]].item()
+        return data, target
