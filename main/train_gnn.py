@@ -302,10 +302,10 @@ if __name__ == "__main__":
     # complete_dir = COMPLETE_small_DIR
     # num_nodes = int(COMPLETE_small_DIR.split('-')[1])
 
-    model_checkpoint = '../logs/prototypical/dtrain=gossipcop_deval=gossipcop_seed=1234_shots=5_hops=2_ftype=one-hot_lr=0.0001/checkpoints/epoch=1-step=709-v1.ckpt'
+    # model_checkpoint = '../logs/prototypical/dtrain=gossipcop_deval=gossipcop_seed=1234_shots=5_hops=2_ftype=one-hot_lr=0.0001/checkpoints/epoch=1-step=709-v1.ckpt'
     # model_checkpoint = '../logs/gat/dtrain=gossipcop_deval=None_seed=82_shots=2_hops=2_ftype=one-hot_lr=0.0001_lr-cl=0.001/checkpoints/epoch=16-step=27488.ckpt'
     # model_checkpoint = '../logs/prototypical/dname=gossipcop_seed=1234_lr=0.01/checkpoints/epoch=0-step=8-v4.ckpt'
-    # model_checkpoint = None
+    model_checkpoint = None
 
     tsv_dir = TSV_DIR
     complete_dir = COMPLETE_DIR
