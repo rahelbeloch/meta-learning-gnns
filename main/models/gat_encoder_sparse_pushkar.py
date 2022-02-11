@@ -42,10 +42,6 @@ class GatNet(torch.nn.Module):
         for i, attention in enumerate(self.attentions):
             self.add_module("attention_{}".format(i), attention)
 
-        # self.classifier = SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim, self.gat_dropout,
-        #                               # self.attn_dropout, self.alpha
-        #                               )
-
         self.classifier = self.get_classifier(self.out_dim)
 
     def reset_classifier_dimensions(self, num_classes):
@@ -60,10 +56,14 @@ class GatNet(torch.nn.Module):
         # )
 
         # Shans implementation
-        return nn.Sequential(nn.Dropout(self.lin_dropout),
-                             nn.Linear(self.n_heads * self.hid_dim, self.feat_reduce_dim),
-                             nn.ReLU(),
-                             nn.Linear(self.feat_reduce_dim, num_classes))
+        # return nn.Sequential(nn.Dropout(self.lin_dropout),
+        #                      nn.Linear(self.n_heads * self.hid_dim, self.feat_reduce_dim),
+        #                      nn.ReLU(),
+        #                      nn.Linear(self.feat_reduce_dim, num_classes))
+
+        # Pushkar implementation
+        return SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim, self.gat_dropout,
+                              concat=False, attn_drop=self.attn_dropout)
 
     def forward(self, x, edge_index, cl_mask, mode):
         # adj should be a sparse matrix
@@ -75,9 +75,16 @@ class GatNet(torch.nn.Module):
         x = torch.cat([att(x, edge_index) for att in self.attentions], dim=1)
         x = self.elu(x)
 
+        # if cl_mask is not None:
+        #     x = x[cl_mask]
+        # out = self.classifier(x)
+
+        if not x.is_sparse:
+            x = x.to_sparse()
+
+        out = self.classifier(x, edge_index)
         if cl_mask is not None:
-            x = x[cl_mask]
-        out = self.classifier(x)
+            out = out[cl_mask]
 
         return out
 
