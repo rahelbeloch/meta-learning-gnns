@@ -230,7 +230,7 @@ def initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_out
 
     logger = TensorBoardLogger(LOG_PATH, name=model_name, version=version_str)
 
-    early_stop_callback = EarlyStopping(
+    early_stop_callback = LossEarlyStopping(
         monitor='train_loss',
         min_delta=0.00,
         patience=patience,  # loss computation happens per default after each training epoch
@@ -252,6 +252,16 @@ def initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_out
     trainer.logger._default_hp_metric = None
 
     return trainer
+
+
+class LossEarlyStopping(EarlyStopping):
+    def on_validation_end(self, trainer, pl_module):
+        # override this to disable early stopping at the end of val loop
+        pass
+
+    def on_train_end(self, trainer, _):
+        # instead, do it at the end of training loop
+        self._run_early_stopping_check(trainer)
 
 
 def evaluate(trainer, model, test_dataloader, val_dataloader):
