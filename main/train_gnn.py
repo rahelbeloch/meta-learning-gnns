@@ -44,7 +44,7 @@ def train(model_name, seed, epochs, patience, patience_metric,
     evaluation = checkpoint is not None and Path(checkpoint).exists()
 
     print(f'\nConfiguration:\n\n mode: {"TEST" if evaluation else "TRAIN"}\n seed: {seed}\n max epochs: {epochs}\n '
-          f'patience:{patience}\n patience metric:{patience_metric}\n k_shot: {k_shot}\n\n model_name: {model_name}\n'
+          f'patience: {patience}\n patience metric: {patience_metric}\n k_shot: {k_shot}\n\n model_name: {model_name}\n'
           f' hidden_dim: {hidden_dim}\n feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n\n'
           f' data_train: {data_train} (splits: {str(train_split_size)})\n data_eval: {data_eval} '
           f'(splits: {str(eval_split_size)})\n nr_train_docs: {nr_train_docs}\n hop_size: {h_size}\n '
