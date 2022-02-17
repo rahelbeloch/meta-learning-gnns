@@ -88,9 +88,6 @@ class GatBase(GraphTrainer):
 
         predictions = func.softmax(logits, dim=1)
         pred = predictions.argmax(dim=-1)
-        # print(str(predictions.shape))
-        # print(str(pred.shape))
-        # print(str(targets.shape))
         for mode_dict, _ in self.metrics.values():
             mode_dict[mode].update(pred, targets)
 

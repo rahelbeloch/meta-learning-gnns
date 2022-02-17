@@ -23,7 +23,8 @@ if torch.cuda.is_available():
     torch.cuda.empty_cache()
 
 
-def train(model_name, seed, epochs, patience, h_size, top_users, top_users_excluded, k_shot, lr, lr_cl, lr_inner,
+def train(model_name, seed, epochs, patience, patience_metric,
+          h_size, top_users, top_users_excluded, k_shot, lr, lr_cl, lr_inner,
           lr_outer, hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_docs,
           train_split_size, feature_type, vocab_size, n_inner_updates, num_workers, gat_dropout, lin_dropout,
           attn_dropout):
@@ -43,13 +44,13 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
     evaluation = checkpoint is not None and Path(checkpoint).exists()
 
     print(f'\nConfiguration:\n\n mode: {"TEST" if evaluation else "TRAIN"}\n seed: {seed}\n max epochs: {epochs}\n '
-          f'patience:{patience}\n k_shot: {k_shot}\n\n model_name: {model_name}\n hidden_dim: {hidden_dim}\n '
-          f'feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n\n data_train: {data_train} '
-          f'(splits: {str(train_split_size)})\n data_eval: {data_eval} (splits: {str(eval_split_size)})\n '
-          f'nr_train_docs: {nr_train_docs}\n hop_size: {h_size}\n top_users: {top_users}K\n '
-          f'top_users_excluded: {top_users_excluded}%\n num_workers: {num_workers}\n vocab_size: {vocab_size}\n '
-          f'hops: {h_size}\n feature_type: {feature_type}\n\n lr: {lr}\n lr_cl: {lr_cl}\n outer_lr: {lr_outer}\n '
-          f'inner_lr: {lr_inner}\n n_updates: {n_inner_updates}\n proto_dim: {proto_dim}\n')
+          f'patience:{patience}\n patience metric:{patience_metric}\n k_shot: {k_shot}\n\n model_name: {model_name}\n'
+          f' hidden_dim: {hidden_dim}\n feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n\n'
+          f' data_train: {data_train} (splits: {str(train_split_size)})\n data_eval: {data_eval} '
+          f'(splits: {str(eval_split_size)})\n nr_train_docs: {nr_train_docs}\n hop_size: {h_size}\n '
+          f'top_users: {top_users}K\n top_users_excluded: {top_users_excluded}%\n num_workers: {num_workers}\n '
+          f'vocab_size: {vocab_size}\n hops: {h_size}\n feature_type: {feature_type}\n\n lr: {lr}\n lr_cl: {lr_cl}\n '
+          f'outer_lr: {lr_outer}\n inner_lr: {lr_inner}\n n_updates: {n_inner_updates}\n proto_dim: {proto_dim}\n')
 
     # reproducible results
     pl.seed_everything(seed)
@@ -98,7 +99,8 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
     # verify_not_overlapping_samples(test_loader)
 
     print('\nInitializing trainer ..........\n')
-    trainer = initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_outer, seed, data_train,
+    trainer = initialize_trainer(epochs, patience, patience_metric, model_name, lr, lr_cl, lr_inner, lr_outer, seed,
+                                 data_train,
                                  data_eval, k_shot, h_size, feature_type, checkpoint)
 
     if model_name == 'gat':
@@ -209,7 +211,8 @@ def verify_not_overlapping_samples(train_val_loader):
     assert not_different_examples == 0
 
 
-def initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_output, seed, data_train, data_eval,
+def initialize_trainer(epochs, patience, patience_metric, model_name, lr, lr_cl, lr_inner, lr_output, seed, data_train,
+                       data_eval,
                        k_shot, h_size, f_type, checkpoint):
     """
     Initializes a Lightning Trainer for respective parameters as given in the function header. Creates a proper
@@ -230,12 +233,16 @@ def initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_out
 
     logger = TensorBoardLogger(LOG_PATH, name=model_name, version=version_str)
 
-    early_stop_callback = LossEarlyStopping(
-        monitor='train_loss',
+    cls, metric, mode = EarlyStopping, 'val_f1_macro', 'max'
+    if patience_metric == 'loss':
+        cls, metric, mode = LossEarlyStopping, 'train_loss', 'min'
+
+    early_stop_callback = cls(
+        monitor=metric,
         min_delta=0.00,
         patience=patience,  # loss computation happens per default after each training epoch
         verbose=False,
-        mode='min'
+        mode=mode
     )
 
     trainer = pl.Trainer(move_metrics_to_cpu=True,
@@ -336,6 +343,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--epochs', dest='epochs', type=int, default=100)
+    parser.add_argument('--patience-metric', dest='patience_metric', type=str, default='f1')
     parser.add_argument('--patience', dest='patience', type=int, default=10)
     parser.add_argument('--gat-dropout', dest='gat_dropout', type=float, default=0.6)
     parser.add_argument('--lin-dropout', dest='lin_dropout', type=float, default=0.5)
@@ -401,6 +409,7 @@ if __name__ == "__main__":
         seed=params['seed'],
         epochs=params['epochs'],
         patience=params['patience'],
+        patience_metric=params['patience_metric'],
         h_size=params["hop_size"],
         top_users=params["top_users"],
         top_users_excluded=params["top_users_excluded"],
