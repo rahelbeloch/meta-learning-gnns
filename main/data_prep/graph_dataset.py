@@ -47,16 +47,40 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         self.read_files()
 
-        if self._analyse_node_degrees:
+        if self._analyse_node_degrees or self.dataset == 'gossipcop':
+            print('\nAnalysing node degrees ..........')
+
             # Checking node degree distribution
             node_degrees, probs = self.plot_node_degree_dist(self.adj)
 
             if self.dataset == 'gossipcop':
-                new_adj = self.fix_node_degree_distribution(node_degrees, probs)
+                print(f"\nFixing node degrees for dataset '{self.dataset}'..........")
+                self.fix_node_degree_distribution(node_degrees, probs)
 
                 if self._verbose:
                     # compute and plot the new node distribution
-                    self.plot_node_degree_dist(new_adj)
+                    self.plot_node_degree_dist(self.adj)
+
+
+        # check that no overlap between train/test and train/val
+
+        # all node data
+        # self.x_data
+
+        # all edge data
+        # self.edge_index
+        # self.adj
+
+        # all masks for splits
+        # self.split_masks['train_mask']
+        # self.split_masks['val_mask']
+        # self.split_masks['test_mask']
+
+        # 1. check that no classification node intersection between train/test/val
+
+        # 2. any node that appears in any subgraph from test, may not appear in any subgraph for train
+
+        # 3.
 
         self.initialize_graph()
 
@@ -173,7 +197,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         self.split_masks['val_mask'] = self.split_masks['val_mask'][new_node_indices]
         self.split_masks['train_mask'] = self.split_masks['train_mask'][new_node_indices]
 
-        return new_adj
+        self.adj = new_adj
 
     def plot_node_degree_dist(self, adj):
         node_degrees = torch.sum(adj, dim=0).numpy()
