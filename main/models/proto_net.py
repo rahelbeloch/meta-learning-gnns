@@ -192,7 +192,7 @@ def test_proto_net(model, dataset, num_classes, data_feats=None, k_shot=4):
         prototypes, proto_classes = model.calculate_prototypes(k_node_feats, k_targets)
 
         # Evaluate accuracy on the rest of the dataset
-        batch_acc = tm.Accuracy(num_classes=num_classes, average='macro', multiclass=True)
+        # batch_acc = tm.Accuracy(num_classes=num_classes, average='macro', multiclass=True)
         batch_f1_target = tm.F1(num_classes=num_classes, average='none', multiclass=True)
         batch_f1_macro = tm.F1(num_classes=num_classes, average='macro', multiclass=True)
 
@@ -203,16 +203,16 @@ def test_proto_net(model, dataset, num_classes, data_feats=None, k_shot=4):
             predictions, labels = model.classify_features(prototypes, proto_classes, e_node_feats, e_targets)
             if predictions.shape[1] != 2:
                 continue
-            batch_acc.update(predictions, labels)
+            # batch_acc.update(predictions, labels)
             batch_f1_target.update(predictions, labels)
             batch_f1_macro.update(predictions, labels)
 
-        accuracies.append(batch_acc.compute().item())
+        # accuracies.append(batch_acc.compute().item())
         f1_targets_fake.append(batch_f1_target.compute()[0].item())
         f1_targets_real.append(batch_f1_target.compute()[1].item())
         f1_macros.append(batch_f1_macro.compute().item())
 
-        batch_acc.reset()
+        # batch_acc.reset()
         batch_f1_target.reset()
         batch_f1_macro.reset()
 

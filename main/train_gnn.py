@@ -167,16 +167,19 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
           f'validation f1 macro: {round(val_f1_macro, 3)} ({val_f1_macro})\n '
           f'\nepochs: {trainer.current_epoch + 1}\n')
 
-    print(f'{trainer.current_epoch + 1}\n{round_format(test_f1_fake)}\n{round_format(test_f1_real)}\n'
-          f'{round_format(test_f1_macro)}\n{round_format(test_accuracy)}\n{round_format(val_f1_fake)}\n'
-          f'{round_format(val_f1_real)}\n{round_format(val_f1_macro)}\n{round_format(val_accuracy)}\n'
-          f'{get_epoch_num(model_path)}')
+    print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}\n{round_format(test_f1_fake)}\n'
+          f'{round_format(test_f1_real)}\n{round_format(test_f1_macro)}\n{round_format(test_accuracy)}\n'
+          f'{round_format(val_f1_fake)}\n{round_format(val_f1_real)}\n{round_format(val_f1_macro)}\n'
+          f'{round_format(val_accuracy)}\n')
 
 
 def get_epoch_num(model_path):
     epoch_str = 'epoch='
     start_idx = model_path.find(epoch_str) + len(epoch_str)
-    epoch_num = int(model_path[start_idx: start_idx + 2])
+    expected_epoch = model_path[start_idx: start_idx + 2]
+    if expected_epoch == '0-':
+        expected_epoch = expected_epoch[:1]
+    return int(expected_epoch)
 
 
 def verify_not_overlapping_samples(train_val_loader):
@@ -228,11 +231,11 @@ def initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_out
     logger = TensorBoardLogger(LOG_PATH, name=model_name, version=version_str)
 
     early_stop_callback = EarlyStopping(
-        monitor='val_f1_macro',
+        monitor='train_loss',
         min_delta=0.00,
-        patience=patience,  # validation happens per default after each training epoch
+        patience=patience,  # loss computation happens per default after each training epoch
         verbose=False,
-        mode='max'
+        mode='min'
     )
 
     trainer = pl.Trainer(move_metrics_to_cpu=True,
@@ -322,7 +325,7 @@ if __name__ == "__main__":
     # TRAINING PARAMETERS
 
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
-    parser.add_argument('--epochs', dest='epochs', type=int, default=1)
+    parser.add_argument('--epochs', dest='epochs', type=int, default=100)
     parser.add_argument('--patience', dest='patience', type=int, default=10)
     parser.add_argument('--gat-dropout', dest='gat_dropout', type=float, default=0.6)
     parser.add_argument('--lin-dropout', dest='lin_dropout', type=float, default=0.5)

@@ -1,9 +1,9 @@
 from torch import nn
 
 from models.GraphTrainer import GraphTrainer
-from models.gat_encoder_sparse_pushkar import GatNet
+from models.gat_encoder_sparse_pushkar import GatNet, SpGAT
 from models.train_utils import *
-
+import torch.nn.functional as func
 
 class GatBase(GraphTrainer):
     """
@@ -24,7 +24,8 @@ class GatBase(GraphTrainer):
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace
         self.save_hyperparameters()
 
-        self.model = GatNet(model_hparams)
+        # self.model = GatNet(model_hparams)
+        self.model = SpGAT(model_hparams)
 
         # TODO: move this to GatNet
         if checkpoint is not None:
@@ -83,9 +84,13 @@ class GatBase(GraphTrainer):
         # [Data, Data, Data(x, y, ..)]
         x, edge_index, cl_mask = get_subgraph_batch(sub_graphs)
 
-        predictions = self.model(x, edge_index, cl_mask, mode)
+        logits = self.model(x, edge_index, cl_mask, mode)
 
+        predictions = func.softmax(logits, dim=1)
         pred = predictions.argmax(dim=-1)
+        # print(str(predictions.shape))
+        # print(str(pred.shape))
+        # print(str(targets.shape))
         for mode_dict, _ in self.metrics.values():
             mode_dict[mode].update(pred, targets)
 
