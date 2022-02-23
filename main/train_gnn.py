@@ -23,7 +23,7 @@ if torch.cuda.is_available():
     torch.cuda.empty_cache()
 
 
-def train(model_name, seed, epochs, patience, patience_metric,
+def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
           h_size, top_users, top_users_excluded, k_shot, lr, lr_cl, lr_inner,
           lr_outer, hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_docs,
           train_split_size, feature_type, vocab_size, n_inner_updates, num_workers, gat_dropout, lin_dropout,
@@ -100,8 +100,7 @@ def train(model_name, seed, epochs, patience, patience_metric,
 
     print('\nInitializing trainer ..........\n')
     trainer = initialize_trainer(epochs, patience, patience_metric, model_name, lr, lr_cl, lr_inner, lr_outer, seed,
-                                 data_train,
-                                 data_eval, k_shot, h_size, feature_type, checkpoint)
+                                 data_train, data_eval, k_shot, h_size, feature_type, checkpoint, progress_bar)
 
     if model_name == 'gat':
         model = GatBase(model_params, optimizer_hparams, b_size, train_graph.label_names, checkpoint)
@@ -212,8 +211,7 @@ def verify_not_overlapping_samples(train_val_loader):
 
 
 def initialize_trainer(epochs, patience, patience_metric, model_name, lr, lr_cl, lr_inner, lr_output, seed, data_train,
-                       data_eval,
-                       k_shot, h_size, f_type, checkpoint):
+                       data_eval, k_shot, h_size, f_type, checkpoint, progress_bar):
     """
     Initializes a Lightning Trainer for respective parameters as given in the function header. Creates a proper
     folder name for the respective model files, initializes logging and early stopping.
@@ -252,7 +250,7 @@ def initialize_trainer(epochs, patience, patience_metric, model_name, lr, lr_cl,
                          gpus=1 if torch.cuda.is_available() else 0,
                          max_epochs=epochs,
                          callbacks=[model_checkpoint, early_stop_callback],
-                         enable_progress_bar=True,
+                         enable_progress_bar=progress_bar,
                          num_sanity_val_steps=0)
 
     # Optional logging argument that we don't need
@@ -341,6 +339,7 @@ if __name__ == "__main__":
 
     # TRAINING PARAMETERS
 
+    parser.add_argument('--progress-bar', dest='progress_bar', type=bool, default=False)
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--epochs', dest='epochs', type=int, default=100)
     parser.add_argument('--patience-metric', dest='patience_metric', type=str, default='f1')
@@ -405,6 +404,7 @@ if __name__ == "__main__":
     params = vars(parser.parse_args())
 
     train(
+        progress_bar=params['progress_bar'],
         model_name=params['model'],
         seed=params['seed'],
         epochs=params['epochs'],
