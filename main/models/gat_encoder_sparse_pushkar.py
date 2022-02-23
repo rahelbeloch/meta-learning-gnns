@@ -64,9 +64,9 @@ class GatNet(torch.nn.Module):
         # x = func.dropout(x, self.gat_dropout, training=self.training)
         x = torch.cat([att(x, edge_index) for att in self.attentions], dim=1)
 
-        if type(self.classifier) != SparseGATLayer:
+        # if type(self.classifier) != SparseGATLayer:
             # if linear classifier --> non linearity here
-            x = self.elu(x)
+        x = self.elu(x)
 
         out = self.classifier(x, edge_index)
 
@@ -150,57 +150,3 @@ class SparseGATLayer(nn.Module):
         ret = torch.sparse.mm(sparse_coefs, seq_fts).div(coef_sum) + self.bias
 
         return func.elu(ret) if self.concat else ret
-
-
-class SpGraphAttentionLayer(nn.Module):
-    """
-    Sparse version GAT layer, similar to https://arxiv.org/abs/1710.10903
-    """
-
-    def __init__(self, in_features, out_features, dropout, alpha=0.2, concat=True):
-        super(SpGraphAttentionLayer, self).__init__()
-
-        self.in_features = in_features
-        self.out_features = out_features
-        self.alpha = alpha
-        self.concat = concat
-
-        self.W = nn.Parameter(torch.zeros(size=(in_features, out_features)))  # FxF'
-        self.attn = nn.Parameter(torch.zeros(2 * out_features))  # 2F'
-
-        nn.init.xavier_normal_(self.W.data, gain=1.414)
-        # nn.init.xavier_normal_(self.attn.data, gain=1.414)
-
-        self.leakyrelu = nn.LeakyReLU(self.alpha)
-
-    def forward(self, input, edge):
-        """
-        input: NxF
-        edge: 2xE
-        """
-        N = input.size()[0]
-        if input.is_sparse:
-            h = torch.sparse.mm(input, self.W)  # (NxF) * (FxF') = NxF'
-        else:
-            h = torch.mm(input, self.W)
-        # print(edge.is_sparse)
-        # Self-attention (because including self edges) on the nodes - Shared attention mechanism
-        edge_h = torch.cat((h[edge[0, :], :], h[edge[1, :], :]), dim=1).t()  # Ex2F'.t() = 2F'xE
-        values = edge_h.mm(self.attn)  # E
-        sp_edge_h = torch.sparse_coo_tensor(edge, -self.leakrelu(values), size=(N, N))  # values() = E
-
-        sp_edge_h = torch.sparse.nn.functional.softmax(sp_edge_h, dim=1)
-        sp_edge_h = torch.sparse.nn.functional.dropout(sp_edge_h, p=self.dropout)
-
-        # apply attention
-        h_prime = torch.sparse.mm(sp_edge_h, h)  # (NxN) * (NxF') = (NxF')
-
-        if self.concat:
-            # if this layer is not last layer
-            return func.elu(h_prime)
-        else:
-            # if this layer is last layer
-            return h_prime
-
-    def __repr__(self):
-        return self.__class__.__name__ + ' (' + str(self.in_features) + ' -> ' + str(self.out_features) + ')'
