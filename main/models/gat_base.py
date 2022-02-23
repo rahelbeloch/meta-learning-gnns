@@ -85,14 +85,14 @@ class GatBase(GraphTrainer):
         # [Data, Data, Data(x, y, ..)]
         x, edge_index, cl_mask = get_subgraph_batch(sub_graphs)
 
-        logits = self.model(x, edge_index, cl_mask, mode)
+        output = self.model(x, edge_index)
+        output = output[cl_mask]
 
-        predictions = func.softmax(logits, dim=1)
-        pred = predictions.argmax(dim=-1)
+        predictions = output.argmax(dim=-1)
         for mode_dict, _ in self.metrics.values():
-            mode_dict[mode].update(pred, targets)
+            mode_dict[mode].update(predictions, targets)
 
-        return predictions
+        return output
 
     def training_step(self, batch, batch_idx):
 

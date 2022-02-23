@@ -51,24 +51,29 @@ class GatNet(torch.nn.Module):
         # )
 
         # Shans implementation
-        # return nn.Sequential(nn.Dropout(self.lin_dropout),
-        #                      nn.Linear(self.n_heads * self.hid_dim, self.feat_reduce_dim),
-        #                      nn.ReLU(),
-        #                      nn.Linear(self.feat_reduce_dim, num_classes))
+        return nn.Sequential(nn.Dropout(self.lin_dropout),
+                             nn.Linear(self.n_heads * self.hid_dim, self.feat_reduce_dim),
+                             nn.ReLU(),
+                             nn.Linear(self.feat_reduce_dim, num_classes))
 
         # Pushkar implementation
-        return SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim, dropout=self.gat_dropout,
-                              attn_drop=self.attn_dropout, concat=False)
+        # return SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim, dropout=self.gat_dropout,
+        # attn_drop=self.attn_dropout, concat=False)
 
-    def forward(self, x, edge_index, cl_mask, mode):
+    def forward(self, x, edge_index):
         # x = func.dropout(x, self.gat_dropout, training=self.training)
         x = torch.cat([att(x, edge_index) for att in self.attentions], dim=1)
 
         # if type(self.classifier) != SparseGATLayer:
-            # if linear classifier --> non linearity here
-        x = self.elu(x)
+        # if linear classifier --> non linearity here
+        # x = self.elu(x)
 
-        out = self.classifier(x, edge_index)
+        if type(self.classifier) != SparseGATLayer:
+            # linear classifier
+            out = self.classifier(x)
+        else:
+            # attention out layer
+            out = self.classifier(x, edge_index)
 
         # F1 is sensitive to threshold
         # area under the RC curve
@@ -77,7 +82,7 @@ class GatNet(torch.nn.Module):
         #     # if we have an output attention layer --> additional non-linearity
         #     out = func.elu(out)
 
-        return func.log_softmax(out, dim=1)[cl_mask]
+        return func.log_softmax(out, dim=1)
 
 
 class SparseGATLayer(nn.Module):
