@@ -73,9 +73,9 @@ class GatNet(torch.nn.Module):
         # F1 is sensitive to threshold
         # area under the RC curve
 
-        if type(self.classifier) == SparseGATLayer:
-            # if we have an output attention layer --> additional non-linearity
-            out = func.elu(out)
+        # if type(self.classifier) == SparseGATLayer:
+        #     # if we have an output attention layer --> additional non-linearity
+        #     out = func.elu(out)
 
         return func.log_softmax(out, dim=1)[cl_mask]
 
@@ -159,6 +159,7 @@ class SpGraphAttentionLayer(nn.Module):
 
     def __init__(self, in_features, out_features, dropout, alpha=0.2, concat=True):
         super(SpGraphAttentionLayer, self).__init__()
+
         self.in_features = in_features
         self.out_features = out_features
         self.alpha = alpha
