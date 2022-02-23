@@ -24,8 +24,8 @@ class GatBase(GraphTrainer):
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace
         self.save_hyperparameters()
 
-        # self.model = GatNet(model_hparams)
-        self.model = SpGAT(model_hparams)
+        self.model = GatNet(model_hparams)
+        # self.model = SpGAT(model_hparams)
 
         # TODO: move this to GatNet
         if checkpoint is not None:
