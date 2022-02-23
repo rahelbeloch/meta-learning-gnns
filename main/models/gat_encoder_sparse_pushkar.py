@@ -63,16 +63,18 @@ class GatNet(torch.nn.Module):
     def forward(self, x, edge_index, cl_mask, mode):
         # x = func.dropout(x, self.gat_dropout, training=self.training)
         x = torch.cat([att(x, edge_index) for att in self.attentions], dim=1)
-        x = self.elu(x)
 
-        # if not x.is_sparse:
-        #     x = x.to_sparse()
+        if type(self.classifier) != SparseGATLayer:
+            # if linear classifier --> non linearity here
+            x = self.elu(x)
 
         out = self.classifier(x, edge_index)
 
         # F1 is sensitive to threshold
         # area under the RC curve
+
         if type(self.classifier) == SparseGATLayer:
+            # if we have an output attention layer --> additional non-linearity
             out = func.elu(out)
 
         return func.log_softmax(out, dim=1)[cl_mask]
@@ -148,43 +150,6 @@ class SparseGATLayer(nn.Module):
         ret = torch.sparse.mm(sparse_coefs, seq_fts).div(coef_sum) + self.bias
 
         return func.elu(ret) if self.concat else ret
-
-
-class SpGAT(nn.Module):
-    def __init__(self, model_params):
-        """Sparse version of GAT."""
-        super(SpGAT, self).__init__()
-
-        self.n_heads = model_params["n_heads"]
-
-        self.in_dim = model_params["input_dim"]
-        self.out_dim = model_params["output_dim"]
-        self.hid_dim = model_params["hid_dim"]
-        self.feat_reduce_dim = model_params["feat_reduce_dim"]
-
-        self.gat_dropout = model_params["gat_dropout"]
-        self.lin_dropout = model_params["lin_dropout"]
-        self.attn_dropout = model_params["attn_dropout"]
-
-        self.attentions = [SparseGATLayer(self.in_dim,
-                                          self.hid_dim,
-                                          self.feat_reduce_dim,
-                                          dropout=self.gat_dropout,
-                                          concat=True) for _ in range(self.n_heads)]
-
-        for i, attention in enumerate(self.attentions):
-            self.add_module('attention_{}'.format(i), attention)
-
-        self.out_att = SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim,
-                                      dropout=self.gat_dropout, concat=False)
-
-    def forward(self, x, edge_index, cl_mask, mode):
-        # x = func.dropout(x, self.gat_dropout, training=self.training)
-        x = torch.cat([att(x, edge_index) for att in self.attentions], dim=1)
-        # x = func.dropout(x, self.gat_dropout, training=self.training)
-        out = self.out_att(x, edge_index)
-        out = func.elu(out)
-        return func.log_softmax(out, dim=1)[cl_mask]
 
 
 class SpGraphAttentionLayer(nn.Module):

@@ -26,7 +26,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
     Parent class for graph datasets. It loads the graph from respective files.
     """
 
-    def __init__(self, config, split_size, data_dir, tsv_dir, complete_dir, verbose=True, analyse_node_degrees=False):
+    def __init__(self, config, split_size, data_dir, tsv_dir, complete_dir, verbose=False, analyse_node_degrees=False):
         super().__init__(config, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir, enforce_raw=False)
 
         self._device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
