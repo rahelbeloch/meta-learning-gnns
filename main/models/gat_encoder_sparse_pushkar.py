@@ -65,8 +65,8 @@ class GatNet(torch.nn.Module):
         x = torch.cat([att(x, edge_index) for att in self.attentions], dim=1)
         x = self.elu(x)
 
-        if not x.is_sparse:
-            x = x.to_sparse()
+        # if not x.is_sparse:
+        #     x = x.to_sparse()
 
         out = self.classifier(x, edge_index)
 
