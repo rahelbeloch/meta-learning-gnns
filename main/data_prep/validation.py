@@ -42,8 +42,8 @@ if __name__ == '__main__':
     intersection2 = list(set(shot_nodes[5]) & set(shot_nodes[20]))
     intersection3 = list(set(shot_nodes[5]) & set(shot_nodes[40]))
 
+    n_different1 = 3550 - len(intersection1)
+    n_different2 = 3550 - len(intersection2)
+    n_different3 = 3550 - len(intersection3)
+
     # 7100 sub graphs in total --> half for query set, half for support set
-    expected_len_5 = len(train_loader) * 5 * 2
-    expected_len_10 = len(train_loader) * 10 * 2
-    expected_len_20 = len(train_loader) * 20 * 2
-    expected_len_40 = len(train_loader) * 40 * 2
