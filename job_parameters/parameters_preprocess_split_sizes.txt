@@ -1,4 +1,4 @@
-python -u -m data_prep.fake_news_tsv_processor --feature_type glove-average
-python -u -m data_prep.twitter_tsv_processor --feature_type glove-average
-python -u -m data_prep.fake_news_graph_preprocessor --feature_type glove-average
-python -u -m data_prep.twitter_graph_preprocessor --feature_type glove-average
+python -u -m data_prep.fake_news_tsv_processor --feature_type glove-average --progress-bar False
+python -u -m data_prep.twitter_tsv_processor --feature_type glove-average --progress-bar False
+python -u -m data_prep.fake_news_graph_preprocessor --feature_type glove-average --progress-bar False
+python -u -m data_prep.twitter_graph_preprocessor --feature_type glove-average --progress-bar False

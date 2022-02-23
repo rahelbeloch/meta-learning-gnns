@@ -1,8 +1,8 @@
---model gat --complete-dir complete --tsv-dir tsv --seed 82
---model gat --complete-dir complete --tsv-dir tsv --seed 1234
---model gat --complete-dir complete --tsv-dir tsv --seed 5
---model gat --complete-dir complete --tsv-dir tsv --seed 16
---model prototypical --complete-dir complete --tsv-dir tsv --seed 82
---model prototypical --complete-dir complete --tsv-dir tsv --seed 1234
---model prototypical --complete-dir complete --tsv-dir tsv --seed 5
---model prototypical --complete-dir complete --tsv-dir tsv --seed 16
+--model gat --complete-dir complete --tsv-dir tsv --seed 82 --progress-bar False
+--model gat --complete-dir complete --tsv-dir tsv --seed 1234 --progress-bar False
+--model gat --complete-dir complete --tsv-dir tsv --seed 5 --progress-bar False
+--model gat --complete-dir complete --tsv-dir tsv --seed 16 --progress-bar False
+--model prototypical --complete-dir complete --tsv-dir tsv --seed 82 --progress-bar False
+--model prototypical --complete-dir complete --tsv-dir tsv --seed 1234 --progress-bar False
+--model prototypical --complete-dir complete --tsv-dir tsv --seed 5 --progress-bar False
+--model prototypical --complete-dir complete --tsv-dir tsv --seed 16 --progress-bar False
