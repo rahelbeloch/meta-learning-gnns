@@ -178,7 +178,7 @@ def get_epoch_num(model_path):
     epoch_str = 'epoch='
     start_idx = model_path.find(epoch_str) + len(epoch_str)
     expected_epoch = model_path[start_idx: start_idx + 2]
-    if expected_epoch == '0-':
+    if expected_epoch.endswith('-'):
         expected_epoch = expected_epoch[:1]
     return int(expected_epoch)
 
