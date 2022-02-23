@@ -1,9 +1,10 @@
+import torch.nn.functional as func
 from torch import nn
 
 from models.GraphTrainer import GraphTrainer
 from models.gat_encoder_sparse_pushkar import GatNet
 from models.train_utils import *
-import torch.nn.functional as func
+
 
 class GatBase(GraphTrainer):
     """
