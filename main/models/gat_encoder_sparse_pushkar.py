@@ -57,8 +57,8 @@ class GatNet(torch.nn.Module):
         #                      nn.Linear(self.feat_reduce_dim, num_classes))
 
         # Pushkar implementation
-        return SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim, self.gat_dropout,
-                              concat=False, attn_drop=self.attn_dropout)
+        return SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim, dropout=self.gat_dropout,
+                              attn_drop=self.attn_dropout, concat=False)
 
     def forward(self, x, edge_index, cl_mask, mode):
         # x = func.dropout(x, self.gat_dropout, training=self.training)
@@ -176,7 +176,7 @@ class SpGAT(nn.Module):
             self.add_module('attention_{}'.format(i), attention)
 
         self.out_att = SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim,
-                                      self.gat_dropout, concat=False)
+                                      dropout=self.gat_dropout, concat=False)
 
     def forward(self, x, edge_index, cl_mask, mode):
         # x = func.dropout(x, self.gat_dropout, training=self.training)
