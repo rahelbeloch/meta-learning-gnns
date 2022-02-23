@@ -21,9 +21,9 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
         k_shot (int): Number of examples used per task/batch.
         train_split_size (tuple): Floats defining the size of test/train/val for the training dataset.
         eval_split_size (tuple): Floats defining the size of test/train/val for the evaluation dataset.
-        feature_type (int): Type of features that should be used.
+        feature_type (str): Type of features that should be used.
         vocab_size (int): Size of the vocabulary.
-        dirs (str): Path to the data (full & complete) to be used to create the graph (feature file, edge file etc.)
+        dirs (tuple): Path to the data (full & complete) to be used to create the graph (feature file, edge file etc.)
         num_workers (int): Amount of workers for parallel processing.
     Raises:
         Exception: if the data_name is not in SUPPORTED_DATASETS.
