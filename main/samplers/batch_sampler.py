@@ -9,7 +9,7 @@ from torch.utils.data import Sampler
 
 class FewShotSampler(Sampler):
 
-    def __init__(self, targets, mask, n_way=2, k_shot=5, include_query=False, shuffle=True, shuffle_once=False):
+    def __init__(self, targets, mask, n_way=2, k_shot=5, shuffle=True, shuffle_once=False):
         """
         Support sets should contain n_way * k_shot examples. So, e.g. 2 * 5 = 10 sub graphs.
         Query set is of same size ...
@@ -18,10 +18,6 @@ class FewShotSampler(Sampler):
             targets - Tensor containing all targets of the graph.
             n_way - Number of classes to sample per batch.
             k_shot - Number of examples to sample per class in the batch.
-            include_query - If True, returns batch of size n_way*k_shot*2, which
-                            can be split into support and query set. Simplifies
-                            the implementation of sampling the same classes but
-                            distinct examples for support and query set.
             shuffle - If True, examples and classes are newly shuffled in each
                       iteration (for training).
             shuffle_once - If True, examples and classes are shuffled once in
@@ -29,17 +25,16 @@ class FewShotSampler(Sampler):
                            (for validation).
         """
         super().__init__(None)
-        self.data_targets = targets
-        self.mask = mask  # the mask for the idx to be used for this split
+        self.data_targets = targets[mask]
+        # self.mask = mask  # the mask for the idx to be used for this split
         self.n_way = n_way
-        self.k_shot = k_shot if not include_query else k_shot * 2
+        self.k_shot = k_shot
         self.shuffle = shuffle
-        self.include_query = include_query
-        self.batch_size = self.n_way * self.k_shot  # Number of overall samples per batch
+        self.batch_size = self.n_way * self.k_shot  # Number of overall samples per query and support batch
 
         # Organize examples by class
         self.sets = ['query', 'support']
-        self.classes = torch.unique(self.data_targets[self.mask]).tolist()
+        self.classes = torch.unique(self.data_targets).tolist()
         self.num_classes = len(self.classes)
 
         # Number of K-shot batches that each class can provide
@@ -47,7 +42,7 @@ class FewShotSampler(Sampler):
         self.indices_per_class = dict(support={}, query={})
 
         for c in self.classes:
-            class_indices = torch.where((self.data_targets == c) & self.mask)[0]
+            class_indices = torch.where(self.data_targets == c)[0]
             len_indices = int(len(class_indices) / 2)
 
             self.indices_per_class['support'][c] = class_indices[:len_indices]
@@ -59,7 +54,8 @@ class FewShotSampler(Sampler):
                 self.batches_per_class[s][c] = self.indices_per_class[s][c].shape[0] // self.k_shot
 
         # Create a list of classes from which we select the N classes per batch
-        self.num_batches = sum([x for xs in self.batches_per_class.values() for x in xs.values()]) // self.n_way
+        # self.num_batches = sum([x for xs in self.batches_per_class.values() for x in xs.values()]) // self.n_way
+        self.num_batches = sum(self.batches_per_class['support'].values()) // self.n_way
         # self.num_batches = sum(self.batches_per_class.values()) // self.n_way  # total batches we can create
 
         self.target_lists = {}
@@ -88,6 +84,10 @@ class FewShotSampler(Sampler):
         for s in self.sets:
             random.shuffle(self.target_lists[s])
 
+    @property
+    def query_samples(self):
+        return self.indices_per_class['query']
+
     def __iter__(self):
         # Shuffle data
         if self.shuffle:
@@ -103,10 +103,9 @@ class FewShotSampler(Sampler):
                 class_batch = self.target_lists[s][it * self.n_way:(it + 1) * self.n_way]
                 set_index_batch = []
                 for c in class_batch:  # For each class, select the next K examples and add them to the batch
-                    samples_per_set = int(self.k_shot / 2)
                     set_index_batch.extend(
-                        self.indices_per_class[s][c][start_index[s][c]:start_index[s][c] + samples_per_set])
-                    start_index[s][c] += samples_per_set
+                        self.indices_per_class[s][c][start_index[s][c]:start_index[s][c] + self.k_shot])
+                    start_index[s][c] += self.k_shot
                 index_batches[s] = set_index_batch
 
             full_batch = index_batches['support'] + index_batches['query']

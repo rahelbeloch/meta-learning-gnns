@@ -24,28 +24,32 @@ class KHopSampler(GraphSAINTSampler):
         return f'{self.__class__.__name__.lower()}_{self.k_hops}_{self.sample_coverage}.pt'
 
     @property
+    def b_sampler(self):
+        return self.batch_sampler
+
+    @property
     def b_size(self):
         """
         Can not use the fitting property name batch_size, because of the code structure of GraphSAINTSampler, therefore
         using this property name. If the batch_sampler includes query and support set in one batch/episode, the
         batch/episode size is 2 * k_shots * n_classes.
         """
-        return self.__batch_size__ if not self.batch_sampler.include_query else self.__batch_size__ * 2
+        return self.__batch_size__
 
     def __getitem__(self, idx):
-        node_idx = self.__sample_nodes__(idx).unique()
-        adj, _ = self.adj.saint_subgraph(node_idx)
+        node_indices = self.__sample_nodes__(idx).unique()
+        adj, _ = self.adj.saint_subgraph(node_indices)
         # noinspection PyTypeChecker
-        return node_idx, adj, (idx, torch.where(node_idx == idx)[0].item())
+        return node_indices, adj, (idx.item(), torch.where(node_indices == idx)[0].item())
 
     def __sample_nodes__(self, node_id):
-        node_idx, edge_index, node_mapping_idx, edge_mask = k_hop_subgraph(node_id.unsqueeze(dim=0),
-                                                                           self.k_hops,
-                                                                           self.edge_index,
-                                                                           relabel_nodes=True,
-                                                                           flow="target_to_source")
+        node_indices, edge_index, node_mapping_idx, edge_mask = k_hop_subgraph(node_id.unsqueeze(dim=0),
+                                                                               self.k_hops,
+                                                                               self.edge_index,
+                                                                               relabel_nodes=True,
+                                                                               flow="target_to_source")
 
-        return node_idx
+        return node_indices
 
     # noinspection PyPropertyAccess
     def __collate__(self, data_list):
@@ -61,9 +65,8 @@ class KHopSampler(GraphSAINTSampler):
 
         data_list_collated = []
 
-        for node_idx, adj, center_indices in data_list:
-            data, target = self.as_data_target(adj, center_indices, node_idx)
-
+        for node_indices, adj, center_indices in data_list:
+            data, target = self.as_data_target(adj, center_indices, node_indices)
             data_list_collated.append((data, target))
 
         if self.model_type == 'gat':
@@ -103,31 +106,26 @@ class KHopSampler(GraphSAINTSampler):
 
             return list(zip(graphs, targets))
 
-    def as_data_target(self, adj, center_indices, node_idx):
+    def as_data_target(self, adj, center_indices, node_indices):
         # data_collated = super().__collate__(data)
-        data = self.data.__class__()
-        data.num_nodes = node_idx.size(0)
+
         row, col, edge_idx = adj.coo()
-        data.edge_index = torch.stack([row, col], dim=0)
-        # for key, item in self.data:
-        #     if key in ['edge_index', 'num_nodes']:
-        #         continue
-        #     if isinstance(item, torch.Tensor) and item.size(0) == self.N:
-        #         data[key] = item[node_idx]
-        #     elif isinstance(item, torch.Tensor) and item.size(0) == self.E:
-        #         data[key] = item[edge_idx]
-        #     else:
-        #         data[key] = item
+        data = self.data.__class__(self.data.x[node_indices], torch.stack([row, col], dim=0), None, None)
+
         # TODO: normalization
         #     if self.sample_coverage > 0:
         #         data.node_norm = self.node_norm[node_idx]
         #         data.edge_norm = self.edge_norm[edge_idx]
-        data.x = self.data.x[node_idx]
-        data.mask = self.batch_sampler.mask[node_idx]
+
+        # data.mask = self.batch_sampler.mask[node_indices]
         data.orig_center_idx, data.new_center_idx = center_indices
-        data.y = None
-        data.edge_attr = None
-        target = self.data.y[center_indices[0]].item()
+        target = self.data.y[data.orig_center_idx].item()
+
+        for s in self.b_sampler.sets:
+            if data.orig_center_idx in self.b_sampler.indices_per_class[s][target]:
+                data.set_type = s
+                break
+
         return data, target
 
     def __len__(self):
@@ -146,7 +144,8 @@ class KHopSamplerSimple(GraphSAINTSampler):
         node_indices = self.__sample_nodes__(idx).unique()
         adj, _ = self.adj.saint_subgraph(node_indices)
         # noinspection PyTypeChecker
-        return self.as_data_target(adj, (idx, torch.where(node_indices == idx)[0].item()), node_indices)
+        data, target = self.as_data_target(adj, (idx.iitem(), torch.where(node_indices == idx)[0].item()), node_indices)
+        return data, target
 
     def __sample_nodes__(self, node_id):
         node_indices, edge_index, node_mapping_idx, edge_mask = k_hop_subgraph(node_id.unsqueeze(dim=0),
@@ -157,29 +156,18 @@ class KHopSamplerSimple(GraphSAINTSampler):
 
         return node_indices
 
-    def as_data_target(self, adj, center_indices, node_idx):
+    def as_data_target(self, adj, center_indices, node_indices):
         # data_collated = super().__collate__(data)
-        data = self.data.__class__()
-        data.num_nodes = node_idx.size(0)
+
         row, col, edge_idx = adj.coo()
-        data.edge_index = torch.stack([row, col], dim=0)
-        # for key, item in self.data:
-        #     if key in ['edge_index', 'num_nodes']:
-        #         continue
-        #     if isinstance(item, torch.Tensor) and item.size(0) == self.N:
-        #         data[key] = item[node_idx]
-        #     elif isinstance(item, torch.Tensor) and item.size(0) == self.E:
-        #         data[key] = item[edge_idx]
-        #     else:
-        #         data[key] = item
+        data = self.data.__class__(self.data.x[node_indices], torch.stack([row, col], dim=0), None, None)
+
         # TODO: normalization
         #     if self.sample_coverage > 0:
         #         data.node_norm = self.node_norm[node_idx]
         #         data.edge_norm = self.edge_norm[edge_idx]
-        data.x = self.data.x[node_idx]
+
         # data.mask = self.batch_sampler.mask[node_idx]
         data.orig_center_idx, data.new_center_idx = center_indices
-        data.y = None
-        data.edge_attr = None
-        target = self.data.y[center_indices[0]].item()
+        target = self.data.y[data.orig_center_idx].item()
         return data, target

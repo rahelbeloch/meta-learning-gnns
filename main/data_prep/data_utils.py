@@ -86,8 +86,8 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode):
     shuffle_once = mode == 'val'
 
     if model_name in ['gat', 'prototypical']:
-        batch_sampler = FewShotSampler(graph_data.data.y, mask, n_way=n_classes, k_shot=k_shot, include_query=True,
-                                       shuffle=shuffle, shuffle_once=shuffle_once)
+        batch_sampler = FewShotSampler(graph_data.data.y, mask, n_way=n_classes, k_shot=k_shot, shuffle=shuffle,
+                                       shuffle_once=shuffle_once)
     elif model_name == 'gmeta':
         batch_sampler = FewShotMamlSampler(graph_data.data.y, mask, n_way=n_classes, k_shot=k_shot, include_query=True,
                                            shuffle=shuffle)
