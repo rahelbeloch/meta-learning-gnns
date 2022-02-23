@@ -1,3 +1,4 @@
+import itertools
 import random
 from collections import defaultdict
 
@@ -37,41 +38,55 @@ class FewShotSampler(Sampler):
         self.batch_size = self.n_way * self.k_shot  # Number of overall samples per batch
 
         # Organize examples by class
+        self.sets = ['query', 'support']
         self.classes = torch.unique(self.data_targets[self.mask]).tolist()
         self.num_classes = len(self.classes)
 
         # Number of K-shot batches that each class can provide
-        self.batches_per_class = {}
-        self.indices_per_class = {}
+        self.batches_per_class = dict(support={}, query={})
+        self.indices_per_class = dict(support={}, query={})
 
         for c in self.classes:
-            self.indices_per_class[c] = torch.where((self.data_targets == c) & self.mask)[0]
-            # number of examples we have per class // number of shots -> amount of batches we can create from this class
-            # noinspection PyUnresolvedReferences
-            self.batches_per_class[c] = self.indices_per_class[c].shape[0] // self.k_shot
+            class_indices = torch.where((self.data_targets == c) & self.mask)[0]
+            len_indices = int(len(class_indices) / 2)
+
+            self.indices_per_class['support'][c] = class_indices[:len_indices]
+            self.indices_per_class['query'][c] = class_indices[len_indices:]
+
+            for s in self.sets:
+                # nr of examples we have per class // nr of shots -> amount of batches we can create from this class
+                # noinspection PyUnresolvedReferences
+                self.batches_per_class[s][c] = self.indices_per_class[s][c].shape[0] // self.k_shot
 
         # Create a list of classes from which we select the N classes per batch
-        self.num_batches = sum(self.batches_per_class.values()) // self.n_way  # total batches we can create
-        self.target_list = [c for c in self.classes for _ in range(self.batches_per_class[c])]
+        self.num_batches = sum([x for xs in self.batches_per_class.values() for x in xs.values()]) // self.n_way
+        # self.num_batches = sum(self.batches_per_class.values()) // self.n_way  # total batches we can create
+
+        self.target_lists = {}
+        for s in self.sets:
+            self.target_lists[s] = [c for c in self.classes for _ in range(self.batches_per_class[s][c])]
 
         if shuffle_once or self.shuffle:
             self.shuffle_data()
         else:
-            # For testing, we iterate over classes instead of shuffling them
-            sort_idxs = [i + p * self.num_classes for i, c in enumerate(self.classes) for p in
-                         range(self.batches_per_class[c])]
-            self.target_list = np.array(self.target_list)[np.argsort(sort_idxs)].tolist()
+            for s in self.sets:
+                # For testing, we iterate over classes instead of shuffling them
+                sort_idxs = [i + p * self.num_classes for i, c in enumerate(self.classes) for p in
+                             range(self.batches_per_class[s][c])]
+
+                self.target_lists[s] = np.array(self.target_lists[s])[np.argsort(sort_idxs)].tolist()
 
     def shuffle_data(self):
         # Shuffle the examples per class
-        for c in self.classes:
-            perm = torch.randperm(self.indices_per_class[c].shape[0])
-            self.indices_per_class[c] = self.indices_per_class[c][perm]
+        for c, s in itertools.product(self.classes, self.sets):
+            perm = torch.randperm(self.indices_per_class[s][c].shape[0])
+            self.indices_per_class[s][c] = self.indices_per_class[s][c][perm]
 
         # Shuffle the target list from which we sample. Note that this way of shuffling
         # does not prevent to choose the same class twice in a batch. However, for
         # training and validation, this is not a problem.
-        random.shuffle(self.target_list)
+        for s in self.sets:
+            random.shuffle(self.target_lists[s])
 
     def __iter__(self):
         # Shuffle data
@@ -79,16 +94,23 @@ class FewShotSampler(Sampler):
             self.shuffle_data()
 
         # Sample few-shot batches
-        start_index = defaultdict(int)
+        start_index = defaultdict(lambda: defaultdict(int))
         for it in range(self.num_batches):
-            class_batch = self.target_list[it * self.n_way:(it + 1) * self.n_way]  # Select N classes for the batch
-            index_batch = []
-            for c in class_batch:  # For each class, select the next K examples and add them to the batch
-                index_batch.extend(self.indices_per_class[c][start_index[c]:start_index[c] + self.k_shot])
-                start_index[c] += self.k_shot
-            if self.include_query:  # If we return support+query set, sort them so that they are easy to split
-                index_batch = index_batch[::2] + index_batch[1::2]
-            yield index_batch
+            index_batches = dict()
+            for s in self.sets:
+
+                # Select N classes for the batch
+                class_batch = self.target_lists[s][it * self.n_way:(it + 1) * self.n_way]
+                set_index_batch = []
+                for c in class_batch:  # For each class, select the next K examples and add them to the batch
+                    samples_per_set = int(self.k_shot / 2)
+                    set_index_batch.extend(
+                        self.indices_per_class[s][c][start_index[s][c]:start_index[s][c] + samples_per_set])
+                    start_index[s][c] += samples_per_set
+                index_batches[s] = set_index_batch
+
+            full_batch = index_batches['support'] + index_batches['query']
+            yield full_batch
 
     def __len__(self):
         return self.num_batches
