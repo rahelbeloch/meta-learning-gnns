@@ -89,7 +89,7 @@ class GatBase(GraphTrainer):
             sub_graphs = support_graphs + query_graphs
             targets = torch.cat([support_targets, query_targets])
         else:
-            print(f"\nEvaluating {type(self.model).__name__.split('.')[-1]} on {len(sub_graphs)}"
+            print(f"\n{mode} {type(self.model).__name__.split('.')[-1]} on {len(sub_graphs)}"
                   f"samples (only query set).")
 
         # make a batch out of all sub graphs and push the batch through the model
