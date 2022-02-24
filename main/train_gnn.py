@@ -10,7 +10,7 @@ from pytorch_lightning.callbacks import EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from data_prep.config import *
-from data_prep.data_utils import SUPPORTED_DATASETS
+from data_prep.data_utils import SUPPORTED_DATASETS, SHOTS
 from data_prep.data_utils import get_data
 from models.gat_base import GatBase
 from models.proto_maml import ProtoMAML
@@ -36,6 +36,9 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
 
     if checkpoint is not None and model_name not in checkpoint:
         raise ValueError(f"Can not evaluate model type '{model_name}' on a pretrained model of another type.")
+
+    if k_shot not in SHOTS:
+        raise ValueError(f"'{k_shot}' is not valid!")
 
     nr_train_docs = 'all' if (train_docs is None or train_docs == -1) else str(train_docs)
 
@@ -327,7 +330,8 @@ if __name__ == "__main__":
     parser.add_argument('--gat-dropout', dest='gat_dropout', type=float, default=0.6)
     parser.add_argument('--lin-dropout', dest='lin_dropout', type=float, default=0.5)
     parser.add_argument('--attn-dropout', dest='attn_dropout', type=float, default=0.6)
-    parser.add_argument('--k-shot', dest='k_shot', type=int, default=5, help="Number of examples per task/batch.")
+    parser.add_argument('--k-shot', dest='k_shot', type=int, default=5, help="Number of examples per task/batch.",
+                        choices=SHOTS)
     parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
     parser.add_argument('--lr-cl', dest='lr_cl', type=float, default=0.001,
                         help="Classifier learning rate for baseline.")

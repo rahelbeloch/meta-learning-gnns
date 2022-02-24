@@ -1,6 +1,6 @@
 import torch
 
-from data_prep.data_utils import get_data, get_loader
+from data_prep.data_utils import get_data, get_loader, get_n_query, SHOTS
 from data_prep.graph_dataset import TorchGeomGraphDataset
 
 data_train = 'gossipcop'
@@ -17,12 +17,12 @@ num_workers = 0
 
 
 def validate_query_set_equal():
-    expected_n_query_samples = 3553
+    expected_n_query_samples = 3520
 
     query_shot_nodes = dict()
-    for k in [5, 10, 20, 40]:
+    for k in SHOTS:
         loaders, b_size, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
-                                                            top_users_excluded, k_shot, train_split_size,
+                                                            top_users_excluded, k, train_split_size,
                                                             eval_split_size, feature_type, vocab_size, dirs,
                                                             num_workers)
 
@@ -40,7 +40,7 @@ def validate_query_set_equal():
             support_nodes += [graph.orig_center_idx for graph in support_sub_graphs]
             query_nodes += [graph.orig_center_idx for graph in query_sub_graphs]
         query_shot_nodes[k] = query_nodes
-        print(f"\nCollected query nodes for shot '{k}'")
+        print(f"\nCollected {len(query_nodes)} query nodes for shot '{k}'")
 
     difference_5_10 = set(query_shot_nodes[5]).symmetric_difference(set(query_shot_nodes[10]))
     difference_5_20 = set(query_shot_nodes[5]).symmetric_difference(set(query_shot_nodes[20]))
@@ -66,13 +66,15 @@ def check_train_loader_query_samples():
                                       'val_size': train_split_size[1], 'test_size': train_split_size[2]}}
     graph_data_train = TorchGeomGraphDataset(train_config, train_split_size, *dirs)
 
-    train_loader_5_shot = get_loader(graph_data_train, model_name, h_size, 5, num_workers, 'train')
+    n_queries = get_n_query(graph_data_train)
+
+    train_loader_5_shot = get_loader(graph_data_train, model_name, h_size, 5, num_workers, 'train', n_queries)
     concatenated_5 = get_query_indices(train_loader_5_shot)
 
-    train_loader_10_shot = get_loader(graph_data_train, model_name, h_size, 10, num_workers, 'train')
+    train_loader_10_shot = get_loader(graph_data_train, model_name, h_size, 10, num_workers, 'train', n_queries)
     concatenated_10 = get_query_indices(train_loader_10_shot)
 
-    train_loader_20_shot = get_loader(graph_data_train, model_name, h_size, 20, num_workers, 'train')
+    train_loader_20_shot = get_loader(graph_data_train, model_name, h_size, 20, num_workers, 'train', n_queries)
     concatenated_20 = get_query_indices(train_loader_20_shot)
 
     difference_5_10 = set(concatenated_5).symmetric_difference(set(concatenated_10))
@@ -94,3 +96,11 @@ if __name__ == '__main__':
     # check_train_loader_query_samples()
 
     validate_query_set_equal()
+
+    # data_config = {'top_users': top_users, 'top_users_excluded': top_users_excluded, 'feature_type': feature_type,
+    #                'vocab_size': vocab_size}
+    # train_config = {**data_config, **{'data_set': data_train, 'train_size': train_split_size[0],
+    #                                   'val_size': train_split_size[1], 'test_size': train_split_size[2]}}
+    # graph_data_train = TorchGeomGraphDataset(train_config, train_split_size, *dirs)
+    #
+    # print(f"\n{get_n_query(graph_data_train)}")

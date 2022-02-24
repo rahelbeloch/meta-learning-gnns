@@ -9,7 +9,7 @@ from torch.utils.data import Sampler
 
 class FewShotSampler(Sampler):
 
-    def __init__(self, targets, mask, n_way=2, k_shot=5, shuffle=True, shuffle_once=False):
+    def __init__(self, targets, mask, n_query, n_way=2, k_shot=5, shuffle=True, shuffle_once=False):
         """
         Support sets should contain n_way * k_shot examples. So, e.g. 2 * 5 = 10 sub graphs.
         Query set is of same size ...
@@ -25,14 +25,23 @@ class FewShotSampler(Sampler):
                            (for validation).
         """
         super().__init__(None)
-        self.data_targets = targets[mask]
-        # self.mask = mask  # the mask for the idx to be used for this split
+
         self.n_way = n_way
         self.k_shot = k_shot
-        self.shuffle = shuffle
         self.batch_size = self.n_way * self.k_shot  # Number of overall samples per query and support batch
 
-        # Organize examples by class
+        # number of samples which actually can be used with n classes and k shot
+        n_samples_used = int(len(targets[mask]) / self.batch_size) * self.batch_size + 1
+        # self.data_targets = targets[mask][:n_samples_used]
+        self.data_targets = targets[mask]
+        self.total_samples = self.data_targets.shape[0]
+
+        self.n_query = n_query
+        # self.n_support = self.total_samples - n_query
+
+        self.shuffle = shuffle
+
+        # Organize examples by set type and class
         self.sets = ['query', 'support']
         self.classes = torch.unique(self.data_targets).tolist()
         self.num_classes = len(self.classes)
@@ -41,22 +50,51 @@ class FewShotSampler(Sampler):
         self.batches_per_class = dict(support={}, query={})
         self.indices_per_class = dict(support={}, query={})
 
-        for c in self.classes:
-            class_indices = torch.where(self.data_targets == c)[0]
-            len_indices = int(len(class_indices) / 2)
+        n_query_temp = 0
 
-            self.indices_per_class['support'][c] = class_indices[:len_indices]
-            self.indices_per_class['query'][c] = class_indices[len_indices:]
+        for c in self.classes:
+            # noinspection PyTypeChecker
+            class_indices = torch.where(self.data_targets == c)[0]
+            class_n_samples = len(class_indices)
+
+            # calculate how many query and support samples from this class
+            percentage_class_indices = round(class_n_samples / self.total_samples, 1)
+            n_query_class = int(percentage_class_indices * self.n_query)
+            n_query_temp += n_query_class
+            # make sure the n_query_class keeps being evenly divided by k_shot
+            n_query_class = self.k_shot * round(n_query_class / self.k_shot)
+
+            n_support_class = class_n_samples - n_query_class
+            assert n_support_class + n_query_class == class_n_samples
+
+            self.indices_per_class['support'][c] = class_indices[:n_support_class]
+            query_samples = class_indices[n_support_class:]
+            assert query_samples.shape[0] == n_query_class
+            self.indices_per_class['query'][c] = query_samples
 
             for s in self.sets:
                 # nr of examples we have per class // nr of shots -> amount of batches we can create from this class
                 # noinspection PyUnresolvedReferences
                 self.batches_per_class[s][c] = self.indices_per_class[s][c].shape[0] // self.k_shot
 
+        # verify that we have the exact amount of query examples which we defined/need
+        nr_query_samples = sum([len(indices) for indices in self.indices_per_class['query'].values()])
+        assert nr_query_samples == self.n_query
+        assert (nr_query_samples // self.k_shot) == sum(self.batches_per_class['query'].values())
+
         # Create a list of classes from which we select the N classes per batch
-        # self.num_batches = sum([x for xs in self.batches_per_class.values() for x in xs.values()]) // self.n_way
-        self.num_batches = sum(self.batches_per_class['support'].values()) // self.n_way
-        # self.num_batches = sum(self.batches_per_class.values()) // self.n_way  # total batches we can create
+        query_batches = sum(self.batches_per_class['query'].values()) // self.n_way
+        support_batches = sum(self.batches_per_class['support'].values()) // self.n_way
+
+        print(f"\nBatch sampler generated {support_batches} support batches and {query_batches} query batches.")
+
+        self.num_batches = min(query_batches, support_batches)
+
+        print(f"Batch sampler can only create {self.num_batches} episodes, leaving out "
+              f"{abs(query_batches - support_batches) * self.k_shot * self.n_way} samples.")
+
+        # verify that we really used all samples
+        assert query_batches * self.k_shot * self.n_way == self.n_query
 
         self.target_lists = {}
         for s in self.sets:
