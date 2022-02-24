@@ -51,17 +51,20 @@ class GatNet(torch.nn.Module):
         # )
 
         # Shans implementation
-        return nn.Sequential(nn.Dropout(self.lin_dropout),
-                             nn.Linear(self.n_heads * self.hid_dim, self.feat_reduce_dim),
-                             nn.ReLU(),
-                             nn.Linear(self.feat_reduce_dim, num_classes))
+        # return nn.Sequential(nn.Dropout(self.lin_dropout),
+        #                      nn.Linear(self.n_heads * self.hid_dim, self.feat_reduce_dim),
+        #                      nn.ReLU(),
+        #                      nn.Linear(self.feat_reduce_dim, num_classes))
 
         # Pushkar implementation
-        # return SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim, dropout=self.gat_dropout,
-        #                       attn_drop=self.attn_dropout, concat=False)
+        return SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim, dropout=self.gat_dropout,
+                              attn_drop=self.attn_dropout, concat=False)
 
-    def forward(self, x, edge_index):
-        # x = func.dropout(x, self.gat_dropout, training=self.training)
+    def forward(self, x, edge_index, mode):
+        # x = func.dropout(x, self.gat_dropout, training=mode == 'train')
+        # if not x.is_sparse:
+        #     x = x.to_sparse()
+
         x = torch.cat([att(x, edge_index) for att in self.attentions], dim=1)
 
         # if type(self.classifier) != SparseGATLayer:
@@ -72,13 +75,13 @@ class GatNet(torch.nn.Module):
             # linear classifier
             out = self.classifier(x)
         else:
-            # x = func.dropout(x, self.gat_dropout, training=self.training)
+            # x = func.dropout(x, self.gat_dropout, training=mode == 'train')
 
             # attention out layer
             out = self.classifier(x, edge_index)
 
             # # if we have an output attention layer --> additional non-linearity
-            # out = func.elu(out)
+            out = func.elu(out)
 
         # F1 is sensitive to threshold
         # area under the RC curve

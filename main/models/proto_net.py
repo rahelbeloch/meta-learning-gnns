@@ -27,8 +27,6 @@ class ProtoNet(GraphTrainer):
         self.save_hyperparameters()
 
         self.model = GatNet(model_params)
-        # self.model = SparseGATLayer(in_features=model_params['input_dim'], out_features=model_params['hid_dim'],
-        #                             feat_reduce_dim=model_params['feat_reduce_dim'])
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.lr)
@@ -92,7 +90,8 @@ class ProtoNet(GraphTrainer):
         support_graphs, query_graphs, support_targets, query_targets = batch
 
         x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
-        support_feats = self.model(x, edge_index, cl_mask, mode)
+        support_feats = self.model(x, edge_index, mode)
+        support_feats = support_feats[cl_mask]
 
         assert support_feats.shape[0] == support_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
@@ -100,7 +99,8 @@ class ProtoNet(GraphTrainer):
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
         x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
-        query_feats = self.model(x, edge_index, cl_mask, mode)
+        query_feats = self.model(x, edge_index, mode)
+        query_feats = query_feats[cl_mask]
 
         assert query_feats.shape[0] == query_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
