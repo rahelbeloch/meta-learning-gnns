@@ -1,8 +1,8 @@
-python -u -m data_prep.fake_news_tsv_processor --feature_type one-hot --train-size 0.7 --val-size 0.1 --test-size 0.2 --progress-bar False
-python -u -m data_prep.fake_news_tsv_processor --feature_type glove-average --progress-bar False
-python -u -m data_prep.twitter_tsv_processor --feature_type one-hot --progress-bar False
-python -u -m data_prep.twitter_tsv_processor --feature_type glove-average --progress-bar False
-python -u -m data_prep.fake_news_graph_preprocessor --feature_type one-hot --train-size 0.7 --val-size 0.1 --test-size 0.2 --progress-bar False
-python -u -m data_prep.fake_news_graph_preprocessor --feature_type glove-average --progress-bar False
-python -u -m data_prep.twitter_graph_preprocessor --feature_type one-hot --progress-bar False
-python -u -m data_prep.twitter_graph_preprocessor --feature_type glove-average --progress-bar False
+python -u -m data_prep.fake_news_tsv_processor --feature_type one-hot --train-size 0.7 --val-size 0.1 --test-size 0.2 --no-progress-bar
+python -u -m data_prep.fake_news_tsv_processor --feature_type glove-average --no-progress-bar
+python -u -m data_prep.twitter_tsv_processor --feature_type one-hot --no-progress-bar
+python -u -m data_prep.twitter_tsv_processor --feature_type glove-average --no-progress-bar
+python -u -m data_prep.fake_news_graph_preprocessor --feature_type one-hot --train-size 0.7 --val-size 0.1 --test-size 0.2 --no-progress-bar
+python -u -m data_prep.fake_news_graph_preprocessor --feature_type glove-average --no-progress-bar
+python -u -m data_prep.twitter_graph_preprocessor --feature_type one-hot --no-progress-bar
+python -u -m data_prep.twitter_graph_preprocessor --feature_type glove-average --no-progress-bar
