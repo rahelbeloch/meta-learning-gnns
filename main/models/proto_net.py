@@ -165,7 +165,8 @@ def test_proto_net(model, dataset, num_classes, data_feats=None, k_shot=4):
         sup_graphs, labels = list(map(list, zip(*data_list_collated)))
         x, edge_index, cl_mask = get_subgraph_batch(sup_graphs)
         x, edge_index = x.to(DEVICE), edge_index.to(DEVICE)
-        feats = model.model(x, edge_index, cl_mask, 'test')
+        feats = model.model(x, edge_index, 'test')
+        feats = feats[cl_mask]
 
         node_features = feats.detach().cpu()  # shape: 1975 x 2
         node_targets = torch.tensor(labels)  # shape: 1975
@@ -203,27 +204,22 @@ def test_proto_net(model, dataset, num_classes, data_feats=None, k_shot=4):
             predictions, labels = model.classify_features(prototypes, proto_classes, e_node_feats, e_targets)
             if predictions.shape[1] != 2:
                 continue
-            # batch_acc.update(predictions, labels)
             batch_f1_target.update(predictions, labels)
             batch_f1_macro.update(predictions, labels)
 
-        # accuracies.append(batch_acc.compute().item())
-        f1_targets_fake.append(batch_f1_target.compute()[0].item())
-        f1_targets_real.append(batch_f1_target.compute()[1].item())
+        f1_target_values = batch_f1_target.compute()
+        f1_targets_fake.append(f1_target_values[0].item())
+        f1_targets_real.append(f1_target_values[1].item())
         f1_macros.append(batch_f1_macro.compute().item())
 
-        # batch_acc.reset()
         batch_f1_target.reset()
         batch_f1_macro.reset()
 
     test_end = time.time()
     test_elapsed = test_end - test_start
 
-    return (mean(accuracies), stdev(accuracies)), \
-           (mean(f1_targets_fake), stdev(f1_targets_fake)), \
-           (mean(f1_targets_real), stdev(f1_targets_real)), \
-           (mean(f1_macros), stdev(f1_macros)), \
-           test_elapsed, (node_features, node_targets)
+    return (mean(f1_targets_fake), stdev(f1_targets_fake)), (mean(f1_targets_real), stdev(f1_targets_real)), \
+           (mean(f1_macros), stdev(f1_macros)), test_elapsed, (node_features, node_targets)
 
 
 def get_as_set(idx, k_shot, all_node_features, all_node_targets, start_indices_per_class):

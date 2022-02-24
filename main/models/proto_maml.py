@@ -7,7 +7,7 @@ from tqdm.auto import tqdm
 
 from models.GraphTrainer import GraphTrainer
 from models.gat_encoder_sparse_pushkar import GatNet
-from models.proto_net import ProtoNet
+from models.proto_net import ProtoNet, DEVICE
 from models.train_utils import *
 from samplers.batch_sampler import split_list
 
@@ -26,8 +26,6 @@ class ProtoMAML(GraphTrainer):
         super().__init__(n_classes=model_params['output_dim'])
         self.save_hyperparameters()
 
-        # TODO: which net to use here? Baseline, i.e. GatNet?
-        # self.model = SparseGATLayer(model_params['input_dim'], model_params['hid_dim'], model_params['feat_reduce_dim'])
         self.model = GatNet(model_params)
 
     def configure_optimizers(self):
@@ -40,7 +38,8 @@ class ProtoMAML(GraphTrainer):
         x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
 
         # Determine prototype initialization
-        support_feats = self.model(x, edge_index, cl_mask, mode).squeeze()
+        support_feats = self.model(x, edge_index, mode).squeeze()
+        support_feats = support_feats[cl_mask]
 
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
         support_labels = self.get_labels(classes, support_targets)
@@ -157,7 +156,8 @@ def run_model(local_model, output_weight, output_bias, graphs, targets, mode):
     """
 
     x, edge_index, cl_mask = get_subgraph_batch(graphs)
-    feats = local_model(x, edge_index, cl_mask, mode).squeeze()
+    feats = local_model(x, edge_index, mode).squeeze()
+    feats = feats[cl_mask]
 
     predictions = func.linear(feats, output_weight, output_bias)
 
@@ -168,7 +168,7 @@ def run_model(local_model, output_weight, output_bias, graphs, targets, mode):
 
 def test_protomaml(model, dataset, k_shot=4):
     # pl.seed_everything(42)
-    model = model.to(device)
+    model = model.to(DEVICE)
 
     # We iterate through the full dataset in two manners. First, to select the k-shot batch.
     # Second, the evaluate the model on all other examples

@@ -146,8 +146,9 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
         val_f1_macro, test_elapsed = evaluate(trainer, model, test_loader, test_val_loader)
 
     elif model_name == 'prototypical':
-        (test_accuracy, acc_stdv), (test_f1_fake, stvd1, test_f1_real, stdv2), (
-            test_f1_macro, f1stdev), test_elapsed, _ \
+        test_accuracy = 0.0
+
+        (test_f1_fake, stvd1), (test_f1_real, stdv2), (test_f1_macro, f1stdev), test_elapsed, _ \
             = test_proto_net(model, eval_graph, len(eval_graph.labels), data_feats=None, k_shot=k_shot)
         # print(f"Accuracy for k={k_shot}: {100.0 * accuracy[0]:4.2f}% (+-{100 * accuracy[1]:4.2f}%)")
         # print(f"F1 target for k={k_shot}: {100.0 * f1_target[0]:4.2f}% (+-{100 * f1_target[1]:4.2f}%)")
@@ -344,7 +345,7 @@ if __name__ == "__main__":
     parser.set_defaults(progress_bar=True)
 
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
-    parser.add_argument('--epochs', dest='epochs', type=int, default=100)
+    parser.add_argument('--epochs', dest='epochs', type=int, default=2)
     parser.add_argument('--patience-metric', dest='patience_metric', type=str, default='f1')
     parser.add_argument('--patience', dest='patience', type=int, default=10)
     parser.add_argument('--gat-dropout', dest='gat_dropout', type=float, default=0.6)
@@ -357,7 +358,7 @@ if __name__ == "__main__":
 
     # MODEL CONFIGURATION
 
-    parser.add_argument('--model', dest='model', default='gat', choices=SUPPORTED_MODELS,
+    parser.add_argument('--model', dest='model', default='prototypical', choices=SUPPORTED_MODELS,
                         help='Select the model you want to use.')
     parser.add_argument('--hidden-dim', dest='hidden_dim', type=int, default=512)
     parser.add_argument('--feature-reduce-dim', dest='feat_reduce_dim', type=int, default=10000)
