@@ -34,11 +34,11 @@ def validate_query_set_equal():
                 sub_graphs, _ = episode
                 half_len = int(len(sub_graphs) / 2)
                 query_sub_graphs = sub_graphs[half_len:]
-                support_sub_graphs = sub_graphs[:half_len]
+                # support_sub_graphs = sub_graphs[:half_len]
             else:
                 support_sub_graphs, query_sub_graphs, _, _ = episode
-            support_nodes += [graph.orig_center_idx for graph in support_sub_graphs]
-            query_nodes += [graph.orig_center_idx for graph in query_sub_graphs]
+            # support_nodes += [graph.orig_center_idx for graph in support_sub_graphs]
+            query_nodes += [(graph.orig_center_idx, graph.target, graph.set_type) for graph in query_sub_graphs]
         query_shot_nodes[k] = query_nodes
         print(f"\nCollected {len(query_nodes)} query nodes for shot '{k}'")
 

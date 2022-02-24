@@ -120,6 +120,7 @@ class KHopSampler(GraphSAINTSampler):
         # data.mask = self.batch_sampler.mask[node_indices]
         data.orig_center_idx, data.new_center_idx = center_indices
         target = self.data.y[data.orig_center_idx].item()
+        data.target = target
 
         for s in self.b_sampler.sets:
             if data.orig_center_idx in self.b_sampler.indices_per_class[s][target]:
