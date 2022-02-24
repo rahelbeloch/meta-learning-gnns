@@ -139,15 +139,13 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
         # TODO: set also the target label for f1 score
         # f1_targets[1]
 
-    val_accuracy, val_f1_fake, val_f1_real, val_f1_macro = None, None, None, None
+    test_accuracy, val_accuracy, val_f1_fake, val_f1_real, val_f1_macro = 0.0, 0.0, 0.0, 0.0, 0.0
 
     if model_name == 'gat':
         test_accuracy, test_f1_fake, test_f1_real, test_f1_macro, val_accuracy, val_f1_fake, val_f1_real, \
         val_f1_macro, test_elapsed = evaluate(trainer, model, test_loader, test_val_loader)
 
     elif model_name == 'prototypical':
-        test_accuracy = 0.0
-
         (test_f1_fake, stvd1), (test_f1_real, stdv2), (test_f1_macro, f1stdev), test_elapsed, _ \
             = test_proto_net(model, eval_graph, len(eval_graph.labels), data_feats=None, k_shot=k_shot)
         # print(f"Accuracy for k={k_shot}: {100.0 * accuracy[0]:4.2f}% (+-{100 * accuracy[1]:4.2f}%)")
@@ -345,7 +343,7 @@ if __name__ == "__main__":
     parser.set_defaults(progress_bar=True)
 
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
-    parser.add_argument('--epochs', dest='epochs', type=int, default=2)
+    parser.add_argument('--epochs', dest='epochs', type=int, default=1)
     parser.add_argument('--patience-metric', dest='patience_metric', type=str, default='f1')
     parser.add_argument('--patience', dest='patience', type=int, default=10)
     parser.add_argument('--gat-dropout', dest='gat_dropout', type=float, default=0.6)

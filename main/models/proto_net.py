@@ -1,6 +1,7 @@
 import time
 from statistics import mean, stdev
 
+import numpy as np
 import torch.nn.functional as func
 import torchmetrics as tm
 from torch import optim
@@ -200,17 +201,28 @@ def test_proto_net(model, dataset, num_classes, data_feats=None, k_shot=4):
         for e_idx in range(0, node_features.shape[0], k_shot):
             if k_idx == e_idx:  # Do not evaluate on the support set examples
                 continue
+
             e_node_feats, e_targets = get_as_set(e_idx, k_shot, node_features, node_targets, start_indices_per_class)
             predictions, labels = model.classify_features(prototypes, proto_classes, e_node_feats, e_targets)
-            if predictions.shape[1] != 2:
-                continue
+
+            predictions = predictions.argmax(dim=-1)
             batch_f1_target.update(predictions, labels)
             batch_f1_macro.update(predictions, labels)
 
         f1_target_values = batch_f1_target.compute()
-        f1_targets_fake.append(f1_target_values[0].item())
-        f1_targets_real.append(f1_target_values[1].item())
-        f1_macros.append(batch_f1_macro.compute().item())
+
+        # F1 values can be nan, if e.g. proto_classes contains only one of the 2 classes
+        f1_fake_value = f1_target_values[0].item()
+        if not np.isnan(f1_fake_value):
+            f1_targets_fake.append(f1_fake_value)
+
+        f1_real_value = f1_target_values[1].item()
+        if not np.isnan(f1_real_value):
+            f1_targets_real.append(f1_real_value)
+
+        batch_f1_macro_value = batch_f1_macro.compute().item()
+        if not np.isnan(batch_f1_macro_value):
+            f1_macros.append(batch_f1_macro_value)
 
         batch_f1_target.reset()
         batch_f1_macro.reset()
