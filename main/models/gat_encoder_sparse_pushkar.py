@@ -61,9 +61,9 @@ class GatNet(torch.nn.Module):
                               attn_drop=self.attn_dropout, concat=False)
 
     def forward(self, x, edge_index, mode):
-        # x = func.dropout(x, self.gat_dropout, training=mode == 'train')
-        # if not x.is_sparse:
-        #     x = x.to_sparse()
+        x = func.dropout(x, self.gat_dropout, training=mode == 'train')
+        if not x.is_sparse:
+            x = x.to_sparse()
 
         x = torch.cat([att(x, edge_index) for att in self.attentions], dim=1)
 
@@ -75,13 +75,13 @@ class GatNet(torch.nn.Module):
             # linear classifier
             out = self.classifier(x)
         else:
-            # x = func.dropout(x, self.gat_dropout, training=mode == 'train')
+            x = func.dropout(x, self.gat_dropout, training=mode == 'train')
 
             # attention out layer
             out = self.classifier(x, edge_index)
 
             # # if we have an output attention layer --> additional non-linearity
-            out = func.elu(out)
+            # out = func.elu(out)
 
         # F1 is sensitive to threshold
         # area under the RC curve

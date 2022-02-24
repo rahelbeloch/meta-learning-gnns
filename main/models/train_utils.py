@@ -31,8 +31,8 @@ def get_subgraph_batch(graphs):
     batch = Batch.from_data_list(graphs)
 
     x = batch.x.float()
-    if not x.is_sparse:
-        x = x.to_sparse()
+    # if not x.is_sparse:
+    #     x = x.to_sparse()
 
     # create the classification node mask
     cl_n_indices, n_count = [], 0
