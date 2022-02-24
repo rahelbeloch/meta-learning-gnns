@@ -341,6 +341,8 @@ if __name__ == "__main__":
 
     parser.add_argument('--progress-bar', dest='progress_bar', action='store_true')
     parser.add_argument('--no-progress-bar', dest='progress_bar', action='store_false')
+    parser.set_defaults(progress_bar=True)
+
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--epochs', dest='epochs', type=int, default=100)
     parser.add_argument('--patience-metric', dest='patience_metric', type=str, default='f1')
