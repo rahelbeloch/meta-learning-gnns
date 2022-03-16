@@ -16,6 +16,14 @@ dirs = "data", "../data/tsv", "../data/complete"
 num_workers = 0
 
 
+def sub_graphs_validation():
+    loaders, b_size, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
+                                                        top_users_excluded, 5, train_split_size, eval_split_size,
+                                                        feature_type, vocab_size, dirs, num_workers)
+
+    for batch in loaders[0]:
+        print("foo" + str(len(batch)))
+
 def validate_query_set_equal():
     query_shot_nodes = dict()
     for k in SHOTS:
@@ -92,7 +100,7 @@ def get_query_indices(loader):
 if __name__ == '__main__':
     # check_train_loader_query_samples()
 
-    validate_query_set_equal()
+    # validate_query_set_equal()
 
     # data_config = {'top_users': top_users, 'top_users_excluded': top_users_excluded, 'feature_type': feature_type,
     #                'vocab_size': vocab_size}
@@ -101,3 +109,5 @@ if __name__ == '__main__':
     # graph_data_train = TorchGeomGraphDataset(train_config, train_split_size, *dirs)
     #
     # print(f"\n{get_n_query(graph_data_train)}")
+
+    sub_graphs_validation()

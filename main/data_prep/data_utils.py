@@ -54,6 +54,7 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
                                       'val_size': train_split_size[1], 'test_size': train_split_size[2]}}
     graph_data_train = TorchGeomGraphDataset(train_config, train_split_size, *dirs)
 
+    # TODO: calculate correct n_query for test data
     n_query_train = get_n_query(graph_data_train)
     print(f"\nUsing max query samples for episode creation: {n_query_train}")
 
@@ -104,7 +105,8 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
     else:
         raise ValueError(f"Model with name '{model_name}' is not supported.")
 
-    sampler = KHopSampler(graph_data, model_name, batch_sampler, n_classes, k_shot, hop_size, num_workers=num_workers)
+    sampler = KHopSampler(graph_data, model_name, batch_sampler, n_classes, k_shot, hop_size, mode,
+                          num_workers=num_workers)
 
     print(f"\n{mode} sampler amount of episodes / batches: {len(sampler)}")
 

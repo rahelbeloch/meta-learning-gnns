@@ -9,15 +9,22 @@ from samplers.batch_sampler import split_list
 
 class KHopSampler(GraphSAINTSampler):
 
-    def __init__(self, graph, model, batch_sampler, n_way: int, k_shots: int, k_hops: int = 1,
+    def __init__(self, graph, model, batch_sampler, n_way: int, k_shots: int, k_hops: int = 1, mode=None,
                  save_dir: Optional[str] = None, log: bool = True, **kwargs):
         super().__init__(graph.data, batch_size=n_way * k_shots, save_dir=save_dir, log=log,
                          batch_sampler=batch_sampler, **kwargs)
 
         self.k_hops = k_hops
         self.edge_index = graph.edge_index
-
         self.model_type = model
+        self.mode = mode
+
+        if mode == 'train':
+            val_nodes = torch.where(graph.mask('val_mask'))[0]
+            test_nodes = torch.where(graph.mask('test_mask'))[0]
+            self.test_val_nodes = set(torch.cat((val_nodes, test_nodes), dim=0).tolist())
+        else:
+            self.test_val_nodes = None
 
     @property
     def __filename__(self):
@@ -48,6 +55,15 @@ class KHopSampler(GraphSAINTSampler):
                                                                                self.edge_index,
                                                                                relabel_nodes=True,
                                                                                flow="target_to_source")
+
+        if self.mode == 'train':
+            # check if any of test/val nodes are samples as side node; if True --> remove them!
+            subgraph_nodes = set(node_indices.tolist())
+            intersect = self.test_val_nodes.intersection(subgraph_nodes)
+            if len(intersect) is not 0:
+                new_subgraph_nodes = subgraph_nodes - intersect
+                assert node_id.item() in new_subgraph_nodes, "Center node ID was removed!"
+                node_indices = torch.LongTensor(new_subgraph_nodes)
 
         return node_indices
 
