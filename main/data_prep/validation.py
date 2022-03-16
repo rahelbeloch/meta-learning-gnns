@@ -17,14 +17,11 @@ num_workers = 0
 
 
 def validate_query_set_equal():
-    expected_n_query_samples = 3520
-
     query_shot_nodes = dict()
     for k in SHOTS:
         loaders, b_size, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
-                                                            top_users_excluded, k, train_split_size,
-                                                            eval_split_size, feature_type, vocab_size, dirs,
-                                                            num_workers)
+                                                            top_users_excluded, k, train_split_size, eval_split_size,
+                                                            feature_type, vocab_size, dirs, num_workers)
 
         train_loader, train_val_loader, test_loader, test_val_loader = loaders
 

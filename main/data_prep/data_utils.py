@@ -55,6 +55,7 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
     graph_data_train = TorchGeomGraphDataset(train_config, train_split_size, *dirs)
 
     n_query_train = get_n_query(graph_data_train)
+    print(f"\nUsing max query samples for episode creation: {n_query_train}")
 
     train_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, 'train', n_query_train)
     train_val_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, 'val', n_query_train)
@@ -95,7 +96,7 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
     shuffle_once = mode == 'val'
 
     if model_name in ['gat', 'prototypical']:
-        batch_sampler = FewShotSampler(graph_data.data.y, mask, n_queries[mode], n_way=n_classes, k_shot=k_shot,
+        batch_sampler = FewShotSampler(graph_data.data.y, mask, n_queries[mode], mode, n_way=n_classes, k_shot=k_shot,
                                        shuffle=shuffle, shuffle_once=shuffle_once)
     elif model_name == 'gmeta':
         batch_sampler = FewShotMamlSampler(graph_data.data.y, mask, n_way=n_classes, k_shot=k_shot, include_query=True,
@@ -137,7 +138,7 @@ def get_n_query(graph_data):
 def get_n_query_for_samples(total_samples, max_shot, n_class):
     """
     First determines the maximum amount of query examples based on the number of classes and total samples available.
-    Subsequently define a number which is divisible by the shot int and the number of classes.
+    Subsequently, define a number which is divisible by the shot int and the number of classes.
     """
 
     # maximum amount of query samples which should be used from the total amount of samples

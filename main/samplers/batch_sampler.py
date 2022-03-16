@@ -1,6 +1,7 @@
 import itertools
 import random
 from collections import defaultdict
+from math import floor
 
 import numpy as np
 import torch
@@ -9,7 +10,7 @@ from torch.utils.data import Sampler
 
 class FewShotSampler(Sampler):
 
-    def __init__(self, targets, mask, n_query, n_way=2, k_shot=5, shuffle=True, shuffle_once=False):
+    def __init__(self, targets, mask, n_query, mode, n_way=2, k_shot=5, shuffle=True, shuffle_once=False):
         """
         Support sets should contain n_way * k_shot examples. So, e.g. 2 * 5 = 10 sub graphs.
         Query set is of same size ...
@@ -36,6 +37,7 @@ class FewShotSampler(Sampler):
         self.data_targets = targets[mask]
         self.total_samples = self.data_targets.shape[0]
 
+        # is the maximum number of query examples which should be used
         self.n_query = n_query
         # self.n_support = self.total_samples - n_query
 
@@ -50,7 +52,7 @@ class FewShotSampler(Sampler):
         self.batches_per_class = dict(support={}, query={})
         self.indices_per_class = dict(support={}, query={})
 
-        n_query_temp = 0
+        # n_query_temp = 0
 
         for c in self.classes:
             # noinspection PyTypeChecker
@@ -59,13 +61,27 @@ class FewShotSampler(Sampler):
 
             # calculate how many query and support samples from this class
             percentage_class_indices = round(class_n_samples / self.total_samples, 1)
+
+
+
             n_query_class = int(percentage_class_indices * self.n_query)
-            n_query_temp += n_query_class
+            # n_query_temp += n_query_class
+
             # make sure the n_query_class keeps being evenly divided by k_shot
-            n_query_class = self.k_shot * round(n_query_class / self.k_shot)
+            # n_query_class = self.k_shot * round(n_query_class / self.k_shot)
+
+            # TODO: n_query_class must be evenly divisible for all shots
+            n_query_class = (40 * self.n_way) * floor(n_query_class / (40 * self.n_way))
+
+            # test to verify this number is divisible by shot int and number of classes
+            for shot in [2, 5, 10, 20, 40]:
+                assert ((n_query_class / shot) * (1 / self.n_way)) % 1 == 0
 
             n_support_class = class_n_samples - n_query_class
             assert n_support_class + n_query_class == class_n_samples
+
+            print(f"{mode} sampler nr of samples for shot '{self.k_shot}' and class '{c}': {n_support_class} (support), "
+                  f"{n_query_class} (query).")
 
             self.indices_per_class['support'][c] = class_indices[:n_support_class]
             query_samples = class_indices[n_support_class:]
@@ -77,24 +93,25 @@ class FewShotSampler(Sampler):
                 # noinspection PyUnresolvedReferences
                 self.batches_per_class[s][c] = self.indices_per_class[s][c].shape[0] // self.k_shot
 
-        # verify that we have the exact amount of query examples which we defined/need
         nr_query_samples = sum([len(indices) for indices in self.indices_per_class['query'].values()])
-        assert nr_query_samples == self.n_query
+        assert nr_query_samples <= self.n_query, "The number of query examples we are using exceeds the max query nr!"
+
+        # dividing all query samples into batches/episodes should be the number of batches we have for the query set
         assert (nr_query_samples // self.k_shot) == sum(self.batches_per_class['query'].values())
 
         # Create a list of classes from which we select the N classes per batch
         query_batches = sum(self.batches_per_class['query'].values()) // self.n_way
         support_batches = sum(self.batches_per_class['support'].values()) // self.n_way
 
-        print(f"\nBatch sampler generated {support_batches} support batches and {query_batches} query batches.")
+        print(f"\n{mode} sampler generated {support_batches} support batches and {query_batches} query batches.")
 
         self.num_batches = min(query_batches, support_batches)
 
-        print(f"Batch sampler can only create {self.num_batches} episodes, leaving out "
+        print(f"{mode} sampler can only create {self.num_batches} episodes, leaving out "
               f"{abs(query_batches - support_batches) * self.k_shot * self.n_way} samples.")
 
-        # verify that we really used all samples
-        assert query_batches * self.k_shot * self.n_way == self.n_query
+        # verify that we used only up to n_query query examples
+        assert query_batches * self.k_shot * self.n_way <= self.n_query
 
         self.target_lists = {}
         for s in self.sets:
