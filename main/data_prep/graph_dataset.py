@@ -26,7 +26,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
     Parent class for graph datasets. It loads the graph from respective files.
     """
 
-    def __init__(self, config, split_size, data_dir, tsv_dir, complete_dir, verbose=True, analyse_node_degrees=False):
+    def __init__(self, config, split_size, data_dir, tsv_dir, complete_dir, verbose=False, analyse_node_degrees=False):
         super().__init__(config, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir, enforce_raw=False)
 
         self._device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
@@ -46,6 +46,42 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         self.split_masks = None
 
         self.read_files()
+
+        if self._analyse_node_degrees or self.dataset == 'gossipcop':
+            print('\nAnalysing node degrees ..........')
+
+            # Checking node degree distribution
+            node_degrees, probs = self.plot_node_degree_dist(self.adj)
+
+            if self.dataset == 'gossipcop':
+                print(f"\nFixing node degrees for dataset '{self.dataset}'..........")
+                self.fix_node_degree_distribution(node_degrees, probs)
+
+                if self._verbose:
+                    # compute and plot the new node distribution
+                    self.plot_node_degree_dist(self.adj)
+
+
+        # check that no overlap between train/test and train/val
+
+        # all node data
+        # self.x_data
+
+        # all edge data
+        # self.edge_index
+        # self.adj
+
+        # all masks for splits
+        # self.split_masks['train_mask']
+        # self.split_masks['val_mask']
+        # self.split_masks['test_mask']
+
+        # 1. check that no classification node intersection between train/test/val
+
+        # 2. any node that appears in any subgraph from test, may not appear in any subgraph for train
+
+        # 3.
+
         self.initialize_graph()
 
     def read_files(self):
@@ -115,63 +151,56 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
             print(f"Vocabulary size: {self.vocab_size}")
             print(f'No. of nodes in graph: {num_nodes}')
 
-        if not self._analyse_node_degrees:
-            return
+    def fix_node_degree_distribution(self, node_degrees, probs, keep_threshold=0.97):
+        """
+        Find the bin (number of neighboring nodes) where at least 97% of the graph nodes fall in and discard the rest
+        of the nodes.
+        """
 
-        # Checking node degree distribution
-        node_degrees = torch.sum(self.adj, dim=0).numpy()
-        probs = self.plot_node_degree_dist(node_degrees)
+        max_degree = np.argwhere(np.cumsum(probs) <= keep_threshold).squeeze().max()
+        outliers = np.where(node_degrees > max_degree)[0].shape[0]
 
-        if self.dataset == 'gossipcop':
-            # Find the bin (number of neighboring nodes) where at least 97% of the graph nodes fall in
-            # --> discard the rest of nodes (as bots)
-            keep_threshold = 0.97
-            max_degree = np.argwhere(np.cumsum(probs) <= keep_threshold).squeeze().max()
+        # only use these nodes that have up to max_bin neighboring nodes
+        new_node_indices = torch.from_numpy(np.argwhere(node_degrees <= max_degree).squeeze())
+        num_new_nodes = new_node_indices.shape[0]
 
-            outliers = np.where(node_degrees > max_degree)[0].shape[0]
+        if self._verbose:
+            print(f"\nFound outliers ({round(1 - keep_threshold, 2) * 100}% of all nodes have more than "
+                  f"{max_degree} and up to {node_degrees.max()} neighbors): {outliers}")
+            print(f'Selecting the nodes that have less than {max_degree} neighbors...')
+            print(f'\nNew no. of nodes in graph: {num_new_nodes}')
 
-            # only use these nodes that have up to max_bin neighboring nodes
-            new_node_indices = torch.from_numpy(np.argwhere(node_degrees <= max_degree).squeeze())
-            num_new_nodes = new_node_indices.shape[0]
+        row_select = torch.index_select(self.adj, 0, new_node_indices)
+        new_adj = torch.index_select(row_select, 1, new_node_indices)
 
-            if self._verbose:
-                print(f"\nFound outliers ({round(1 - keep_threshold, 2) * 100}% of all nodes have more than "
-                      f"{max_degree} and up to {node_degrees.max()} neighbors): {outliers}")
-                print(f'Selecting the nodes that have less than {max_degree} neighbors...')
-                print(f'\nNew no. of nodes in graph: {num_new_nodes}')
+        # check that no node degree now is greater than the max_bin we choose earlier
+        # noinspection PyTypeChecker
+        assert not torch.any(new_adj.sum(dim=0) > max_degree).item()
+        assert new_adj.shape[0] == num_new_nodes and new_adj.shape[1] == num_new_nodes
 
-            row_select = torch.index_select(self.adj, 0, new_node_indices)
-            new_adj = torch.index_select(row_select, 1, new_node_indices)
+        # noinspection PyTypeChecker
+        edges = torch.where(new_adj == 1)
+        self.edge_index = torch.tensor(list(zip(list(edges[0]), list(edges[1])))).t()
 
-            # check that no node degree now is greater than the max_bin we choose earlier
-            # noinspection PyTypeChecker
-            assert not torch.any(new_adj.sum(dim=0) > max_degree).item()
-            assert new_adj.shape[0] == num_new_nodes and new_adj.shape[1] == num_new_nodes
+        # TODO: reset the labels
+        self.y_data = self.y_data[new_node_indices]
+        self._labels = self.y_data.unique()
+        # calculate class imbalance for the loss function
+        self.class_ratio = torch.bincount(self.y_data) / self.y_data.shape[0]
 
-            # noinspection PyTypeChecker
-            edges = torch.where(new_adj == 1)
-            self.edge_index = torch.tensor(list(zip(list(edges[0]), list(edges[1])))).t()
+        # TODO: reset the features (also recalculate them for the user nodes??)
+        self.x_data = self.x_data[new_node_indices]
+        num_nodes, self.vocab_size = self.x_data.shape
 
-            # TODO: reset the labels
-            self.y_data = self.y_data[new_node_indices]
-            self._labels = self.y_data.unique()
-            # calculate class imbalance for the loss function
-            self.class_ratio = torch.bincount(self.y_data) / self.y_data.shape[0]
+        # reset split masks
+        self.split_masks['test_mask'] = self.split_masks['test_mask'][new_node_indices]
+        self.split_masks['val_mask'] = self.split_masks['val_mask'][new_node_indices]
+        self.split_masks['train_mask'] = self.split_masks['train_mask'][new_node_indices]
 
-            # TODO: reset the features (also recalculate them for the user nodes??)
-            self.x_data = self.x_data[new_node_indices]
-            num_nodes, self.vocab_size = self.x_data.shape
+        self.adj = new_adj
 
-            # reset split masks
-            self.split_masks['test_mask'] = self.split_masks['test_mask'][new_node_indices]
-            self.split_masks['val_mask'] = self.split_masks['val_mask'][new_node_indices]
-            self.split_masks['train_mask'] = self.split_masks['train_mask'][new_node_indices]
-
-            if self._verbose:
-                new_node_degrees = torch.sum(new_adj, dim=0).numpy()
-                self.plot_node_degree_dist(new_node_degrees)
-
-    def plot_node_degree_dist(self, node_degrees):
+    def plot_node_degree_dist(self, adj):
+        node_degrees = torch.sum(adj, dim=0).numpy()
 
         max_bin = node_degrees.max()
 
@@ -200,7 +229,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
             fig.tight_layout()
             plt.show()
 
-        return probs
+        return node_degrees, probs
 
     def initialize_graph(self):
 

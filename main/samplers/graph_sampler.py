@@ -87,11 +87,7 @@ class KHopSampler(GraphSAINTSampler):
             data, target = self.as_data_target(adj, center_indices, node_indices)
             data_list_collated.append((data, target))
 
-        if self.model_type == 'gat':
-            sup_graphs, labels = list(map(list, zip(*data_list_collated)))
-            return sup_graphs, torch.LongTensor(labels)
-
-        elif self.model_type == 'prototypical':
+        if self.model_type in ['prototypical', 'gat']:
             sup_graphs, labels = list(map(list, zip(*data_list_collated)))
 
             supp_sub_graphs, query_sub_graphs = split_list(sup_graphs)

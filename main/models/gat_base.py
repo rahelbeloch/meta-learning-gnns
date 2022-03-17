@@ -77,27 +77,40 @@ class GatBase(GraphTrainer):
 
         return [optimizer], []
 
-    def forward(self, sub_graphs, targets, mode=None):
+    def forward(self, batch, mode=None):
+
+        support_graphs, query_graphs, support_targets, query_targets = batch
+
+        # for test and val we only want to use query samples
+        sub_graphs, targets = query_graphs, query_targets
+
+        if mode == 'train':
+            # collapse support and query set and train on whole
+            sub_graphs = support_graphs + query_graphs
+            targets = torch.cat([support_targets, query_targets])
+        # else:
+        #     print(f"\n{mode} {type(self.model).__name__.split('.')[-1]} on {len(sub_graphs)}"
+        #           f"samples (only query set).")
 
         # make a batch out of all sub graphs and push the batch through the model
         # [Data, Data, Data(x, y, ..)]
         x, edge_index, cl_mask = get_subgraph_batch(sub_graphs)
 
-        predictions = self.model(x, edge_index, cl_mask, mode)
+        output = self.model(x, edge_index, mode)
+        output = output[cl_mask]
 
-        pred = predictions.argmax(dim=-1)
+        predictions = output.argmax(dim=-1)
         for mode_dict, _ in self.metrics.values():
-            mode_dict[mode].update(pred, targets)
+            mode_dict[mode].update(predictions, targets)
 
-        return predictions
+        return output, targets
 
     def training_step(self, batch, batch_idx):
 
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        sub_graphs, targets = batch
-        predictions = self.forward(sub_graphs, targets, mode='train')
+        predictions, targets = self.forward(batch, mode='train')
 
         # TODO: maybe make probabilities out of logits via softmax --> especially for the metrics; makes it more interpretable
         loss = self.loss_module(predictions, targets)
@@ -110,11 +123,11 @@ class GatBase(GraphTrainer):
         return dict(loss=loss)
 
     def validation_step(self, batch, batch_idx):
-        self.forward(*batch, mode='val')
+        self.forward(batch, mode='val')
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default, logs it per epoch (weighted average over batches)
-        self.forward(*batch, mode='test')
+        self.forward(batch, mode='test')
 
 
 def load_pretrained_encoder(checkpoint_path):

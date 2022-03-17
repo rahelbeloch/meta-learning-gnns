@@ -1,6 +1,7 @@
 import time
 from statistics import mean, stdev
 
+import numpy as np
 import torch.nn.functional as func
 import torchmetrics as tm
 from torch import optim
@@ -27,8 +28,6 @@ class ProtoNet(GraphTrainer):
         self.save_hyperparameters()
 
         self.model = GatNet(model_params)
-        # self.model = SparseGATLayer(in_features=model_params['input_dim'], out_features=model_params['hid_dim'],
-        #                             feat_reduce_dim=model_params['feat_reduce_dim'])
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.lr)
@@ -92,7 +91,8 @@ class ProtoNet(GraphTrainer):
         support_graphs, query_graphs, support_targets, query_targets = batch
 
         x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
-        support_feats = self.model(x, edge_index, cl_mask, mode)
+        support_feats = self.model(x, edge_index, mode)
+        support_feats = support_feats[cl_mask]
 
         assert support_feats.shape[0] == support_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
@@ -100,7 +100,8 @@ class ProtoNet(GraphTrainer):
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
         x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
-        query_feats = self.model(x, edge_index, cl_mask, mode)
+        query_feats = self.model(x, edge_index, mode)
+        query_feats = query_feats[cl_mask]
 
         assert query_feats.shape[0] == query_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
@@ -165,7 +166,8 @@ def test_proto_net(model, dataset, num_classes, data_feats=None, k_shot=4):
         sup_graphs, labels = list(map(list, zip(*data_list_collated)))
         x, edge_index, cl_mask = get_subgraph_batch(sup_graphs)
         x, edge_index = x.to(DEVICE), edge_index.to(DEVICE)
-        feats = model.model(x, edge_index, cl_mask, 'test')
+        feats = model.model(x, edge_index, 'test')
+        feats = feats[cl_mask]
 
         node_features = feats.detach().cpu()  # shape: 1975 x 2
         node_targets = torch.tensor(labels)  # shape: 1975
@@ -192,38 +194,44 @@ def test_proto_net(model, dataset, num_classes, data_feats=None, k_shot=4):
         prototypes, proto_classes = model.calculate_prototypes(k_node_feats, k_targets)
 
         # Evaluate accuracy on the rest of the dataset
-        batch_acc = tm.Accuracy(num_classes=num_classes, average='macro', multiclass=True)
+        # batch_acc = tm.Accuracy(num_classes=num_classes, average='macro', multiclass=True)
         batch_f1_target = tm.F1(num_classes=num_classes, average='none', multiclass=True)
         batch_f1_macro = tm.F1(num_classes=num_classes, average='macro', multiclass=True)
 
         for e_idx in range(0, node_features.shape[0], k_shot):
             if k_idx == e_idx:  # Do not evaluate on the support set examples
                 continue
+
             e_node_feats, e_targets = get_as_set(e_idx, k_shot, node_features, node_targets, start_indices_per_class)
             predictions, labels = model.classify_features(prototypes, proto_classes, e_node_feats, e_targets)
-            if predictions.shape[1] != 2:
-                continue
-            batch_acc.update(predictions, labels)
+
+            predictions = predictions.argmax(dim=-1)
             batch_f1_target.update(predictions, labels)
             batch_f1_macro.update(predictions, labels)
 
-        accuracies.append(batch_acc.compute().item())
-        f1_targets_fake.append(batch_f1_target.compute()[0].item())
-        f1_targets_real.append(batch_f1_target.compute()[1].item())
-        f1_macros.append(batch_f1_macro.compute().item())
+        f1_target_values = batch_f1_target.compute()
 
-        batch_acc.reset()
+        # F1 values can be nan, if e.g. proto_classes contains only one of the 2 classes
+        f1_fake_value = f1_target_values[0].item()
+        if not np.isnan(f1_fake_value):
+            f1_targets_fake.append(f1_fake_value)
+
+        f1_real_value = f1_target_values[1].item()
+        if not np.isnan(f1_real_value):
+            f1_targets_real.append(f1_real_value)
+
+        batch_f1_macro_value = batch_f1_macro.compute().item()
+        if not np.isnan(batch_f1_macro_value):
+            f1_macros.append(batch_f1_macro_value)
+
         batch_f1_target.reset()
         batch_f1_macro.reset()
 
     test_end = time.time()
     test_elapsed = test_end - test_start
 
-    return (mean(accuracies), stdev(accuracies)), \
-           (mean(f1_targets_fake), stdev(f1_targets_fake)), \
-           (mean(f1_targets_real), stdev(f1_targets_real)), \
-           (mean(f1_macros), stdev(f1_macros)), \
-           test_elapsed, (node_features, node_targets)
+    return (mean(f1_targets_fake), stdev(f1_targets_fake)), (mean(f1_targets_real), stdev(f1_targets_real)), \
+           (mean(f1_macros), stdev(f1_macros)), test_elapsed, (node_features, node_targets)
 
 
 def get_as_set(idx, k_shot, all_node_features, all_node_targets, start_indices_per_class):

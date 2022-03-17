@@ -9,6 +9,7 @@ from data_prep.data_preprocess_utils import sanitize_text
 from data_prep.data_preprocessor import DataPreprocessor
 from data_prep.graph_io import FEATURE_TYPES
 
+# Report metrics: Macro, racism, sexism; None is majority class
 LABELS = {0: 'racism', 1: 'sexism', 2: 'none'}
 
 

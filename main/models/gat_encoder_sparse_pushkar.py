@@ -27,24 +27,15 @@ class GatNet(torch.nn.Module):
 
         self.elu = nn.ELU()
 
-        self.attentions = [
-            SparseGATLayer(
-                self.in_dim,
-                self.hid_dim,
-                self.feat_reduce_dim,
-                self.gat_dropout,
-                concat=True,
-                attn_drop=self.attn_dropout
-            )
-            for _ in range(self.n_heads)
-        ]
+        self.attentions = [SparseGATLayer(self.in_dim,
+                                          self.hid_dim,
+                                          self.feat_reduce_dim,
+                                          dropout=self.gat_dropout,
+                                          attn_drop=self.attn_dropout,
+                                          concat=True) for _ in range(self.n_heads)]
 
         for i, attention in enumerate(self.attentions):
             self.add_module("attention_{}".format(i), attention)
-
-        # self.classifier = SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim, self.gat_dropout,
-        #                               # self.attn_dropout, self.alpha
-        #                               )
 
         self.classifier = self.get_classifier(self.out_dim)
 
@@ -60,26 +51,35 @@ class GatNet(torch.nn.Module):
         # )
 
         # Shans implementation
-        return nn.Sequential(nn.Dropout(self.lin_dropout),
-                             nn.Linear(self.n_heads * self.hid_dim, self.feat_reduce_dim),
-                             nn.ReLU(),
-                             nn.Linear(self.feat_reduce_dim, num_classes))
+        # return nn.Sequential(nn.Dropout(self.lin_dropout),
+        #                      nn.Linear(self.n_heads * self.hid_dim, self.feat_reduce_dim),
+        #                      nn.ReLU(),
+        #                      nn.Linear(self.feat_reduce_dim, num_classes))
 
-    def forward(self, x, edge_index, cl_mask, mode):
-        # adj should be a sparse matrix
+        # Pushkar implementation
+        return SparseGATLayer(self.hid_dim * self.n_heads, self.out_dim, self.feat_reduce_dim, dropout=self.gat_dropout,
+                              attn_drop=self.attn_dropout, concat=False)
 
-        # these 2 lines are only adding self loops; if I have them already, comment out
-        # r = torch.arrange(adj.size(0)).repeat(2, 1).to(adj.device)
-        # adj = adj + torch.sparse_coo_tensor(r, torch.ones(len(adj)).to(r))
+    def forward(self, x, edge_index, mode):
+        x = func.dropout(x, self.gat_dropout, training=mode == 'train')
+        if not x.is_sparse:
+            x = x.to_sparse()
 
         x = torch.cat([att(x, edge_index) for att in self.attentions], dim=1)
-        x = self.elu(x)
 
-        if cl_mask is not None:
-            x = x[cl_mask]
-        out = self.classifier(x)
+        if type(self.classifier) != SparseGATLayer:
+            # linear classifier
+            out = self.classifier(x)
+        else:
+            x = func.dropout(x, self.gat_dropout, training=mode == 'train')
 
-        return out
+            # attention out layer
+            out = self.classifier(x, edge_index)
+
+        # F1 is sensitive to threshold
+        # area under the RC curve
+
+        return func.log_softmax(out, dim=1)
 
 
 class SparseGATLayer(nn.Module):
@@ -119,7 +119,7 @@ class SparseGATLayer(nn.Module):
         self.leaky_relu = nn.LeakyReLU(self.alpha)
 
     def forward(self, x, edges):
-        assert x.is_sparse
+        # assert x.is_sparse
 
         # edges may not be sparse, because using a sparse vector as index for another vector does not work
         # (e.g. f_1[edges[0]] + f_2[edges[1]])

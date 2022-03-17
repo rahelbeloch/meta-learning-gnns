@@ -23,7 +23,8 @@ if torch.cuda.is_available():
     torch.cuda.empty_cache()
 
 
-def train(model_name, seed, epochs, patience, h_size, top_users, top_users_excluded, k_shot, lr, lr_cl, lr_inner,
+def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
+          h_size, top_users, top_users_excluded, k_shot, lr, lr_cl, lr_inner,
           lr_outer, hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_docs,
           train_split_size, feature_type, vocab_size, n_inner_updates, num_workers, gat_dropout, lin_dropout,
           attn_dropout):
@@ -46,13 +47,13 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
     evaluation = checkpoint is not None and Path(checkpoint).exists()
 
     print(f'\nConfiguration:\n\n mode: {"TEST" if evaluation else "TRAIN"}\n seed: {seed}\n max epochs: {epochs}\n '
-          f'patience:{patience}\n k_shot: {k_shot}\n\n model_name: {model_name}\n hidden_dim: {hidden_dim}\n '
-          f'feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n\n data_train: {data_train} '
-          f'(splits: {str(train_split_size)})\n data_eval: {data_eval} (splits: {str(eval_split_size)})\n '
-          f'nr_train_docs: {nr_train_docs}\n hop_size: {h_size}\n top_users: {top_users}K\n '
-          f'top_users_excluded: {top_users_excluded}%\n num_workers: {num_workers}\n vocab_size: {vocab_size}\n '
-          f'hops: {h_size}\n feature_type: {feature_type}\n\n lr: {lr}\n lr_cl: {lr_cl}\n outer_lr: {lr_outer}\n '
-          f'inner_lr: {lr_inner}\n n_updates: {n_inner_updates}\n proto_dim: {proto_dim}\n')
+          f'patience: {patience}\n patience metric: {patience_metric}\n k_shot: {k_shot}\n\n model_name: {model_name}\n'
+          f' hidden_dim: {hidden_dim}\n feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n\n'
+          f' data_train: {data_train} (splits: {str(train_split_size)})\n data_eval: {data_eval} '
+          f'(splits: {str(eval_split_size)})\n nr_train_docs: {nr_train_docs}\n hop_size: {h_size}\n '
+          f'top_users: {top_users}K\n top_users_excluded: {top_users_excluded}%\n num_workers: {num_workers}\n '
+          f'vocab_size: {vocab_size}\n hops: {h_size}\n feature_type: {feature_type}\n\n lr: {lr}\n lr_cl: {lr_cl}\n '
+          f'outer_lr: {lr_outer}\n inner_lr: {lr_inner}\n n_updates: {n_inner_updates}\n proto_dim: {proto_dim}\n')
 
     # reproducible results
     pl.seed_everything(seed)
@@ -101,8 +102,8 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
     # verify_not_overlapping_samples(test_loader)
 
     print('\nInitializing trainer ..........\n')
-    trainer = initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_outer, seed, data_train,
-                                 data_eval, k_shot, h_size, feature_type, checkpoint)
+    trainer = initialize_trainer(epochs, patience, patience_metric, model_name, lr, lr_cl, lr_inner, lr_outer, seed,
+                                 data_train, data_eval, k_shot, h_size, feature_type, checkpoint, progress_bar)
 
     if model_name == 'gat':
         model = GatBase(model_params, optimizer_hparams, b_size, train_graph.label_names, checkpoint)
@@ -141,15 +142,14 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
         # TODO: set also the target label for f1 score
         # f1_targets[1]
 
-    val_accuracy, val_f1_fake, val_f1_real, val_f1_macro = None, None, None, None
+    test_accuracy, val_accuracy, val_f1_fake, val_f1_real, val_f1_macro = 0.0, 0.0, 0.0, 0.0, 0.0
 
     if model_name == 'gat':
         test_accuracy, test_f1_fake, test_f1_real, test_f1_macro, val_accuracy, val_f1_fake, val_f1_real, \
         val_f1_macro, test_elapsed = evaluate(trainer, model, test_loader, test_val_loader)
 
     elif model_name == 'prototypical':
-        (test_accuracy, acc_stdv), (test_f1_fake, stvd1, test_f1_real, stdv2), (
-            test_f1_macro, f1stdev), test_elapsed, _ \
+        (test_f1_fake, stvd1), (test_f1_real, stdv2), (test_f1_macro, f1stdev), test_elapsed, _ \
             = test_proto_net(model, eval_graph, len(eval_graph.labels), data_feats=None, k_shot=k_shot)
         # print(f"Accuracy for k={k_shot}: {100.0 * accuracy[0]:4.2f}% (+-{100 * accuracy[1]:4.2f}%)")
         # print(f"F1 target for k={k_shot}: {100.0 * f1_target[0]:4.2f}% (+-{100 * f1_target[1]:4.2f}%)")
@@ -170,16 +170,19 @@ def train(model_name, seed, epochs, patience, h_size, top_users, top_users_exclu
           f'validation f1 macro: {round(val_f1_macro, 3)} ({val_f1_macro})\n '
           f'\nepochs: {trainer.current_epoch + 1}\n')
 
-    print(f'{trainer.current_epoch + 1}\n{round_format(test_f1_fake)}\n{round_format(test_f1_real)}\n'
-          f'{round_format(test_f1_macro)}\n{round_format(test_accuracy)}\n{round_format(val_f1_fake)}\n'
-          f'{round_format(val_f1_real)}\n{round_format(val_f1_macro)}\n{round_format(val_accuracy)}\n'
-          f'{get_epoch_num(model_path)}')
+    print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}\n{round_format(test_f1_fake)}\n'
+          f'{round_format(test_f1_real)}\n{round_format(test_f1_macro)}\n{round_format(test_accuracy)}\n'
+          f'{round_format(val_f1_fake)}\n{round_format(val_f1_real)}\n{round_format(val_f1_macro)}\n'
+          f'{round_format(val_accuracy)}\n')
 
 
 def get_epoch_num(model_path):
     epoch_str = 'epoch='
     start_idx = model_path.find(epoch_str) + len(epoch_str)
-    epoch_num = int(model_path[start_idx: start_idx + 2])
+    expected_epoch = model_path[start_idx: start_idx + 2]
+    if expected_epoch.endswith('-'):
+        expected_epoch = expected_epoch[:1]
+    return int(expected_epoch)
 
 
 def verify_not_overlapping_samples(train_val_loader):
@@ -209,8 +212,8 @@ def verify_not_overlapping_samples(train_val_loader):
     assert not_different_examples == 0
 
 
-def initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_output, seed, data_train, data_eval,
-                       k_shot, h_size, f_type, checkpoint):
+def initialize_trainer(epochs, patience, patience_metric, model_name, lr, lr_cl, lr_inner, lr_output, seed, data_train,
+                       data_eval, k_shot, h_size, f_type, checkpoint, progress_bar):
     """
     Initializes a Lightning Trainer for respective parameters as given in the function header. Creates a proper
     folder name for the respective model files, initializes logging and early stopping.
@@ -230,12 +233,16 @@ def initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_out
 
     logger = TensorBoardLogger(LOG_PATH, name=model_name, version=version_str)
 
-    early_stop_callback = EarlyStopping(
-        monitor='val_f1_macro',
+    cls, metric, mode = EarlyStopping, 'val_f1_macro', 'max'
+    if patience_metric == 'loss':
+        cls, metric, mode = LossEarlyStopping, 'train_loss', 'min'
+
+    early_stop_callback = cls(
+        monitor=metric,
         min_delta=0.00,
-        patience=patience,  # validation happens per default after each training epoch
+        patience=patience,  # loss computation happens per default after each training epoch
         verbose=False,
-        mode='max'
+        mode=mode
     )
 
     trainer = pl.Trainer(move_metrics_to_cpu=True,
@@ -245,13 +252,23 @@ def initialize_trainer(epochs, patience, model_name, lr, lr_cl, lr_inner, lr_out
                          gpus=1 if torch.cuda.is_available() else 0,
                          max_epochs=epochs,
                          callbacks=[model_checkpoint, early_stop_callback],
-                         enable_progress_bar=True,
+                         enable_progress_bar=progress_bar,
                          num_sanity_val_steps=0)
 
     # Optional logging argument that we don't need
     trainer.logger._default_hp_metric = None
 
     return trainer
+
+
+class LossEarlyStopping(EarlyStopping):
+    def on_validation_end(self, trainer, pl_module):
+        # override this to disable early stopping at the end of val loop
+        pass
+
+    def on_train_end(self, trainer, _):
+        # instead, do it at the end of training loop
+        self._run_early_stopping_check(trainer)
 
 
 def evaluate(trainer, model, test_dataloader, val_dataloader):
@@ -324,8 +341,13 @@ if __name__ == "__main__":
 
     # TRAINING PARAMETERS
 
+    parser.add_argument('--progress-bar', dest='progress_bar', action='store_true')
+    parser.add_argument('--no-progress-bar', dest='progress_bar', action='store_false')
+    parser.set_defaults(progress_bar=True)
+
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--epochs', dest='epochs', type=int, default=1)
+    parser.add_argument('--patience-metric', dest='patience_metric', type=str, default='f1')
     parser.add_argument('--patience', dest='patience', type=int, default=10)
     parser.add_argument('--gat-dropout', dest='gat_dropout', type=float, default=0.6)
     parser.add_argument('--lin-dropout', dest='lin_dropout', type=float, default=0.5)
@@ -388,10 +410,12 @@ if __name__ == "__main__":
     params = vars(parser.parse_args())
 
     train(
+        progress_bar=params['progress_bar'],
         model_name=params['model'],
         seed=params['seed'],
         epochs=params['epochs'],
         patience=params['patience'],
+        patience_metric=params['patience_metric'],
         h_size=params["hop_size"],
         top_users=params["top_users"],
         top_users_excluded=params["top_users_excluded"],
