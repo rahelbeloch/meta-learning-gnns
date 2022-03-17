@@ -63,7 +63,7 @@ class KHopSampler(GraphSAINTSampler):
             if len(intersect) is not 0:
                 new_subgraph_nodes = subgraph_nodes - intersect
                 assert node_id.item() in new_subgraph_nodes, "Center node ID was removed!"
-                node_indices = torch.LongTensor(new_subgraph_nodes)
+                node_indices = torch.LongTensor(list(new_subgraph_nodes))
 
         return node_indices
 
