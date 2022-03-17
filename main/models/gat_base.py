@@ -34,6 +34,8 @@ class GatBase(GraphTrainer):
         # flipping the weights
         flipped_weights = torch.flip(model_hparams["class_weight"], dims=[0])
 
+        # Loss function consistent with labels?
+        # Verify that this is the binary cross entropy loss
         self.loss_module = nn.CrossEntropyLoss(weight=flipped_weights)
 
     def configure_optimizers(self):
@@ -112,7 +114,8 @@ class GatBase(GraphTrainer):
 
         predictions, targets = self.forward(batch, mode='train')
 
-        # TODO: maybe make probabilities out of logits via softmax --> especially for the metrics; makes it more interpretable
+        # TODO: maybe make probabilities out of logits via softmax
+        #  --> especially for the metrics; makes it more interpretable
         loss = self.loss_module(predictions, targets)
         self.log(f"train_loss", loss)
 
@@ -120,6 +123,8 @@ class GatBase(GraphTrainer):
         # logging in optimizer step does not work, therefore here
         # self.log('lr_rate', self.lr_scheduler.get_lr()[0])
 
+        # back propagate every step, but only log every epoch
+        # sum the loss over steps and average at the end of one epoch and then log
         return dict(loss=loss)
 
     def validation_step(self, batch, batch_idx):
