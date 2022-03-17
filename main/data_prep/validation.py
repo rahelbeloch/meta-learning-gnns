@@ -1,6 +1,8 @@
+import itertools
+
 import torch
 
-from data_prep.data_utils import get_data, get_loader, get_n_query, SHOTS
+from data_prep.data_utils import get_data, get_loader, get_max_n_query, SHOTS
 from data_prep.graph_dataset import TorchGeomGraphDataset
 
 data_train = 'gossipcop'
@@ -16,7 +18,7 @@ dirs = "data", "../data/tsv", "../data/complete"
 num_workers = 0
 
 
-def sub_graphs_validation():
+def sub_graphs_loader_validation():
     """
     Validates that the center index of each subgraph is stored iin the correct indices_per_class of the batch sampler.
     """
@@ -46,10 +48,8 @@ def validate_query_set_equal():
                 sub_graphs, _ = episode
                 half_len = int(len(sub_graphs) / 2)
                 query_sub_graphs = sub_graphs[half_len:]
-                # support_sub_graphs = sub_graphs[:half_len]
             else:
                 support_sub_graphs, query_sub_graphs, _, _ = episode
-            # support_nodes += [graph.orig_center_idx for graph in support_sub_graphs]
             query_nodes += [(graph.orig_center_idx, graph.target, graph.set_type) for graph in query_sub_graphs]
         query_shot_nodes[k] = query_nodes
         print(f"\nCollected {len(query_nodes)} query nodes for shot '{k}'")
@@ -78,7 +78,7 @@ def check_train_loader_query_samples():
                                       'val_size': train_split_size[1], 'test_size': train_split_size[2]}}
     graph_data_train = TorchGeomGraphDataset(train_config, train_split_size, *dirs)
 
-    n_queries = get_n_query(graph_data_train)
+    n_queries = get_max_n_query(graph_data_train)
 
     train_loader_5_shot = get_loader(graph_data_train, model_name, h_size, 5, num_workers, 'train', n_queries)
     concatenated_5 = get_query_indices(train_loader_5_shot)
@@ -104,6 +104,24 @@ def get_query_indices(loader):
                      dim=1).squeeze().tolist()
 
 
+def unused_samples_stats():
+    """
+    Print how many samples stay unused for each loader we can create.
+    """
+    loaders, b_size, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
+                                                        top_users_excluded, 5, train_split_size, eval_split_size,
+                                                        feature_type, vocab_size, dirs, num_workers)
+
+    for loader in loaders:
+        n_used = 0
+
+        for c, s in itertools.product([0, 1], ['support', 'query']):
+            n_used += loader.b_sampler.indices_per_class[s, c]
+
+        n_unused = loader.b_sampler.total_samples - n_used
+        print(f'Unused samples for loader {loader.mode}: {n_unused}')
+
+
 if __name__ == '__main__':
     # check_train_loader_query_samples()
 
@@ -115,6 +133,8 @@ if __name__ == '__main__':
     #                                   'val_size': train_split_size[1], 'test_size': train_split_size[2]}}
     # graph_data_train = TorchGeomGraphDataset(train_config, train_split_size, *dirs)
     #
-    # print(f"\n{get_n_query(graph_data_train)}")
+    # print(f"\n{get_max_n_query(graph_data_train)}")
 
-    sub_graphs_validation()
+    # sub_graphs_loader_validation()
+
+    unused_samples_stats()

@@ -1,15 +1,12 @@
-from math import floor
-
 import torch.cuda
 
 from data_prep.graph_dataset import TorchGeomGraphDataset
 from data_prep.graph_preprocessor import SPLITS
-from samplers.batch_sampler import FewShotSampler
+from samplers.batch_sampler import FewShotSampler, SHOTS, get_n_query_for_samples
 from samplers.graph_sampler import KHopSampler
 from samplers.maml_batch_sampler import FewShotMamlSampler
 
 SUPPORTED_DATASETS = ['gossipcop', 'twitterHateSpeech']
-SHOTS = [2, 5, 10, 20, 40]
 
 
 def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_excluded, k_shot, train_split_size,
@@ -54,8 +51,7 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
                                       'val_size': train_split_size[1], 'test_size': train_split_size[2]}}
     graph_data_train = TorchGeomGraphDataset(train_config, train_split_size, *dirs)
 
-    # TODO: calculate correct n_query for test data
-    n_query_train = get_n_query(graph_data_train)
+    n_query_train = get_max_n_query(graph_data_train)
     print(f"\nUsing max query samples for episode creation: {n_query_train}")
 
     train_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, 'train', n_query_train)
@@ -76,7 +72,7 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
                                          'val_size': eval_split_size[1], 'test_size': eval_split_size[2]}}
 
         graph_data_eval = TorchGeomGraphDataset(eval_config, eval_split_size, *dirs)
-        n_query_eval = get_n_query(graph_data_eval)
+        n_query_eval = get_max_n_query(graph_data_eval)
 
         print(f"\nTest graph size: \n num_features: {graph_data_eval.size[1]}\n total_nodes: {graph_data_eval.size[0]}")
 
@@ -115,7 +111,7 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
     return sampler
 
 
-def get_n_query(graph_data):
+def get_max_n_query(graph_data):
     """
     Calculates the number of query samples which fits the maximum configured shot number and all other available
     shot numbers. This is required in order to keep the query sets static throughout training with different shot sizes.
@@ -126,27 +122,9 @@ def get_n_query(graph_data):
 
     n_queries = {}
     for split in SPLITS:
-        samples = len(torch.where(graph_data.split_masks[f"{split}_mask"])[0])
-        n_query = get_n_query_for_samples(samples, max_shot, n_classes)
+        # maximum amount of query samples which should be used from the total amount of samples
+        samples = len(torch.where(graph_data.split_masks[f"{split}_mask"])[0]) / n_classes
 
-        # test to verify this number is divisible by shot int and number of classes
-        for shot in SHOTS:
-            assert ((n_query / shot) * (1 / n_classes)) % 1 == 0
-
-        n_queries[split] = n_query
+        n_queries[split] = get_n_query_for_samples(samples, max_shot, n_classes)
 
     return n_queries
-
-
-def get_n_query_for_samples(total_samples, max_shot, n_class):
-    """
-    First determines the maximum amount of query examples based on the number of classes and total samples available.
-    Subsequently, define a number which is divisible by the shot int and the number of classes.
-    """
-
-    # maximum amount of query samples which should be used from the total amount of samples
-    max_query_samples = total_samples * (1 / n_class)
-
-    # make sure it is still evenly divisible
-    max_n_query = (max_shot * n_class) * floor(max_query_samples / (max_shot * n_class))
-    return max_n_query

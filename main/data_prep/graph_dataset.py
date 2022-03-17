@@ -182,7 +182,6 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         edges = torch.where(new_adj == 1)
         self.edge_index = torch.tensor(list(zip(list(edges[0]), list(edges[1])))).t()
 
-        # TODO: reset the labels
         self.y_data = self.y_data[new_node_indices]
         self._labels = self.y_data.unique()
         # calculate class imbalance for the loss function
