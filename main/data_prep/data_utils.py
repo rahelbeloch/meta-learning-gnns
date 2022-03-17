@@ -94,12 +94,8 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
 
     mask = graph_data.mask(f"{mode}_mask")
 
-    # TODO: fix shuffling with support/query batches
-    # shuffle = mode == 'train'
-    # shuffle_once = mode == 'val'
-
-    shuffle = False
-    shuffle_once = False
+    shuffle = mode == 'train'
+    shuffle_once = mode == 'val'
 
     if model_name in ['gat', 'prototypical']:
         batch_sampler = FewShotSampler(graph_data.data.y[mask], n_queries[mode], mode, n_way=n_classes, k_shot=k_shot,
