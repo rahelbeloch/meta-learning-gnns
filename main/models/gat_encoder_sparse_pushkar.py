@@ -67,10 +67,6 @@ class GatNet(torch.nn.Module):
 
         x = torch.cat([att(x, edge_index) for att in self.attentions], dim=1)
 
-        # if type(self.classifier) != SparseGATLayer:
-        # if linear classifier --> non linearity here
-        # x = self.elu(x)
-
         if type(self.classifier) != SparseGATLayer:
             # linear classifier
             out = self.classifier(x)
@@ -79,9 +75,6 @@ class GatNet(torch.nn.Module):
 
             # attention out layer
             out = self.classifier(x, edge_index)
-
-            # # if we have an output attention layer --> additional non-linearity
-            # out = func.elu(out)
 
         # F1 is sensitive to threshold
         # area under the RC curve
