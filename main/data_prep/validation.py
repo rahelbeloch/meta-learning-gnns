@@ -17,12 +17,19 @@ num_workers = 0
 
 
 def sub_graphs_validation():
+    """
+    Validates that the center index of each subgraph is stored iin the correct indices_per_class of the batch sampler.
+    """
     loaders, b_size, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
                                                         top_users_excluded, 5, train_split_size, eval_split_size,
                                                         feature_type, vocab_size, dirs, num_workers)
 
-    for batch in loaders[0]:
-        print("foo" + str(len(batch)))
+    for loader in loaders:
+        for data_list, targets in loader:
+            for i, data in enumerate(data_list):
+                assert data.orig_center_idx in loader.b_sampler.indices_per_class[data.set_type][targets[i].item()], \
+                    'Center idx stored in wrong index per class!'
+
 
 def validate_query_set_equal():
     query_shot_nodes = dict()

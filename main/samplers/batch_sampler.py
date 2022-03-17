@@ -10,7 +10,7 @@ from torch.utils.data import Sampler
 
 class FewShotSampler(Sampler):
 
-    def __init__(self, targets, mask, n_query, mode, n_way=2, k_shot=5, shuffle=True, shuffle_once=False):
+    def __init__(self, targets, n_query, mode, n_way=2, k_shot=5, shuffle=True, shuffle_once=False):
         """
         Support sets should contain n_way * k_shot examples. So, e.g. 2 * 5 = 10 sub graphs.
         Query set is of same size ...
@@ -32,9 +32,9 @@ class FewShotSampler(Sampler):
         self.batch_size = self.n_way * self.k_shot  # Number of overall samples per query and support batch
 
         # number of samples which actually can be used with n classes and k shot
-        n_samples_used = int(len(targets[mask]) / self.batch_size) * self.batch_size + 1
-        # self.data_targets = targets[mask][:n_samples_used]
-        self.data_targets = targets[mask]
+        n_samples_used = int(len(targets) / self.batch_size) * self.batch_size + 1
+        # self.data_targets = targets[:n_samples_used]
+        self.data_targets = targets
         self.total_samples = self.data_targets.shape[0]
 
         # is the maximum number of query examples which should be used
@@ -113,9 +113,9 @@ class FewShotSampler(Sampler):
         # verify that we used only up to n_query query examples
         assert query_batches * self.k_shot * self.n_way <= self.n_query
 
-        self.target_lists = {}
+        self.batches_target_lists = {}
         for s in self.sets:
-            self.target_lists[s] = [c for c in self.classes for _ in range(self.batches_per_class[s][c])]
+            self.batches_target_lists[s] = [c for c in self.classes for _ in range(self.batches_per_class[s][c])]
 
         if shuffle_once or self.shuffle:
             self.shuffle_data()
@@ -125,7 +125,7 @@ class FewShotSampler(Sampler):
                 sort_idxs = [i + p * self.num_classes for i, c in enumerate(self.classes) for p in
                              range(self.batches_per_class[s][c])]
 
-                self.target_lists[s] = np.array(self.target_lists[s])[np.argsort(sort_idxs)].tolist()
+                self.batches_target_lists[s] = np.array(self.batches_target_lists[s])[np.argsort(sort_idxs)].tolist()
 
     def shuffle_data(self):
         # Shuffle the examples per class
@@ -137,7 +137,7 @@ class FewShotSampler(Sampler):
         # does not prevent to choose the same class twice in a batch. However, for
         # training and validation, this is not a problem.
         for s in self.sets:
-            random.shuffle(self.target_lists[s])
+            random.shuffle(self.batches_target_lists[s])
 
     @property
     def query_samples(self):
@@ -155,7 +155,7 @@ class FewShotSampler(Sampler):
             for s in self.sets:
 
                 # Select N classes for the batch
-                class_batch = self.target_lists[s][it * self.n_way:(it + 1) * self.n_way]
+                class_batch = self.batches_target_lists[s][it * self.n_way:(it + 1) * self.n_way]
                 set_index_batch = []
                 for c in class_batch:  # For each class, select the next K examples and add them to the batch
                     set_index_batch.extend(

@@ -19,6 +19,8 @@ class KHopSampler(GraphSAINTSampler):
         self.model_type = model
         self.mode = mode
 
+        self.mask = graph.mask(f'{mode}_mask')
+
         if mode == 'train':
             val_nodes = torch.where(graph.mask('val_mask'))[0]
             test_nodes = torch.where(graph.mask('test_mask'))[0]
@@ -133,12 +135,13 @@ class KHopSampler(GraphSAINTSampler):
         #         data.node_norm = self.node_norm[node_idx]
         #         data.edge_norm = self.edge_norm[edge_idx]
 
-        # data.mask = self.batch_sampler.mask[node_indices]
         data.orig_center_idx, data.new_center_idx = center_indices
-        target = self.data.y[data.orig_center_idx].item()
-        data.target = target
+
+        # VERY IMPORTANT: batch sampler works with indices based on the mask --> have to get the masked y here first!
+        target = self.data.y[self.mask][data.orig_center_idx].item()
 
         for s in self.b_sampler.sets:
+            # TODO: fix this, must be the target class!!
             if data.orig_center_idx in self.b_sampler.indices_per_class[s][target]:
                 data.set_type = s
                 break
