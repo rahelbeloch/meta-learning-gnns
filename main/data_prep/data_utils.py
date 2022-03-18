@@ -2,7 +2,7 @@ import torch.cuda
 
 from data_prep.graph_dataset import TorchGeomGraphDataset
 from data_prep.graph_preprocessor import SPLITS
-from samplers.batch_sampler import FewShotSampler, SHOTS, get_n_query_for_samples
+from samplers.batch_sampler import FewShotSampler, get_n_query_for_samples
 from samplers.graph_sampler import KHopSampler
 from samplers.maml_batch_sampler import FewShotMamlSampler
 
@@ -52,7 +52,7 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
     graph_data_train = TorchGeomGraphDataset(train_config, train_split_size, *dirs)
 
     n_query_train = get_max_n_query(graph_data_train)
-    print(f"\nUsing max query samples for episode creation: {n_query_train}")
+    print(f"\nUsing max query samples for episode creation: {n_query_train}\n")
 
     train_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, 'train', n_query_train)
     train_val_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, 'val', n_query_train)
@@ -60,7 +60,7 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
     print(f"\nTrain graph size: \n num_features: {graph_data_train.size[1]}\n total_nodes: {graph_data_train.size[0]}")
 
     if data_train == data_eval:
-        print(f'\nData eval and data train are equal, loading graph data only once.')
+        print(f'\nData eval and data train are equal, loading graph data only once.\n')
         graph_data_eval = graph_data_train
         test_val_loader = train_val_loader
         n_query_eval = n_query_train
@@ -105,7 +105,7 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
     sampler = KHopSampler(graph_data, model_name, batch_sampler, n_classes, k_shot, hop_size, mode,
                           num_workers=num_workers)
 
-    print(f"\n{mode} sampler amount of episodes / batches: {len(sampler)}")
+    print(f"{mode} sampler episodes / batches: {len(sampler)}\n")
 
     # no need to wrap it again in a dataloader
     return sampler
@@ -117,14 +117,12 @@ def get_max_n_query(graph_data):
     shot numbers. This is required in order to keep the query sets static throughout training with different shot sizes.
     """
 
-    max_shot = max(SHOTS)
     n_classes = len(graph_data.labels)
 
     n_queries = {}
     for split in SPLITS:
         # maximum amount of query samples which should be used from the total amount of samples
-        samples = len(torch.where(graph_data.split_masks[f"{split}_mask"])[0]) / n_classes
-
-        n_queries[split] = get_n_query_for_samples(samples, max_shot, n_classes)
+        samples = int(len(torch.where(graph_data.split_masks[f"{split}_mask"])[0]) / n_classes)
+        n_queries[split] = get_n_query_for_samples(samples, n_classes)
 
     return n_queries

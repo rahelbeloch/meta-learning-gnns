@@ -91,13 +91,15 @@ class FewShotSampler(Sampler):
         support_batches = sum(self.batches_per_class['support'].values()) // self.n_way
 
         if self.verbose:
-            print(f"\n{mode} sampler generated {support_batches} support batches and {query_batches} query batches.")
+            print(f"\n{mode} sampler support batches: {support_batches}")
+            print(f"\n{mode} sampler query batches: {query_batches}")
 
         self.num_batches = min(query_batches, support_batches)
 
         if self.verbose:
-            print(f"{mode} sampler can only create {self.num_batches} episodes, leaving out "
-                  f"{abs(query_batches - support_batches) * self.k_shot * self.n_way} samples.")
+            print(f"{mode} sampler episodes/batches: {self.num_batches}")
+
+        print(f"{mode} sampler query samples: {nr_query_samples}")
 
         # verify that we used only up to n_query query examples
         assert query_batches * self.k_shot * self.n_way <= self.max_n_query
@@ -171,11 +173,11 @@ def get_n_query_for_samples(max_samples, n_class, max_shot=max(SHOTS)):
     """
 
     # make sure it is still evenly divisible
-    max_n_query = get_max_n(max_samples, max_shot, n_class)
+    max_n_query = get_max_n(max_samples, n_class, max_shot)
 
     # test to verify this number is divisible by shot int and number of classes
     for shot in SHOTS:
-        assert ((max_n_query / shot) * (1 / n_class)) % 1 == 0
+        assert (max_n_query / shot / n_class) % 1 == 0
 
     return max_n_query
 

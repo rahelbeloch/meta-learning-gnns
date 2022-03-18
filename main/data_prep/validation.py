@@ -2,8 +2,9 @@ import itertools
 
 import torch
 
-from data_prep.data_utils import get_data, get_loader, get_max_n_query, SHOTS
+from data_prep.data_utils import get_data, get_loader, get_max_n_query
 from data_prep.graph_dataset import TorchGeomGraphDataset
+from samplers.batch_sampler import SHOTS, get_max_n
 
 data_train = 'gossipcop'
 data_eval = 'gossipcop'
@@ -113,13 +114,20 @@ def unused_samples_stats():
                                                         feature_type, vocab_size, dirs, num_workers)
 
     for loader in loaders:
-        n_used = 0
+        n_indices = 0
 
         for c, s in itertools.product([0, 1], ['support', 'query']):
-            n_used += loader.b_sampler.indices_per_class[s, c]
+            n_indices += loader.b_sampler.indices_per_class[s][c].shape[0]
 
-        n_unused = loader.b_sampler.total_samples - n_used
-        print(f'Unused samples for loader {loader.mode}: {n_unused}')
+        n_query = sum([len(indices) for indices in loader.b_sampler.indices_per_class['query'].values()])
+        n_support = sum([len(indices) for indices in loader.b_sampler.indices_per_class['support'].values()])
+
+        # multiplied with 2 because of support and query
+        n_used = loader.b_sampler.batch_size * loader.b_sampler.num_batches * 2
+
+        print(f'{loader.mode} loader total samples: {n_indices}')
+        print(f'{loader.mode} loader unused query samples: {int(n_query - n_used / 2)}')
+        print(f'{loader.mode} loader unused support samples: {int(n_support - n_used / 2)}\n')
 
 
 if __name__ == '__main__':
@@ -138,3 +146,5 @@ if __name__ == '__main__':
     # sub_graphs_loader_validation()
 
     unused_samples_stats()
+
+    # get_max_n()
