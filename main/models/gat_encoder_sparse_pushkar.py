@@ -79,7 +79,7 @@ class GatNet(torch.nn.Module):
         # F1 is sensitive to threshold
         # area under the RC curve
 
-        return func.log_softmax(out, dim=1)
+        return out
 
 
 class SparseGATLayer(nn.Module):

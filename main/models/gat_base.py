@@ -1,3 +1,4 @@
+import torch.nn.functional as func
 from torch import nn
 
 from models.GraphTrainer import GraphTrainer
@@ -36,7 +37,7 @@ class GatBase(GraphTrainer):
 
         # Loss function consistent with labels?
         # Verify that this is the binary cross entropy loss
-        self.loss_module = nn.CrossEntropyLoss(weight=flipped_weights)
+        self.loss_module = nn.BCEWithLogitsLoss(weight=flipped_weights)
 
     def configure_optimizers(self):
         """
@@ -90,33 +91,30 @@ class GatBase(GraphTrainer):
             # collapse support and query set and train on whole
             sub_graphs = support_graphs + query_graphs
             targets = torch.cat([support_targets, query_targets])
-        # else:
-        #     print(f"\n{mode} {type(self.model).__name__.split('.')[-1]} on {len(sub_graphs)}"
-        #           f"samples (only query set).")
 
         # make a batch out of all sub graphs and push the batch through the model
         # [Data, Data, Data(x, y, ..)]
         x, edge_index, cl_mask = get_subgraph_batch(sub_graphs)
 
-        output = self.model(x, edge_index, mode)
-        output = output[cl_mask]
+        logits = self.model(x, edge_index, mode)
+        logits = logits[cl_mask]
 
-        predictions = output.argmax(dim=-1)
+        # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
+        predictions = func.sigmoid(logits)
+        predictions = predictions.argmax(dim=-1)
         for mode_dict, _ in self.metrics.values():
             mode_dict[mode].update(predictions, targets)
 
-        return output, targets
+        return logits, targets
 
     def training_step(self, batch, batch_idx):
 
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        predictions, targets = self.forward(batch, mode='train')
+        logits, targets = self.forward(batch, mode='train')
 
-        # TODO: maybe make probabilities out of logits via softmax
-        #  --> especially for the metrics; makes it more interpretable
-        loss = self.loss_module(predictions, targets)
+        loss = self.loss_module(logits, targets)
         self.log(f"train_loss", loss)
 
         # TODO: add scheduler
