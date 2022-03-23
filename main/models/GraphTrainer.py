@@ -15,7 +15,8 @@ class GraphTrainer(pl.LightningModule):
         self.metrics = {
             'f1_macro': ({}, 'macro'),
             'f1_target': ({}, 'none'),
-            'accuracy': ({}, 'macro')
+            # TODO: remove this?
+            # 'accuracy': ({}, 'macro')
         }
 
         # Metrics from torchmetrics
@@ -25,8 +26,6 @@ class GraphTrainer(pl.LightningModule):
                 if metric is None:
                     raise ValueError(f"Metric with key '{name}' not supported.")
                 split_dict[s] = metric(num_classes=n_classes, average=avg, multiclass=True).to(self._device)
-
-        # self.f1_test = torchmetrics.F1Score
 
     def log_on_epoch(self, metric, value):
         self.log(metric, value, on_step=False, on_epoch=True)

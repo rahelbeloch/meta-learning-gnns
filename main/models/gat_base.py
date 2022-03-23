@@ -21,7 +21,7 @@ class GatBase(GraphTrainer):
         """
         super().__init__(model_hparams["output_dim"])
 
-        # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace
+        # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace + saves config in wandb
         self.save_hyperparameters()
 
         self.model = GatNet(model_hparams)
@@ -90,6 +90,10 @@ class GatBase(GraphTrainer):
             # collapse support and query set and train on whole
             sub_graphs = support_graphs + query_graphs
             targets = torch.cat([support_targets, query_targets])
+        elif mode == 'val' or mode == 'test':
+            # only validate on the query set to keep comparability with meta models
+            sub_graphs = query_graphs
+            targets = torch.cat([query_targets])
 
         # make a batch out of all sub graphs and push the batch through the model
         # [Data, Data, Data(x, y, ..)]

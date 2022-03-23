@@ -6,8 +6,9 @@ from pathlib import Path
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as cb
 import torch
+import wandb
 from pytorch_lightning.callbacks import EarlyStopping
-from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import WandbLogger
 
 from data_prep.config import *
 from data_prep.data_utils import SUPPORTED_DATASETS
@@ -28,7 +29,7 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
           h_size, top_users, top_users_excluded, k_shot, lr, lr_cl, lr_inner,
           lr_outer, hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_docs,
           train_split_size, feature_type, vocab_size, n_inner_updates, num_workers, gat_dropout, lin_dropout,
-          attn_dropout):
+          attn_dropout, wb_mode):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     eval_split_size = (0.0, 0.25, 0.75) if data_eval != data_train else None
@@ -53,7 +54,7 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
           f' data_train: {data_train} (splits: {str(train_split_size)})\n data_eval: {data_eval} '
           f'(splits: {str(eval_split_size)})\n nr_train_docs: {nr_train_docs}\n hop_size: {h_size}\n '
           f'top_users: {top_users}K\n top_users_excluded: {top_users_excluded}%\n num_workers: {num_workers}\n '
-          f'vocab_size: {vocab_size}\n hops: {h_size}\n feature_type: {feature_type}\n\n lr: {lr}\n lr_cl: {lr_cl}\n '
+          f'vocab_size: {vocab_size}\n feature_type: {feature_type}\n\n lr: {lr}\n lr_cl: {lr_cl}\n '
           f'outer_lr: {lr_outer}\n inner_lr: {lr_inner}\n n_updates: {n_inner_updates}\n proto_dim: {proto_dim}\n')
 
     # reproducible results
@@ -104,7 +105,7 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
 
     print('\nInitializing trainer ..........\n')
     trainer = initialize_trainer(epochs, patience, patience_metric, model_name, lr, lr_cl, lr_inner, lr_outer, seed,
-                                 data_train, data_eval, k_shot, h_size, feature_type, checkpoint, progress_bar)
+                                 data_train, data_eval, k_shot, h_size, feature_type, checkpoint, progress_bar, wb_mode)
 
     if model_name == 'gat':
         model = GatBase(model_params, optimizer_hparams, b_size, train_graph.label_names, checkpoint)
@@ -114,6 +115,33 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
         model = ProtoMAML(model_params, optimizer_hparams, n_inner_updates, b_size, train_graph.label_names)
     else:
         raise ValueError(f'Model name {model_name} unknown!')
+
+    # wandb_config = dict(
+    #     seed=seed,
+    #     max_epochs=epochs,
+    #     patience=patience,
+    #     patience_metric=patience_metric,
+    #     k_shot=k_shot,
+    #     checkpoint=checkpoint,
+    #     data_train=data_train,
+    #     train_splits=train_split_size,
+    #     data_eval=data_eval,
+    #     eval_splits=eval_split_size,
+    #     nr_train_docs=nr_train_docs,
+    #     h_size=h_size,
+    #     top_users=top_users,
+    #     top_users_excluded=top_users_excluded,
+    #     num_workers=num_workers,
+    #     vocab_size=vocab_size,
+    #     feature_type=feature_type
+    # )
+    #
+    # wandb_config.update(optimizer_hparams)
+    # wandb_config.update(model_params)
+    #
+    # run_name = f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}_{data_train}_{model_name}"
+    # gnn_run = wandb.init(name=run_name, project='meta-gnn', entity='rahelhabacker', reinit=False,
+    #                      config=wandb_config, group='none', job_type={"test" if evaluation else "train"})
 
     if not evaluation:
         # Training
@@ -146,26 +174,31 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
     test_accuracy, val_accuracy, val_f1_fake, val_f1_real, val_f1_macro = 0.0, 0.0, 0.0, 0.0, 0.0
 
     if model_name == 'gat':
-        test_accuracy, test_f1_fake, test_f1_real, test_f1_macro, val_accuracy, val_f1_fake, val_f1_real, \
-        val_f1_macro, test_elapsed = evaluate(trainer, model, test_loader, test_val_loader)
+        _, test_f1_fake, test_f1_real, test_f1_macro, _, val_f1_fake, val_f1_real, val_f1_macro, test_elapsed \
+            = evaluate(trainer, model, test_loader, test_val_loader)
 
     elif model_name == 'prototypical':
-        (test_f1_fake, stvd1), (test_f1_real, stdv2), (test_f1_macro, f1stdev), test_elapsed, _ \
+        (test_f1_fake, _), (test_f1_real, _), (test_f1_macro, _), test_elapsed, _ \
             = test_proto_net(model, eval_graph, len(eval_graph.labels), data_feats=None, k_shot=k_shot)
-        # print(f"Accuracy for k={k_shot}: {100.0 * accuracy[0]:4.2f}% (+-{100 * accuracy[1]:4.2f}%)")
-        # print(f"F1 target for k={k_shot}: {100.0 * f1_target[0]:4.2f}% (+-{100 * f1_target[1]:4.2f}%)")
-        # print(f"F1 macro for k={k_shot}: {100.0 * f1_macro[0]:4.2f}% (+-{100 * f1_macro[1]:4.2f}%)")
     else:
         return
-    # print metrics
+
+    wandb.log({
+        "test_f1_fake": test_f1_fake,
+        "test_f1_real": test_f1_real,
+        "test_f1_macro": test_f1_macro,
+        "test_val_f1_fake": val_f1_fake,
+        "test_val_f1_real": val_f1_real,
+        "test_val_f1_macro": val_f1_macro
+    })
 
     print(f'\nRequired time for testing: {int(test_elapsed / 60)} minutes.\n')
     print(f'Test Results:\n '
-          f'test accuracy: {round(test_accuracy, 3)} ({test_accuracy})\n '
+          # f'test accuracy: {round(test_accuracy, 3)} ({test_accuracy})\n '
           f'test f1 fake: {round(test_f1_fake, 3)} ({test_f1_fake})\n '
           f'test f1 real: {round(test_f1_real, 3)} ({test_f1_real})\n '
           f'test f1 macro: {round(test_f1_macro, 3)} ({test_f1_macro})\n '
-          f'validation accuracy: {round(val_accuracy, 3)} ({val_accuracy})\n '
+          # f'validation accuracy: {round(val_accuracy, 3)} ({val_accuracy})\n '
           f'validation f1 fake: {round(val_f1_fake, 3)} ({val_f1_fake})\n '
           f'validation f1 real: {round(val_f1_real, 3)} ({val_f1_real})\n '
           f'validation f1 macro: {round(val_f1_macro, 3)} ({val_f1_macro})\n '
@@ -214,7 +247,7 @@ def verify_not_overlapping_samples(train_val_loader):
 
 
 def initialize_trainer(epochs, patience, patience_metric, model_name, lr, lr_cl, lr_inner, lr_output, seed, data_train,
-                       data_eval, k_shot, h_size, f_type, checkpoint, progress_bar):
+                       data_eval, k_shot, h_size, f_type, checkpoint, progress_bar, wb_mode):
     """
     Initializes a Lightning Trainer for respective parameters as given in the function header. Creates a proper
     folder name for the respective model files, initializes logging and early stopping.
@@ -232,7 +265,12 @@ def initialize_trainer(epochs, patience, patience_metric, model_name, lr, lr_cl,
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 
-    logger = TensorBoardLogger(LOG_PATH, name=model_name, version=version_str)
+    # logger = TensorBoardLogger(LOG_PATH, name=model_name, version=version_str)
+    logger = WandbLogger(project='meta-gnn',
+                         name=f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}_{data_train}",
+                         log_model=True if wb_mode == 'online' else False,
+                         save_dir=LOG_PATH,
+                         offline=wb_mode == 'offline')
 
     cls, metric, mode = EarlyStopping, 'val_f1_macro', 'max'
     if patience_metric == 'loss':
@@ -408,6 +446,8 @@ if __name__ == "__main__":
     parser.add_argument('--complete-dir', dest='complete_dir', default=complete_dir,
                         help='Select the dataset you want to use.')
 
+    parser.add_argument('--wb-mode', dest='wb_mode', type=str, default='offline')
+
     params = vars(parser.parse_args())
 
     train(
@@ -440,5 +480,6 @@ if __name__ == "__main__":
         num_workers=params["n_workers"],
         gat_dropout=params["gat_dropout"],
         lin_dropout=params["lin_dropout"],
-        attn_dropout=params["attn_dropout"]
+        attn_dropout=params["attn_dropout"],
+        wb_mode=params['wb_mode']
     )
