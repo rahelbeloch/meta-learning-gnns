@@ -177,7 +177,6 @@ def get_n_query_for_samples(max_samples, n_class, max_shot=max(SHOTS)):
 
     # test to verify this number is divisible by shot int and number of classes
     for shot in SHOTS:
-        print(f"\n MAx query N: {max_n_query}")
         assert (max_n_query / shot / n_class) % 1 == 0
 
     return max_n_query

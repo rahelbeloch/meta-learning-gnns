@@ -1,4 +1,3 @@
-import torch.nn.functional as func
 from torch import nn
 
 from models.GraphTrainer import GraphTrainer
@@ -116,16 +115,18 @@ class GatBase(GraphTrainer):
 
         logits, targets = self.forward(batch, mode='train')
 
-        targets = targets.float().unsqueeze(1)
-        print(str(logits.argmax(-1)))
-        logits = logits[logits.argmax(-1)]
+        new_targets = torch.zeros_like(logits)
+        for i in range(new_targets.shape[0]):
+            new_targets[i, targets[i]] = 1
+        new_targets = new_targets.float()
 
-        print(f"\nLogits dtype {logits.dtype}")
-        print(f"Logits Shape {logits.shape}")
-        print(f"Targets dtype {targets.dtype}")
-        print(f"Targets Shape {targets.shape}")
+        # print(f"\nLogits dtype {logits.dtype}")
+        # print(f"Logits Shape {logits.shape}")
+        # print(f"New Targets {new_targets}")
+        # print(f"New Targets dtype {new_targets.dtype}")
+        # print(f"New Targets Shape {new_targets.shape}")
 
-        loss = self.loss_module(logits, targets)
+        loss = self.loss_module(logits, new_targets)
 
         # only log this once in the end of an epoch (averaged over steps)
         self.log_on_epoch(f"train_loss", loss)
