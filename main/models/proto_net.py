@@ -2,6 +2,7 @@ import time
 from statistics import mean, stdev
 
 import numpy as np
+import torch
 import torch.nn.functional as func
 import torchmetrics as tm
 from torch import optim
@@ -72,13 +73,13 @@ class ProtoNet(GraphTrainer):
         # Squared euclidean distance
         dist = torch.pow(prototypes[None, :] - feats[:, None], 2).sum(dim=2)
 
-        # TODO: was log_softmax, now sigmoid?
-        # TODO: argmax here for the predictions??
-        predictions = torch.sigmoid(-dist)
+        # TODO: was log_softmax, now no softmax/sigmoid because this is handled by the loss function
+        # predictions = torch.log_softmax(-dist)
+        logits = -dist
 
         # noinspection PyUnresolvedReferences
-        labels = (classes[None, :] == targets[:, None]).long().argmax(dim=-1)
-        return predictions, labels
+        labels = (classes[None, :] == targets[:, None]).float()
+        return logits, labels
 
     def calculate_loss(self, batch, mode):
         """
@@ -101,6 +102,7 @@ class ProtoNet(GraphTrainer):
         assert support_logits.shape[0] == support_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
 
+        # support logits: episode size x 2, support targets: episode size x 1
         prototypes, classes = ProtoNet.calculate_prototypes(support_logits, support_targets)
 
         x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
@@ -110,15 +112,24 @@ class ProtoNet(GraphTrainer):
         assert query_logits.shape[0] == query_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
 
-        predictions, targets = ProtoNet.classify_features(prototypes, classes, query_logits, query_targets)
+        logits, targets = ProtoNet.classify_features(prototypes, classes, query_logits, query_targets)
 
-        meta_loss = func.binary_cross_entropy_with_logits(predictions, targets)
+        # print(f"\npredictions dtype {logits.dtype}")
+        # print(f"predictions Shape {logits.shape}")
+        # print(f"Targets {targets}")
+        # print(f"Targets dtype {targets.dtype}")
+        # print(f"Targets Shape {targets.shape}")
+
+        meta_loss = func.binary_cross_entropy_with_logits(logits, targets)
         # meta_loss = func.cross_entropy(predictions, targets)
 
         if mode == 'train':
             self.log_on_epoch(f"{mode}_loss", meta_loss)
 
-        pred = predictions.argmax(dim=-1)       # TODO: do we need argmax here? Logits are already argmax
+        # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
+        pred = torch.sigmoid(logits).argmax(dim=-1)
+        targets = targets.to(torch.int32).argmax(dim=-1)
+
         for mode_dict, _ in self.metrics.values():
             mode_dict[mode].update(pred, targets)
 

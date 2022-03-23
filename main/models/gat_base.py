@@ -101,7 +101,6 @@ class GatBase(GraphTrainer):
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
         predictions = torch.sigmoid(logits).argmax(dim=-1)
 
-        print(f"\npredictions shape {predictions.shape}")
         for mode_dict, _ in self.metrics.values():
             mode_dict[mode].update(predictions, targets)
 
