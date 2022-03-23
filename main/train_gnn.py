@@ -253,7 +253,7 @@ def initialize_trainer(epochs, patience, patience_metric, model_name, lr, lr_cl,
     folder name for the respective model files, initializes logging and early stopping.
     """
 
-    model_checkpoint = cb.ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_accuracy")
+    model_checkpoint = cb.ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_f1_macro")
 
     base = f'dtrain={data_train}_deval={data_eval}_seed={seed}_shots={k_shot}_hops={h_size}_ftype={f_type}_lr={lr}'
     if model_name == 'gat':
