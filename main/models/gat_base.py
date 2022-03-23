@@ -117,6 +117,8 @@ class GatBase(GraphTrainer):
         logits, targets = self.forward(batch, mode='train')
 
         targets = targets.float().unsqueeze(1)
+        print(str(logits.argmax(-1)))
+        logits = logits[logits.argmax(-1)]
 
         print(f"\nLogits dtype {logits.dtype}")
         print(f"Logits Shape {logits.shape}")
