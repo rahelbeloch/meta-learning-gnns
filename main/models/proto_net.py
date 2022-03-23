@@ -111,7 +111,8 @@ class ProtoNet(GraphTrainer):
         meta_loss = func.cross_entropy(predictions, targets)
 
         if mode == 'train':
-            self.log(f"{mode}_loss", meta_loss)
+            # TODO: do we want to log on step or on epoch?
+            self.log_on_epoch(f"{mode}_loss", meta_loss)
 
         pred = predictions.argmax(dim=-1)
         for mode_dict, _ in self.metrics.values():

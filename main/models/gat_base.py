@@ -105,7 +105,7 @@ class GatBase(GraphTrainer):
         for mode_dict, _ in self.metrics.values():
             mode_dict[mode].update(predictions, targets)
 
-        return logits, targets
+        return logits.argmax(dim=-1), targets
 
     def training_step(self, batch, batch_idx):
 
@@ -114,8 +114,10 @@ class GatBase(GraphTrainer):
 
         logits, targets = self.forward(batch, mode='train')
 
-        loss = self.loss_module(logits, targets)
-        self.log(f"train_loss", loss)
+        loss = self.loss_module(logits, targets.float())
+
+        # only log this once in the end of an epoch (averaged over steps)
+        self.log_on_epoch(f"train_loss", loss)
 
         # TODO: add scheduler
         # logging in optimizer step does not work, therefore here

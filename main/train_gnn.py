@@ -10,11 +10,12 @@ from pytorch_lightning.callbacks import EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from data_prep.config import *
-from data_prep.data_utils import SUPPORTED_DATASETS, SHOTS
+from data_prep.data_utils import SUPPORTED_DATASETS
 from data_prep.data_utils import get_data
 from models.gat_base import GatBase
 from models.proto_maml import ProtoMAML
 from models.proto_net import ProtoNet, test_proto_net
+from samplers.batch_sampler import SHOTS
 
 SUPPORTED_MODELS = ['gat', 'prototypical', 'gmeta']
 LOG_PATH = "../logs/"
@@ -360,7 +361,7 @@ if __name__ == "__main__":
 
     # MODEL CONFIGURATION
 
-    parser.add_argument('--model', dest='model', default='prototypical', choices=SUPPORTED_MODELS,
+    parser.add_argument('--model', dest='model', default='gat', choices=SUPPORTED_MODELS,
                         help='Select the model you want to use.')
     parser.add_argument('--hidden-dim', dest='hidden_dim', type=int, default=512)
     parser.add_argument('--feature-reduce-dim', dest='feat_reduce_dim', type=int, default=10000)

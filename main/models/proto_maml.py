@@ -135,7 +135,8 @@ class ProtoMAML(GraphTrainer):
             opt.zero_grad()
 
         self.compute_and_log_metrics('train')
-        self.log(f"{mode}_loss", sum(losses) / len(losses))
+        # TODO: do we want to log on step or on epoch?
+        self.log_on_epoch(f"{mode}_loss", sum(losses) / len(losses))
 
     def training_step(self, batch, batch_idx):
         self.outer_loop(batch, mode="train")
@@ -173,7 +174,8 @@ def test_protomaml(model, dataset, k_shot=4):
     # We iterate through the full dataset in two manners. First, to select the k-shot batch.
     # Second, the evaluate the model on all other examples
     accuracies = []
-    for (support_imgs, support_targets), support_indices in tqdm(zip(sample_dataloader, sampler), "Performing few-shot finetuning"):
+    for (support_imgs, support_targets), support_indices in tqdm(zip(sample_dataloader, sampler),
+                                                                 "Performing few-shot finetuning"):
         support_imgs = support_imgs.to(device)
         support_targets = support_targets.to(device)
         # Finetune new model on support set
