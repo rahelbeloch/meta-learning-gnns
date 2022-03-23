@@ -2,6 +2,7 @@ import time
 from statistics import mean, stdev
 
 import numpy as np
+import torch
 import torch.nn.functional as func
 import torchmetrics as tm
 from torch import optim
@@ -77,7 +78,7 @@ class ProtoNet(GraphTrainer):
         logits = -dist
 
         # noinspection PyUnresolvedReferences
-        labels = (classes[None, :] == targets[:, None]).float()
+        labels = (classes[None, :] == targets[:, None]).to(torch.int32)
         return logits, labels
 
     def calculate_loss(self, batch, mode):
@@ -119,7 +120,7 @@ class ProtoNet(GraphTrainer):
         # print(f"Targets dtype {targets.dtype}")
         # print(f"Targets Shape {targets.shape}")
 
-        meta_loss = func.binary_cross_entropy_with_logits(logits, targets)
+        meta_loss = func.binary_cross_entropy_with_logits(logits, targets.float())
         # meta_loss = func.cross_entropy(predictions, targets)
 
         if mode == 'train':
@@ -127,7 +128,7 @@ class ProtoNet(GraphTrainer):
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
         pred = torch.sigmoid(logits).argmax(dim=-1)
-        targets = targets.to(torch.int32).argmax(dim=-1)
+        targets = targets.argmax(dim=-1)
 
         for mode_dict, _ in self.metrics.values():
             mode_dict[mode].update(pred, targets)
