@@ -100,12 +100,14 @@ class GatBase(GraphTrainer):
         logits = logits[cl_mask]
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
-        predictions = func.sigmoid(logits)
-        predictions = predictions.argmax(dim=-1)
+        predictions = torch.sigmoid(logits).argmax(dim=-1)
+
+        print(f"\npredictions shape {predictions.shape}")
         for mode_dict, _ in self.metrics.values():
             mode_dict[mode].update(predictions, targets)
 
-        return logits.argmax(dim=-1), targets
+        # logits are not yet put into a sigmoid layer, because the loss module does this combined
+        return logits, targets
 
     def training_step(self, batch, batch_idx):
 
@@ -114,7 +116,14 @@ class GatBase(GraphTrainer):
 
         logits, targets = self.forward(batch, mode='train')
 
-        loss = self.loss_module(logits, targets.float())
+        targets = targets.float().unsqueeze(1)
+
+        print(f"\nLogits dtype {logits.dtype}")
+        print(f"Logits Shape {logits.shape}")
+        print(f"Targets dtype {targets.dtype}")
+        print(f"Targets Shape {targets.shape}")
+
+        loss = self.loss_module(logits, targets)
 
         # only log this once in the end of an epoch (averaged over steps)
         self.log_on_epoch(f"train_loss", loss)

@@ -71,7 +71,11 @@ class ProtoNet(GraphTrainer):
         """
         # Squared euclidean distance
         dist = torch.pow(prototypes[None, :] - feats[:, None], 2).sum(dim=2)
-        predictions = func.log_softmax(-dist, dim=1)
+
+        # TODO: was log_softmax, now sigmoid?
+        # TODO: argmax here for the predictions??
+        predictions = torch.sigmoid(-dist)
+
         # noinspection PyUnresolvedReferences
         labels = (classes[None, :] == targets[:, None]).long().argmax(dim=-1)
         return predictions, labels
@@ -91,30 +95,30 @@ class ProtoNet(GraphTrainer):
         support_graphs, query_graphs, support_targets, query_targets = batch
 
         x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
-        support_feats = self.model(x, edge_index, mode)
-        support_feats = support_feats[cl_mask]
+        support_logits = self.model(x, edge_index, mode)
+        support_logits = support_logits[cl_mask]
 
-        assert support_feats.shape[0] == support_targets.shape[0], \
+        assert support_logits.shape[0] == support_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
 
-        prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
+        prototypes, classes = ProtoNet.calculate_prototypes(support_logits, support_targets)
 
         x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
-        query_feats = self.model(x, edge_index, mode)
-        query_feats = query_feats[cl_mask]
+        query_logits = self.model(x, edge_index, mode)
+        query_logits = query_logits[cl_mask]
 
-        assert query_feats.shape[0] == query_targets.shape[0], \
+        assert query_logits.shape[0] == query_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
 
-        predictions, targets = ProtoNet.classify_features(prototypes, classes, query_feats, query_targets)
+        predictions, targets = ProtoNet.classify_features(prototypes, classes, query_logits, query_targets)
 
-        meta_loss = func.cross_entropy(predictions, targets)
+        meta_loss = func.binary_cross_entropy_with_logits(predictions, targets)
+        # meta_loss = func.cross_entropy(predictions, targets)
 
         if mode == 'train':
-            # TODO: do we want to log on step or on epoch?
             self.log_on_epoch(f"{mode}_loss", meta_loss)
 
-        pred = predictions.argmax(dim=-1)
+        pred = predictions.argmax(dim=-1)       # TODO: do we need argmax here? Logits are already argmax
         for mode_dict, _ in self.metrics.values():
             mode_dict[mode].update(pred, targets)
 
