@@ -219,11 +219,13 @@ def test_proto_net(model, dataset, num_classes, data_feats=None, k_shot=4):
                 continue
 
             e_node_feats, e_targets = get_as_set(e_idx, k_shot, node_features, node_targets, start_indices_per_class)
-            predictions, labels = model.classify_features(prototypes, proto_classes, e_node_feats, e_targets)
+            logits, targets = model.classify_features(prototypes, proto_classes, e_node_feats, e_targets)
 
-            predictions = predictions.argmax(dim=-1)
-            batch_f1_target.update(predictions, labels)
-            batch_f1_macro.update(predictions, labels)
+            predictions = torch.sigmoid(logits).argmax(dim=-1)
+            targets = targets.argmax(dim=-1)
+
+            batch_f1_target.update(predictions, targets)
+            batch_f1_macro.update(predictions, targets)
 
         f1_target_values = batch_f1_target.compute()
 
