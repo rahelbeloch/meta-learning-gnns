@@ -160,7 +160,7 @@ class KHopSamplerSimple(GraphSAINTSampler):
         node_indices = self.__sample_nodes__(idx).unique()
         adj, _ = self.adj.saint_subgraph(node_indices)
         # noinspection PyTypeChecker
-        data, target = self.as_data_target(adj, (idx.iitem(), torch.where(node_indices == idx)[0].item()), node_indices)
+        data, target = self.as_data_target(adj, (idx.item(), torch.where(node_indices == idx)[0].item()), node_indices)
         return data, target
 
     def __sample_nodes__(self, node_id):

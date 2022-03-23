@@ -2,7 +2,6 @@ import time
 from statistics import mean, stdev
 
 import numpy as np
-import torch
 import torch.nn.functional as func
 import torchmetrics as tm
 from torch import optim
