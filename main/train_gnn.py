@@ -107,9 +107,9 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
                                  data_train, data_eval, k_shot, h_size, feature_type, checkpoint, progress_bar, wb_mode)
 
     if model_name == 'gat':
-        model = GatBase(model_params, optimizer_hparams, b_size, train_graph.label_names, checkpoint)
+        model = GatBase(model_params, optimizer_hparams, b_size, train_graph.label_names)
     elif model_name == 'prototypical':
-        model = ProtoNet(model_params, optimizer_hparams['lr'], b_size, train_graph.label_names)
+        model = ProtoNet(model_params, optimizer_hparams, b_size, train_graph.label_names)
     elif model_name == 'gmeta':
         model = ProtoMAML(model_params, optimizer_hparams, n_inner_updates, b_size, train_graph.label_names)
     else:
@@ -134,13 +134,6 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
     #     vocab_size=vocab_size,
     #     feature_type=feature_type
     # )
-    #
-    # wandb_config.update(optimizer_hparams)
-    # wandb_config.update(model_params)
-    #
-    # run_name = f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}_{data_train}_{model_name}"
-    # gnn_run = wandb.init(name=run_name, project='meta-gnn', entity='rahelhabacker', reinit=False,
-    #                      config=wandb_config, group='none', job_type={"test" if evaluation else "train"})
 
     if not evaluation:
         # Training

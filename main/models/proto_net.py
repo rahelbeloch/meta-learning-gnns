@@ -2,7 +2,6 @@ import time
 from statistics import mean, stdev
 
 import numpy as np
-import torch
 import torch.nn.functional as func
 import torchmetrics as tm
 from torch import optim
@@ -19,7 +18,7 @@ DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 class ProtoNet(GraphTrainer):
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, lr, batch_size, label_names):
+    def __init__(self, model_params, optimizer_hparams, batch_size, label_names):
         """
         Inputs
             proto_dim - Dimensionality of prototype feature space
@@ -31,7 +30,7 @@ class ProtoNet(GraphTrainer):
         self.model = GatNet(model_params)
 
     def configure_optimizers(self):
-        optimizer = optim.AdamW(self.parameters(), lr=self.hparams.lr)
+        optimizer = optim.AdamW(self.parameters(), lr=self.hparams.optimizer_hparams['lr'])
         scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[140, 180], gamma=0.1)
         return [optimizer], [scheduler]
 

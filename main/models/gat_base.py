@@ -12,7 +12,7 @@ class GatBase(GraphTrainer):
     """
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_hparams, optimizer_hparams, batch_size, label_names, checkpoint=None):
+    def __init__(self, model_hparams, optimizer_hparams, batch_size, label_names):
         """
         Args:
             model_hparams - Hyperparameters for the whole model, as dictionary.
@@ -26,10 +26,10 @@ class GatBase(GraphTrainer):
 
         self.model = GatNet(model_hparams)
 
-        # TODO: move this to GatNet
-        if checkpoint is not None:
-            encoder = load_pretrained_encoder(checkpoint)
-            self.model.load_state_dict(encoder)
+        # # TODO: move this to GatNet
+        # if checkpoint is not None:
+        #     encoder = load_pretrained_encoder(checkpoint)
+        #     self.model.load_state_dict(encoder)
 
         # flipping the weights
         flipped_weights = torch.flip(model_hparams["class_weight"], dims=[0])
