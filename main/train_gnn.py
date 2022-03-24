@@ -255,15 +255,15 @@ def initialize_trainer(epochs, patience, patience_metric, model_name, lr, lr_cl,
 
     model_checkpoint = cb.ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_f1_macro")
 
-    base = f'dtrain={data_train}_deval={data_eval}_seed={seed}_shots={k_shot}_hops={h_size}_ftype={f_type}_lr={lr}'
-    if model_name == 'gat':
-        version_str = f'{base}_lr-cl={lr_cl}'
-    elif model_name == 'prototypical':
-        version_str = f'{base}'
-    elif model_name == 'gmeta':
-        version_str = f'{base}_lr-inner={lr_inner}_lr-output={lr_output}'
-    else:
-        raise ValueError(f'Model name {model_name} unknown!')
+    # base = f'dtrain={data_train}_deval={data_eval}_seed={seed}_shots={k_shot}_hops={h_size}_ftype={f_type}_lr={lr}'
+    # if model_name == 'gat':
+    #     version_str = f'{base}_lr-cl={lr_cl}'
+    # elif model_name == 'prototypical':
+    #     version_str = f'{base}'
+    # elif model_name == 'gmeta':
+    #     version_str = f'{base}_lr-inner={lr_inner}_lr-output={lr_output}'
+    # else:
+    #     raise ValueError(f'Model name {model_name} unknown!')
 
     # logger = TensorBoardLogger(LOG_PATH, name=model_name, version=version_str)
     logger = WandbLogger(project='meta-gnn',
@@ -386,7 +386,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--epochs', dest='epochs', type=int, default=1)
-    parser.add_argument('--patience-metric', dest='patience_metric', type=str, default='f1')
+    parser.add_argument('--patience-metric', dest='patience_metric', type=str, default='loss')
     parser.add_argument('--patience', dest='patience', type=int, default=10)
     parser.add_argument('--gat-dropout', dest='gat_dropout', type=float, default=0.6)
     parser.add_argument('--lin-dropout', dest='lin_dropout', type=float, default=0.5)
