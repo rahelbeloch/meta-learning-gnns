@@ -10,9 +10,8 @@ import wandb
 from pytorch_lightning.callbacks import EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 
-from data_prep.config import *
-from data_prep.data_utils import SUPPORTED_DATASETS
-from data_prep.data_utils import get_data
+from data_prep.config import TSV_DIR, COMPLETE_DIR
+from data_prep.data_utils import get_data, SUPPORTED_DATASETS
 from models.gat_base import GatBase
 from models.proto_maml import ProtoMAML
 from models.proto_net import ProtoNet, test_proto_net
@@ -270,7 +269,28 @@ def initialize_trainer(epochs, patience, patience_metric, model_name, lr, lr_cl,
                          name=f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}_{data_train}",
                          log_model=True if wb_mode == 'online' else False,
                          save_dir=LOG_PATH,
-                         offline=wb_mode == 'offline')
+                         offline=wb_mode == 'offline',
+                         config=dict(
+                             seed=seed,
+                             max_epochs=epochs,
+                             patience=patience,
+                             patience_metric=patience_metric,
+                             k_shot=k_shot,
+                             checkpoint=checkpoint,
+                             data_train=data_train,
+                             # TODO: add these parameters to Wandb
+                             # train_splits=train_split_size,
+                             data_eval=data_eval,
+                             # eval_splits=eval_split_size,
+                             # nr_train_docs=nr_train_docs,
+                             h_size=h_size,
+                             # top_users=top_users,
+                             # top_users_excluded=top_users_excluded,
+                             # num_workers=num_workers,
+                             # vocab_size=vocab_size,
+                             # feature_type=feature_type
+                         )
+                         )
 
     cls, metric, mode = EarlyStopping, 'val_f1_macro', 'max'
     if patience_metric == 'loss':
