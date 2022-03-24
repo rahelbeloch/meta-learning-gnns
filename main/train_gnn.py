@@ -173,7 +173,7 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
     test_accuracy, val_accuracy, val_f1_fake, val_f1_real, val_f1_macro = 0.0, 0.0, 0.0, 0.0, 0.0
 
     if model_name == 'gat':
-        _, test_f1_fake, test_f1_real, test_f1_macro, _, val_f1_fake, val_f1_real, val_f1_macro, test_elapsed \
+        test_f1_fake, test_f1_real, test_f1_macro, val_f1_fake, val_f1_real, val_f1_macro, test_elapsed \
             = evaluate(trainer, model, test_loader, test_val_loader)
 
     elif model_name == 'prototypical':
@@ -353,12 +353,12 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
     test_results = results[0]
     val_results = results[1]
 
-    test_accuracy = test_results['test_accuracy']
+    # test_accuracy = test_results['test_accuracy']
     test_f1_fake = test_results['test_f1_fake']
     test_f1_real = test_results['test_f1_real']
     test_f1_macro = test_results['test_f1_macro']
 
-    val_accuracy = val_results['test_accuracy']
+    # val_accuracy = val_results['test_accuracy']
     val_f1_fake = val_results['test_f1_fake']
     val_f1_real = val_results['test_f1_real']
     val_f1_macro = test_results['test_f1_macro']
@@ -366,8 +366,8 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
     test_end = time.time()
     test_elapsed = test_end - test_start
 
-    return test_accuracy, test_f1_fake, test_f1_real, test_f1_macro, \
-           val_accuracy, val_f1_fake, val_f1_real, val_f1_macro, test_elapsed
+    return test_f1_fake, test_f1_real, test_f1_macro, \
+           val_f1_fake, val_f1_real, val_f1_macro, test_elapsed
 
 
 def round_format(metric):
