@@ -161,6 +161,42 @@ class FewShotSampler(Sampler):
         return self.num_batches
 
 
+class BatchSampler(FewShotSampler):
+    """
+    Sampler which uses batches created by FewShotSampler and concatenates them to bigger batches.
+    Useful for non-meta baselines for more stable training with bigger batches.
+    """
+
+    def __init__(self, targets, max_n_query, mode, n_way=2, k_shot=5, shuffle=True, shuffle_once=False, verbose=False):
+        super().__init__(targets, max_n_query, mode, n_way, k_shot, shuffle, shuffle_once, verbose)
+
+        # TODO: must be divisible by self.k_shot * self.n_way
+        self.new_b_size = 480
+        # self.new_b_size = 360
+
+        self.n_old_batches = super(BatchSampler, self).__len__()
+
+        n_new_batches = 2 * self.n_old_batches * self.k_shot / self.new_b_size
+        assert n_new_batches % 1 == 0, f"New batch size {self.new_b_size} can not create even number of batches."
+
+        self.n_new_batches = int(n_new_batches)
+
+    def __iter__(self):
+        support_batches, query_batches = [], []
+
+        for full_batch in super(BatchSampler, self).__iter__():
+            support_batch, query_batch = split_list(full_batch)
+            support_batches += support_batch
+            query_batches += query_batch
+
+            if len(support_batches) == self.new_b_size:
+                yield support_batches + query_batches
+                support_batches, query_batches = [], []
+
+    def __len__(self):
+        return self.n_new_batches
+
+
 def split_list(a_list):
     half = len(a_list) // 2
     return a_list[:half], a_list[half:]

@@ -12,19 +12,19 @@ class GatBase(GraphTrainer):
     """
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_hparams, optimizer_hparams, batch_size, label_names):
+    def __init__(self, model_params, optimizer_hparams, batch_size, label_names):
         """
         Args:
-            model_hparams - Hyperparameters for the whole model, as dictionary.
+            model_params - Hyperparameters for the whole model, as dictionary.
             optimizer_hparams - Hyperparameters for the optimizer, as dictionary. This includes learning rate,
             weight decay, etc.
         """
-        super().__init__(model_hparams["output_dim"])
+        super().__init__(model_params["output_dim"])
 
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace + saves config in wandb
         self.save_hyperparameters()
 
-        self.model = GatNet(model_hparams)
+        self.model = GatNet(model_params)
 
         # # TODO: move this to GatNet
         # if checkpoint is not None:
@@ -32,7 +32,7 @@ class GatBase(GraphTrainer):
         #     self.model.load_state_dict(encoder)
 
         # flipping the weights
-        flipped_weights = torch.flip(model_hparams["class_weight"], dims=[0])
+        flipped_weights = torch.flip(model_params["class_weight"], dims=[0])
 
         # Loss function consistent with labels?
         # Verify that this is the binary cross entropy loss
@@ -108,11 +108,11 @@ class GatBase(GraphTrainer):
         for mode_dict, _ in self.metrics.values():
             mode_dict[mode].update(predictions, targets)
 
+
         # logits are not yet put into a sigmoid layer, because the loss module does this combined
         return logits, targets
 
     def training_step(self, batch, batch_idx):
-
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
@@ -132,6 +132,7 @@ class GatBase(GraphTrainer):
         loss = self.loss_module(logits, new_targets)
 
         # only log this once in the end of an epoch (averaged over steps)
+        print("\nTrain loss logged... \n")
         self.log_on_epoch(f"train_loss", loss)
 
         # TODO: add scheduler

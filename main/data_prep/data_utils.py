@@ -2,7 +2,7 @@ import torch.cuda
 
 from data_prep.graph_dataset import TorchGeomGraphDataset
 from data_prep.graph_preprocessor import SPLITS
-from samplers.batch_sampler import FewShotSampler, get_n_query_for_samples
+from samplers.batch_sampler import FewShotSampler, get_n_query_for_samples, BatchSampler
 from samplers.graph_sampler import KHopSampler
 from samplers.maml_batch_sampler import FewShotMamlSampler
 
@@ -41,7 +41,8 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
         assert train_split_size[0] > 0.0 and train_split_size[1] and train_split_size[2] > 0.0, \
             "Data for training and evaluation is equal and one of the split sizes is 0!"
 
-    num_workers = num_workers if num_workers is not None else 4 if torch.cuda.is_available() else 0  # mac has 8 CPUs
+    # num_workers = num_workers if num_workers is not None else 4 if torch.cuda.is_available() else 0  # mac has 8 CPUs
+    num_workers = 2
 
     data_config = {'top_users': top_k, 'top_users_excluded': top_users_excluded, 'feature_type': feature_type,
                    'vocab_size': vocab_size}
@@ -93,7 +94,13 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
     shuffle = mode == 'train'
     shuffle_once = mode == 'val'
 
-    if model_name in ['gat', 'prototypical']:
+    if model_name == 'gat' and mode == 'train':
+        batch_sampler = BatchSampler(graph_data.data.y[mask], n_queries[mode], mode, n_way=n_classes, k_shot=k_shot,
+                                     shuffle=shuffle, shuffle_once=shuffle_once)
+
+        # for i, batch in enumerate(batch_sampler):
+        #     print(f"\nBatch {i}, len: {len(batch)}")
+    elif model_name == 'prototypical' or (model_name == 'gat' and mode != 'train'):
         batch_sampler = FewShotSampler(graph_data.data.y[mask], n_queries[mode], mode, n_way=n_classes, k_shot=k_shot,
                                        shuffle=shuffle, shuffle_once=shuffle_once)
     elif model_name == 'gmeta':
