@@ -132,7 +132,6 @@ class GatBase(GraphTrainer):
         loss = self.loss_module(logits, new_targets)
 
         # only log this once in the end of an epoch (averaged over steps)
-        print("\nTrain loss logged... \n")
         self.log_on_epoch(f"train_loss", loss)
 
         # TODO: add scheduler

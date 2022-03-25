@@ -135,13 +135,17 @@ class FewShotSampler(Sampler):
         return self.indices_per_class['query']
 
     def __iter__(self):
+        yield from self._iter(self.num_batches, self.k_shot)
+
+    def _iter(self, n_batches, offset):
+
         # Shuffle data
         if self.shuffle:
             self.shuffle_data()
 
         # Sample few-shot batches
         start_index = defaultdict(lambda: defaultdict(int))
-        for it in range(self.num_batches):
+        for it in range(n_batches):
             index_batches = dict()
             for s in self.sets:
 
@@ -150,8 +154,8 @@ class FewShotSampler(Sampler):
                 set_index_batch = []
                 for c in class_batch:  # For each class, select the next K examples and add them to the batch
                     set_index_batch.extend(
-                        self.indices_per_class[s][c][start_index[s][c]:start_index[s][c] + self.k_shot])
-                    start_index[s][c] += self.k_shot
+                        self.indices_per_class[s][c][start_index[s][c]:start_index[s][c] + offset])
+                    start_index[s][c] += offset
                 index_batches[s] = set_index_batch
 
             full_batch = index_batches['support'] + index_batches['query']
@@ -182,16 +186,8 @@ class BatchSampler(FewShotSampler):
         self.n_new_batches = int(n_new_batches)
 
     def __iter__(self):
-        support_batches, query_batches = [], []
-
-        for full_batch in super(BatchSampler, self).__iter__():
-            support_batch, query_batch = split_list(full_batch)
-            support_batches += support_batch
-            query_batches += query_batch
-
-            if len(support_batches) == self.new_b_size:
-                yield support_batches + query_batches
-                support_batches, query_batches = [], []
+        offset = int(self.new_b_size / 4)
+        yield from super(BatchSampler, self)._iter(self.n_new_batches, offset)
 
     def __len__(self):
         return self.n_new_batches
