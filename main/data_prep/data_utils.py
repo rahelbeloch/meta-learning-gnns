@@ -41,8 +41,7 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
         assert train_split_size[0] > 0.0 and train_split_size[1] and train_split_size[2] > 0.0, \
             "Data for training and evaluation is equal and one of the split sizes is 0!"
 
-    # num_workers = num_workers if num_workers is not None else 4 if torch.cuda.is_available() else 0  # mac has 8 CPUs
-    num_workers = 2
+    num_workers = num_workers if num_workers is not None else 4 if torch.cuda.is_available() else 0  # mac has 8 CPUs
 
     data_config = {'top_users': top_k, 'top_users_excluded': top_users_excluded, 'feature_type': feature_type,
                    'vocab_size': vocab_size}
