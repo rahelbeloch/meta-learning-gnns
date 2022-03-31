@@ -41,8 +41,6 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
         assert train_split_size[0] > 0.0 and train_split_size[1] and train_split_size[2] > 0.0, \
             "Data for training and evaluation is equal and one of the split sizes is 0!"
 
-    num_workers = num_workers if num_workers is not None else 4 if torch.cuda.is_available() else 0  # mac has 8 CPUs
-
     data_config = {'top_users': top_k, 'top_users_excluded': top_users_excluded, 'feature_type': feature_type,
                    'vocab_size': vocab_size}
 
@@ -85,6 +83,19 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
     return loaders, train_loader.b_size, graph_data_train, graph_data_eval
 
 
+def get_num_workers(sampler, num_workers):
+    if num_workers is not None:
+        return num_workers
+    elif not torch.cuda.is_available():
+        # mac has 8 CPUs
+        return 0
+    elif type(sampler) == BatchSampler:
+        return 3
+    elif type(sampler) in [FewShotSampler, FewShotMamlSampler]:
+        return 4
+    return 0
+
+
 def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_queries):
     n_classes = len(graph_data.labels)
 
@@ -104,6 +115,8 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
                                            shuffle=shuffle)
     else:
         raise ValueError(f"Model with name '{model_name}' is not supported.")
+
+    num_workers = get_num_workers(batch_sampler, num_workers)
 
     sampler = KHopSampler(graph_data, model_name, batch_sampler, n_classes, k_shot, hop_size, mode,
                           num_workers=num_workers)
