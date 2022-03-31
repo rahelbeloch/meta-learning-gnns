@@ -96,9 +96,6 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
     if model_name == 'gat' and mode == 'train':
         batch_sampler = BatchSampler(graph_data.data.y[mask], n_queries[mode], mode, n_way=n_classes, k_shot=k_shot,
                                      shuffle=shuffle, shuffle_once=shuffle_once)
-
-        # for i, batch in enumerate(batch_sampler):
-        #     print(f"\nBatch {i}, len: {len(batch)}")
     elif model_name == 'prototypical' or (model_name == 'gat' and mode != 'train'):
         batch_sampler = FewShotSampler(graph_data.data.y[mask], n_queries[mode], mode, n_way=n_classes, k_shot=k_shot,
                                        shuffle=shuffle, shuffle_once=shuffle_once)

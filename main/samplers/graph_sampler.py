@@ -43,7 +43,7 @@ class KHopSampler(GraphSAINTSampler):
         using this property name. If the batch_sampler includes query and support set in one batch/episode, the
         batch/episode size is 2 * k_shots * n_classes.
         """
-        return self.__batch_size__
+        return self.b_sampler.b_size
 
     def __getitem__(self, idx):
         node_indices = self.__sample_nodes__(idx).unique()

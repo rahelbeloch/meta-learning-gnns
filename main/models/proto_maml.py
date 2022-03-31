@@ -15,7 +15,7 @@ from samplers.batch_sampler import split_list
 class ProtoMAML(GraphTrainer):
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, opt_hparams, n_inner_updates, batch_size, label_names):
+    def __init__(self, model_params, opt_hparams, n_inner_updates, label_names):
         """
         Inputs
             lr - Learning rate of the outer loop Adam optimizer

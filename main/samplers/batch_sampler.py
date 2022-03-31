@@ -134,6 +134,10 @@ class FewShotSampler(Sampler):
     def query_samples(self):
         return self.indices_per_class['query']
 
+    @property
+    def b_size(self):
+        return self.batch_size
+
     def __iter__(self):
         yield from self._iter(self.num_batches, self.k_shot)
 
@@ -152,9 +156,9 @@ class FewShotSampler(Sampler):
                 # Select N classes for the batch
                 class_batch = self.batches_target_lists[s][it * self.n_way:(it + 1) * self.n_way]
                 set_index_batch = []
+                set_index_batch.extend(
+                    self.indices_per_class[s][c][start_index[s][c]:start_index[s][c] + offset])
                 for c in class_batch:  # For each class, select the next K examples and add them to the batch
-                    set_index_batch.extend(
-                        self.indices_per_class[s][c][start_index[s][c]:start_index[s][c] + offset])
                     start_index[s][c] += offset
                 index_batches[s] = set_index_batch
 
@@ -191,6 +195,10 @@ class BatchSampler(FewShotSampler):
 
     def __len__(self):
         return self.n_new_batches
+
+    @property
+    def b_size(self):
+        return self.new_b_size
 
 
 def split_list(a_list):

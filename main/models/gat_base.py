@@ -12,7 +12,7 @@ class GatBase(GraphTrainer):
     """
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, optimizer_hparams, batch_size, label_names):
+    def __init__(self, model_params, optimizer_hparams, label_names, batch_size):
         """
         Args:
             model_params - Hyperparameters for the whole model, as dictionary.

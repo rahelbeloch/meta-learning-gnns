@@ -18,7 +18,7 @@ DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 class ProtoNet(GraphTrainer):
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, optimizer_hparams, batch_size, label_names):
+    def __init__(self, model_params, optimizer_hparams, label_names):
         """
         Inputs
             proto_dim - Dimensionality of prototype feature space

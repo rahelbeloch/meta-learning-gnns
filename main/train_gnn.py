@@ -103,15 +103,16 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
     # verify_not_overlapping_samples(test_loader)
 
     print('\nInitializing trainer ..........\n')
-    trainer = initialize_trainer(epochs, patience, patience_metric, model_name, lr, lr_cl, lr_inner, lr_outer, seed,
-                                 data_train, data_eval, k_shot, h_size, feature_type, checkpoint, progress_bar, wb_mode)
+    trainer = initialize_trainer(epochs, patience, patience_metric, seed, data_train, data_eval, k_shot, h_size,
+                                 feature_type, checkpoint, progress_bar, wb_mode,
+                                 (train_loader.b_size, train_val_loader.b_size, test_loader.b_size))
 
     if model_name == 'gat':
-        model = GatBase(model_params, optimizer_hparams, b_size, train_graph.label_names)
+        model = GatBase(model_params, optimizer_hparams, train_graph.label_names, b_size)
     elif model_name == 'prototypical':
-        model = ProtoNet(model_params, optimizer_hparams, b_size, train_graph.label_names)
+        model = ProtoNet(model_params, optimizer_hparams, train_graph.label_names)
     elif model_name == 'gmeta':
-        model = ProtoMAML(model_params, optimizer_hparams, n_inner_updates, b_size, train_graph.label_names)
+        model = ProtoMAML(model_params, optimizer_hparams, n_inner_updates, train_graph.label_names)
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 
@@ -238,8 +239,8 @@ def verify_not_overlapping_samples(train_val_loader):
     assert not_different_examples == 0
 
 
-def initialize_trainer(epochs, patience, patience_metric, model_name, lr, lr_cl, lr_inner, lr_output, seed, data_train,
-                       data_eval, k_shot, h_size, f_type, checkpoint, progress_bar, wb_mode):
+def initialize_trainer(epochs, patience, patience_metric, seed, data_train, data_eval, k_shot, h_size, f_type,
+                       checkpoint, progress_bar, wb_mode, loader_b_sizes):
     """
     Initializes a Lightning Trainer for respective parameters as given in the function header. Creates a proper
     folder name for the respective model files, initializes logging and early stopping.
@@ -247,17 +248,6 @@ def initialize_trainer(epochs, patience, patience_metric, model_name, lr, lr_cl,
 
     model_checkpoint = cb.ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_f1_macro")
 
-    # base = f'dtrain={data_train}_deval={data_eval}_seed={seed}_shots={k_shot}_hops={h_size}_ftype={f_type}_lr={lr}'
-    # if model_name == 'gat':
-    #     version_str = f'{base}_lr-cl={lr_cl}'
-    # elif model_name == 'prototypical':
-    #     version_str = f'{base}'
-    # elif model_name == 'gmeta':
-    #     version_str = f'{base}_lr-inner={lr_inner}_lr-output={lr_output}'
-    # else:
-    #     raise ValueError(f'Model name {model_name} unknown!')
-
-    # logger = TensorBoardLogger(LOG_PATH, name=model_name, version=version_str)
     logger = WandbLogger(project='meta-gnn',
                          name=f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}_{data_train}",
                          log_model=True if wb_mode == 'online' else False,
@@ -272,6 +262,8 @@ def initialize_trainer(epochs, patience, patience_metric, model_name, lr, lr_cl,
                              h_size=h_size,
                              checkpoint=checkpoint,
                              data_train=data_train,
+                             feature_type=f_type,
+                             loader_batch_sizes=loader_b_sizes,
                              # TODO: add these parameters to Wandb
                              # train_splits=train_split_size,
                              data_eval=data_eval,
