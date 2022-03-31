@@ -455,6 +455,8 @@ if __name__ == "__main__":
 
     params = vars(parser.parse_args())
 
+    os.environ["WANDB_MODE"] = params['wb_mode']
+
     train(
         progress_bar=params['progress_bar'],
         model_name=params['model'],
