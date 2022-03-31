@@ -156,9 +156,9 @@ class FewShotSampler(Sampler):
                 # Select N classes for the batch
                 class_batch = self.batches_target_lists[s][it * self.n_way:(it + 1) * self.n_way]
                 set_index_batch = []
-                set_index_batch.extend(
-                    self.indices_per_class[s][c][start_index[s][c]:start_index[s][c] + offset])
                 for c in class_batch:  # For each class, select the next K examples and add them to the batch
+                    set_index_batch.extend(
+                        self.indices_per_class[s][c][start_index[s][c]:start_index[s][c] + offset])
                     start_index[s][c] += offset
                 index_batches[s] = set_index_batch
 
