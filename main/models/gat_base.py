@@ -28,6 +28,8 @@ class GatBase(GraphTrainer):
 
         self.model = GatNet(model_params)
 
+        self.lr_scheduler = None        # initialized later
+
         # # TODO: move this to GatNet
         # if checkpoint is not None:
         #     encoder = load_pretrained_encoder(checkpoint)
@@ -70,6 +72,10 @@ class GatBase(GraphTrainer):
                                                   max_iters=self.hparams.optimizer_hparams['max_iters'])
 
         return [optimizer], []
+
+    def optimizer_step(self, *args, **kwargs):
+        super().optimizer_step(*args, **kwargs)
+        self.lr_scheduler.step()  # Step per iteration
 
     def forward(self, batch, mode=None):
 
