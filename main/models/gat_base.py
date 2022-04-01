@@ -1,5 +1,6 @@
+import numpy as np
 import torch.nn.functional as func
-from torch import nn
+from torch import nn, optim
 
 from models.GraphTrainer import GraphTrainer
 from models.gat_encoder_sparse_pushkar import GatNet
@@ -52,8 +53,11 @@ class GatBase(GraphTrainer):
 
         # weight_decay_enc = self.hparams.optimizer_hparams["weight_decay_enc"]
         # weight_decay_cl = self.hparams.optimizer_hparams["weight_decay_cl"]
-        # if weight_decay_cl < 0:  # classifier weight decay not specified
-        #     weight_decay_cl = weight_decay_enc
+        weight_decay_enc = 5e-4
+        weight_decay_cl = -1
+
+        if weight_decay_cl < 0:  # classifier weight decay not specified
+            weight_decay_cl = weight_decay_enc
 
         params = list(self.named_parameters())
 
@@ -63,20 +67,20 @@ class GatBase(GraphTrainer):
         grouped_parameters = [
             {
                 'params': [p for n, p in params if is_encoder(n)],
-                'lr': lr  # ,
-                # 'weight_decay': weight_decay_enc
+                'lr': lr,
+                'weight_decay': weight_decay_enc
             },
             {
                 'params': [p for n, p in params if not is_encoder(n)],
-                'lr': lr_cl  # ,
-                # 'weight_decay': weight_decay_cl
+                'lr': lr_cl,
+                'weight_decay': weight_decay_cl
             }
         ]
 
         optimizer = torch.optim.AdamW(grouped_parameters)
 
-        # self.lr_scheduler = CosineWarmupScheduler(optimizer=optimizer, warmup=self.hparams.optimizer_hparams['warmup'],
-        #                                           max_iters=self.hparams.optimizer_hparams['max_iters'])
+        self.lr_scheduler = CosineWarmupScheduler(optimizer=optimizer, warmup=self.hparams.optimizer_hparams['warmup'],
+                                                  max_iters=self.hparams.optimizer_hparams['max_iters'])
 
         return [optimizer], []
 
@@ -122,9 +126,8 @@ class GatBase(GraphTrainer):
         # only log this once in the end of an epoch (averaged over steps)
         self.log_on_epoch(f"train_loss", loss)
 
-        # TODO: add scheduler
         # logging in optimizer step does not work, therefore here
-        # self.log('lr_rate', self.lr_scheduler.get_lr()[0])
+        self.log('lr_rate', self.lr_scheduler.get_lr()[0])
 
         # back propagate every step, but only log every epoch
         # sum the loss over steps and average at the end of one epoch and then log
@@ -160,3 +163,26 @@ def load_pretrained_encoder(checkpoint_path):
             encoder_state_dict[new_layer] = param
 
     return encoder_state_dict
+
+
+# noinspection PyProtectedMember
+class CosineWarmupScheduler(optim.lr_scheduler._LRScheduler):
+    """
+    Learning rate scheduler, combining warm-up with a cosine-shaped learning rate decay.
+    """
+
+    def __init__(self, optimizer, warmup, max_iters):
+        self.warmup = warmup
+        self.max_num_iters = max_iters
+        super().__init__(optimizer)
+
+    def get_lr(self):
+        lr_factor = self.get_lr_factor()
+        return [base_lr * lr_factor for base_lr in self.base_lrs]
+
+    def get_lr_factor(self):
+        current_step = self.last_epoch
+        lr_factor = 0.5 * (1 + np.cos(np.pi * current_step / self.max_num_iters))
+        if current_step < self.warmup:
+            lr_factor *= current_step * 1.0 / self.warmup
+        return lr_factor

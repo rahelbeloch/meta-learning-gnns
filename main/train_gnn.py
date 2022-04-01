@@ -28,7 +28,7 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
           h_size, top_users, top_users_excluded, k_shot, lr, lr_cl, lr_inner,
           lr_output, hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_docs,
           train_split_size, feature_type, vocab_size, n_inner_updates, num_workers, gat_dropout, lin_dropout,
-          attn_dropout, wb_mode):
+          attn_dropout, wb_mode, warmup, max_iters):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     eval_split_size = (0.0, 0.25, 0.75) if data_eval != data_train else None
@@ -73,7 +73,7 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
     train_class_ratio = train_graph.class_ratio
     f1_train_label, _ = train_graph.f1_target_label, eval_graph.f1_target_label
 
-    optimizer_hparams = {"lr": lr}
+    optimizer_hparams = {"lr": lr, "warmup": warmup, "max_iters": max_iters}
 
     model_params = {
         'model': model_name,
@@ -124,7 +124,7 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
     elif model_name == 'prototypical':
         model_params.update(proto_dim=proto_dim)
 
-        model = ProtoNet(model_params, optimizer_hparams, train_graph.label_names)
+        model = ProtoNet(model_params, optimizer_hparams, train_graph.label_names, b_size)
     elif model_name == 'gmeta':
         model_params.update(n_inner_updates=n_inner_updates)
         optimizer_hparams.update(lr_output=lr_output, lr_inner=lr_inner)
@@ -379,13 +379,18 @@ if __name__ == "__main__":
     parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
     parser.add_argument('--lr-cl', dest='lr_cl', type=float, default=0.001,
                         help="Classifier learning rate for baseline.")
+    parser.add_argument("--warmup", dest='warmup', type=int, default=500,
+                        help="Number of steps for which we do learning rate warmup.")
+    parser.add_argument("--max-iters", dest='max_iters', type=int, default=-1,
+                        help='Number of iterations until the learning rate decay after warmup should last. '
+                             'If not given then it is computed from the given epochs.')
 
     # MODEL CONFIGURATION
 
     parser.add_argument('--model', dest='model', default='gat', choices=SUPPORTED_MODELS,
                         help='Select the model you want to use.')
     parser.add_argument('--hidden-dim', dest='hidden_dim', type=int, default=512)
-    parser.add_argument('--feature-reduce-dim', dest='feat_reduce_dim', type=int, default=10000)
+    parser.add_argument('--feature-reduce-dim', dest='feat_reduce_dim', type=int, default=256)
     parser.add_argument('--checkpoint', default=model_checkpoint, type=str, metavar='PATH',
                         help='Path to latest checkpoint (default: None)')
 
@@ -466,5 +471,7 @@ if __name__ == "__main__":
         gat_dropout=params["gat_dropout"],
         lin_dropout=params["lin_dropout"],
         attn_dropout=params["attn_dropout"],
-        wb_mode=params['wb_mode']
+        wb_mode=params['wb_mode'],
+        warmup=params['warmup'],
+        max_iters=params['max_iters']
     )

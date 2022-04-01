@@ -1,16 +1,16 @@
---model gat --seed 1234 --lr 1e-3 --hidden-dim 512 --k-shot 5 --epochs 100 --feature-reduce-dim 256 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
---model gat --seed 1234 --lr 5e-3 --hidden-dim 512 --k-shot 5 --epochs 100 --feature-reduce-dim 256 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
---model gat --seed 1234 --lr 1e-3 --hidden-dim 256 --k-shot 5 --epochs 100 --feature-reduce-dim 256 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
---model gat --seed 1234 --lr 5e-3 --hidden-dim 256 --k-shot 5 --epochs 100 --feature-reduce-dim 256 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
---model gat --seed 1234 --lr 1e-3 --hidden-dim 512 --k-shot 10 --epochs 100 --feature-reduce-dim 256 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
---model gat --seed 1234 --lr 5e-3 --hidden-dim 512 --k-shot 10 --epochs 100 --feature-reduce-dim 256 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
---model gat --seed 1234 --lr 1e-3 --hidden-dim 256 --k-shot 10 --epochs 100 --feature-reduce-dim 256 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
---model gat --seed 1234 --lr 5e-3 --hidden-dim 256 --k-shot 10 --epochs 100 --feature-reduce-dim 256 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
---model gat --seed 1234 --lr 1e-3 --hidden-dim 512 --k-shot 20 --epochs 100 --feature-reduce-dim 256 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
---model gat --seed 1234 --lr 5e-3 --hidden-dim 512 --k-shot 20 --epochs 100 --feature-reduce-dim 256 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
---model gat --seed 1234 --lr 1e-3 --hidden-dim 256 --k-shot 20 --epochs 100 --feature-reduce-dim 256 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
---model gat --seed 1234 --lr 5e-3 --hidden-dim 256 --k-shot 20 --epochs 100 --feature-reduce-dim 256 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
---model gat --seed 1234 --lr 1e-3 --hidden-dim 512 --k-shot 40 --epochs 100 --feature-reduce-dim 256 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
---model gat --seed 1234 --lr 5e-3 --hidden-dim 512 --k-shot 40 --epochs 100 --feature-reduce-dim 256 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
---model gat --seed 1234 --lr 1e-3 --hidden-dim 256 --k-shot 40 --epochs 100 --feature-reduce-dim 256 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
---model gat --seed 1234 --lr 5e-3 --hidden-dim 256 --k-shot 40 --epochs 100 --feature-reduce-dim 256 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
+--model gat --seed 1234 --lr 1e-3 --hidden-dim 512 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
+--model gat --seed 1234 --lr 5e-3 --hidden-dim 512 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
+--model gat --seed 1234 --lr 1e-3 --hidden-dim 256 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
+--model gat --seed 1234 --lr 5e-3 --hidden-dim 256 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
+--model gat --seed 1234 --lr 1e-3 --hidden-dim 512 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
+--model gat --seed 1234 --lr 5e-3 --hidden-dim 512 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
+--model gat --seed 1234 --lr 1e-3 --hidden-dim 256 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
+--model gat --seed 1234 --lr 5e-3 --hidden-dim 256 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
+--model gat --seed 1234 --lr 1e-3 --hidden-dim 512 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
+--model gat --seed 1234 --lr 5e-3 --hidden-dim 512 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
+--model gat --seed 1234 --lr 1e-3 --hidden-dim 256 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
+--model gat --seed 1234 --lr 5e-3 --hidden-dim 256 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
+--model gat --seed 1234 --lr 1e-3 --hidden-dim 512 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
+--model gat --seed 1234 --lr 5e-3 --hidden-dim 512 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
+--model gat --seed 1234 --lr 1e-3 --hidden-dim 256 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
+--model gat --seed 1234 --lr 5e-3 --hidden-dim 256 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar
