@@ -2,7 +2,7 @@ from copy import deepcopy
 
 import torch.nn.functional as func
 from torch import optim
-## tqdm for loading bars
+# tqdm for loading bars
 from tqdm.auto import tqdm
 
 from models.GraphTrainer import GraphTrainer
@@ -135,7 +135,6 @@ class ProtoMAML(GraphTrainer):
             opt.zero_grad()
 
         self.compute_and_log_metrics('train')
-        # TODO: do we want to log on step or on epoch?
         self.log_on_epoch(f"{mode}_loss", sum(losses) / len(losses))
 
     def training_step(self, batch, batch_idx):

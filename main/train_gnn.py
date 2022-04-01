@@ -71,6 +71,7 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
     train_labels, eval_labels = train_graph.labels, train_graph.labels
     train_graph_size, _ = train_graph.size, eval_graph.size
     train_class_ratio = train_graph.class_ratio
+
     f1_train_label, _ = train_graph.f1_target_label, eval_graph.f1_target_label
 
     optimizer_hparams = {"lr": lr, "warmup": warmup,
