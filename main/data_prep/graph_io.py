@@ -60,6 +60,10 @@ class GraphIO:
         self.val_docs = doc_splits['val_docs'] if 'val_docs' in doc_splits else []
         self.test_docs = doc_splits['test_docs'] if 'test_docs' in doc_splits else []
 
+    @property
+    def total_docs(self):
+        return len(self.train_docs) + len(self.val_docs) + len(self.test_docs)
+
     def get_file_name(self, filename):
         return filename % (self.feature_type, self.vocab_size, self.train_size, self.val_size, self.test_size)
 
@@ -144,7 +148,7 @@ class GraphIO:
 
         token_counts.sort(reverse=True)
         if self.vocab_size != -1:
-            token_counts = token_counts[:self.vocab_size-1]
+            token_counts = token_counts[:self.vocab_size - 1]
         # NIV: not in vocab token, i.e., out of vocab
         token_counts.append(NIV_IDX)
 

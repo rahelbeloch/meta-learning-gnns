@@ -61,7 +61,6 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
                     # compute and plot the new node distribution
                     self.plot_node_degree_dist(self.adj)
 
-
         # check that no overlap between train/test and train/val
 
         # all node data
@@ -145,6 +144,9 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
             'val_mask': torch.BoolTensor(split_masks['val_mask']),
             'test_mask': torch.BoolTensor(split_masks['test_mask'])
         }
+
+        true_values = [torch.unique(self.split_masks[key], return_counts=True)[1][1].item() for key in self.split_masks]
+        assert sum(true_values) == self.y_data.shape[0], "Split masks have more True values than there are labels!"
 
         if self._verbose:
             self.print_step("Statistics")

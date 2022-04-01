@@ -185,11 +185,11 @@ if __name__ == '__main__':
 
     parser.add_argument('--vocab_size', type=int, default=10000, help='Size of the vocabulary used (if one-hot).')
 
-    parser.add_argument('--train-size', dest='train_size', type=float, default=0.875, help='Size of train split.')
+    parser.add_argument('--train-size', dest='train_size', type=float, default=0.7, help='Size of train split.')
 
-    parser.add_argument('--val-size', dest='val_size', type=float, default=0.125, help='Size of validation split.')
+    parser.add_argument('--val-size', dest='val_size', type=float, default=0.1, help='Size of validation split.')
 
-    parser.add_argument('--test-size', dest='test_size', type=float, default=0.0, help='Size of train split.')
+    parser.add_argument('--test-size', dest='test_size', type=float, default=0.2, help='Size of train split.')
 
     args, unparsed = parser.parse_known_args()
     args = args.__dict__

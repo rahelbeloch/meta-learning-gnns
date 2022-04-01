@@ -403,7 +403,8 @@ class GraphPreprocessor(GraphIO):
         train_labels = np.zeros(len(train_docs), dtype=int)
 
         # must be length of all nodes, but we only fill labels for train and val
-        all_labels = np.zeros(self.n_nodes, dtype=int)
+        # user label positions are indicated with -1
+        all_labels = np.full((self.total_docs, 1), -1).squeeze()
 
         for doc_key in train_docs:
             if doc_key not in self.doc2id:
@@ -422,19 +423,26 @@ class GraphPreprocessor(GraphIO):
                 raise ValueError(f'Can not retrieve label for document with key: {doc_key}')
             all_labels[self.doc2id[doc_key]] = doc2labels[doc_key]
 
+        # verify that all_labels really only contains labels for documents and not for users
+        # assert False not in (torch.bincount(all_labels[:self.total_docs]) == torch.bincount(
+        #     torch.tensor(list(doc2labels.values()))))
+        # assert 0 not in all_labels[self.total_docs:] and 1 not in all_labels[self.total_docs:]
+        assert -1 not in all_labels, "For some document no valid label was set!"
+        assert len(all_labels) == len(self.doc2id) == self.total_docs
+
         assert len(train_labels) == len(self.doc2id.keys()) - len(self.test_docs)
         print(f"\nLen of (train) labels = {len(train_labels)}")
-
-        # labels_file = self.data_complete_path(self.get_file_name(TRAIN_LABELS_FILE_NAME))
-        # print(f"\nLabels list construction done! Saving in : {labels_file}")
-        # save_json_file({'labels_list': list(train_labels)}, labels_file, converter=self.np_converter)
 
         print("\nSum of all labels = ", int(sum(all_labels)))
         print("Len of all labels = ", len(all_labels))
 
         all_labels_file = self.data_complete_path(self.get_file_name(ALL_LABELS_FILE_NAME))
         print(f"\nAll labels list construction done! Saving in : {all_labels_file}")
-        save_json_file({'all_labels': list(all_labels)}, all_labels_file, converter=self.np_converter)
+        save_json_file(
+            {'all_labels': all_labels, "train_labels": train_labels},
+            all_labels_file,
+            converter=self.np_converter
+        )
 
     def create_split_masks(self):
         """
