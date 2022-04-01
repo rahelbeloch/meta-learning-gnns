@@ -47,17 +47,9 @@ class GatBase(GraphTrainer):
         """
 
         lr = self.hparams.optimizer_hparams['lr']
-        lr_cl = self.hparams.optimizer_hparams['lr_cl']
-        if lr_cl < 0:  # classifier learning rate not specified
-            lr_cl = lr
 
         # weight_decay_enc = self.hparams.optimizer_hparams["weight_decay_enc"]
-        # weight_decay_cl = self.hparams.optimizer_hparams["weight_decay_cl"]
         weight_decay_enc = 5e-4
-        weight_decay_cl = -1
-
-        if weight_decay_cl < 0:  # classifier weight decay not specified
-            weight_decay_cl = weight_decay_enc
 
         params = list(self.named_parameters())
 
@@ -69,11 +61,6 @@ class GatBase(GraphTrainer):
                 'params': [p for n, p in params if is_encoder(n)],
                 'lr': lr,
                 'weight_decay': weight_decay_enc
-            },
-            {
-                'params': [p for n, p in params if not is_encoder(n)],
-                'lr': lr_cl,
-                'weight_decay': weight_decay_cl
             }
         ]
 
