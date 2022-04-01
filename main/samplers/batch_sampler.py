@@ -143,8 +143,8 @@ class FewShotSampler(Sampler):
 
     def _iter(self, n_batches, offset):
         # Shuffle data
-        if self.shuffle:
-            self.shuffle_data()
+        # if self.shuffle:
+        #     self.shuffle_data()
 
         # Sample few-shot batches
         start_index = defaultdict(lambda: defaultdict(int))
