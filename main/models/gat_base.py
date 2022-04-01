@@ -88,10 +88,14 @@ class GatBase(GraphTrainer):
             # collapse support and query set and train on whole
             sub_graphs = support_graphs + query_graphs
             targets = torch.cat([support_targets, query_targets])
-        elif mode == 'val' or mode == 'test':
+        elif mode == 'val':
+            # fine tune on support set & evaluate on test set
+            sub_graphs = query_graphs
+            targets = query_targets
+        elif mode == 'test':
             # only validate on the query set to keep comparability with meta models
             sub_graphs = query_graphs
-            targets = torch.cat([query_targets])
+            targets = query_targets
 
         # make a batch out of all sub graphs and push the batch through the model
         # [Data, Data, Data(x, y, ..)]

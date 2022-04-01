@@ -116,12 +116,6 @@ class ProtoNet(GraphTrainer):
 
         logits, targets = ProtoNet.classify_features(prototypes, classes, query_logits, query_targets)
 
-        # print(f"\npredictions dtype {logits.dtype}")
-        # print(f"predictions Shape {logits.shape}")
-        # print(f"Targets {targets}")
-        # print(f"Targets dtype {targets.dtype}")
-        # print(f"Targets Shape {targets.shape}")
-
         meta_loss = func.binary_cross_entropy_with_logits(logits, targets.float())
         # meta_loss = func.cross_entropy(predictions, targets)
 
