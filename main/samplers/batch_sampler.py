@@ -108,27 +108,27 @@ class FewShotSampler(Sampler):
         for s in self.sets:
             self.batches_target_lists[s] = [c for c in self.classes for _ in range(self.batches_per_class[s][c])]
 
-        if shuffle_once or self.shuffle:
-            self.shuffle_data()
-        else:
-            for s in self.sets:
-                # For testing, we iterate over classes instead of shuffling them
-                sort_idxs = [i + p * self.num_classes for i, c in enumerate(self.classes) for p in
-                             range(self.batches_per_class[s][c])]
-
-                self.batches_target_lists[s] = np.array(self.batches_target_lists[s])[np.argsort(sort_idxs)].tolist()
-
-    def shuffle_data(self):
-        # Shuffle the examples per class
-        for c, s in itertools.product(self.classes, self.sets):
-            perm = torch.randperm(self.indices_per_class[s][c].shape[0])
-            self.indices_per_class[s][c] = self.indices_per_class[s][c][perm]
-
-        # Shuffle the target list from which we sample. Note that this way of shuffling
-        # does not prevent to choose the same class twice in a batch. However, for
-        # training and validation, this is not a problem.
+        # if shuffle_once or self.shuffle:
+        #     self.shuffle_data()
+        # else:
         for s in self.sets:
-            random.shuffle(self.batches_target_lists[s])
+            # For testing, we iterate over classes instead of shuffling them
+            sort_idxs = [i + p * self.num_classes for i, c in enumerate(self.classes) for p in
+                         range(self.batches_per_class[s][c])]
+
+            self.batches_target_lists[s] = np.array(self.batches_target_lists[s])[np.argsort(sort_idxs)].tolist()
+
+    # def shuffle_data(self):
+    #     # Shuffle the examples per class
+    #     for c, s in itertools.product(self.classes, self.sets):
+    #         perm = torch.randperm(self.indices_per_class[s][c].shape[0])
+    #         self.indices_per_class[s][c] = self.indices_per_class[s][c][perm]
+    #
+    #     # Shuffle the target list from which we sample. Note that this way of shuffling
+    #     # does not prevent to choose the same class twice in a batch. However, for
+    #     # training and validation, this is not a problem.
+    #     for s in self.sets:
+    #         random.shuffle(self.batches_target_lists[s])
 
     @property
     def query_samples(self):
