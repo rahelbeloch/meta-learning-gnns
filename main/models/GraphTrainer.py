@@ -25,7 +25,7 @@ class GraphTrainer(pl.LightningModule):
                 metric = tm.Accuracy if name == 'accuracy' else tm.F1 if name.startswith('f1') else None
                 if metric is None:
                     raise ValueError(f"Metric with key '{name}' not supported.")
-                split_dict[s] = metric(num_classes=n_classes, average=avg, multiclass=True).to(self._device)
+                split_dict[s] = metric(num_classes=n_classes, average=avg).to(self._device)
 
     def log_on_epoch(self, metric, value):
         self.log(metric, value, on_step=False, on_epoch=True)
