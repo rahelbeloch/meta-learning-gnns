@@ -15,14 +15,12 @@ class GraphTrainer(pl.LightningModule):
         self.metrics = {
             'f1_macro': ({}, 'macro'),
             'f1_target': ({}, 'none'),
-            # TODO: remove this?
-            # 'accuracy': ({}, 'macro')
         }
 
         # Metrics from torchmetrics
         for s in SPLITS:
             for name, (split_dict, avg) in self.metrics.items():
-                metric = tm.Accuracy if name == 'accuracy' else tm.F1 if name.startswith('f1') else None
+                metric = tm.F1 if name.startswith('f1') else None
                 if metric is None:
                     raise ValueError(f"Metric with key '{name}' not supported.")
                 split_dict[s] = metric(num_classes=n_classes, average=avg).to(self._device)
@@ -50,15 +48,12 @@ class GraphTrainer(pl.LightningModule):
     def compute_and_log_metrics(self, mode, verbose=True):
         f1_1, f1_2 = self.metrics['f1_target'][0][mode].compute()
         f1_macro = self.metrics['f1_macro'][0][mode].compute()
-        # accuracy = self.metrics['accuracy'][0][mode].compute()
 
         if verbose:
             label_names = self.hparams["label_names"]
             self.log_on_epoch(f'{mode}_f1_{label_names[0]}', f1_1)
             self.log_on_epoch(f'{mode}_f1_{label_names[1]}', f1_2)
             self.log_on_epoch(f'{mode}_f1_macro', f1_macro)
-            # self.log_on_epoch(f'{mode}_accuracy', accuracy)
 
         self.metrics['f1_target'][0][mode].reset()
         self.metrics['f1_macro'][0][mode].reset()
-        # self.metrics['accuracy'][0][mode].reset()

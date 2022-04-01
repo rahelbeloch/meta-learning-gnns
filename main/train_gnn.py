@@ -115,26 +115,6 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 
-    # wandb_config = dict(
-    #     seed=seed,
-    #     max_epochs=epochs,
-    #     patience=patience,
-    #     patience_metric=patience_metric,
-    #     k_shot=k_shot,
-    #     checkpoint=checkpoint,
-    #     data_train=data_train,
-    #     train_splits=train_split_size,
-    #     data_eval=data_eval,
-    #     eval_splits=eval_split_size,
-    #     nr_train_docs=nr_train_docs,
-    #     h_size=h_size,
-    #     top_users=top_users,
-    #     top_users_excluded=top_users_excluded,
-    #     num_workers=num_workers,
-    #     vocab_size=vocab_size,
-    #     feature_type=feature_type
-    # )
-
     if not evaluation:
         # Training
 
@@ -186,11 +166,9 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
 
     print(f'\nRequired time for testing: {int(test_elapsed / 60)} minutes.\n')
     print(f'Test Results:\n '
-          # f'test accuracy: {round(test_accuracy, 3)} ({test_accuracy})\n '
           f'test f1 fake: {round(test_f1_fake, 3)} ({test_f1_fake})\n '
           f'test f1 real: {round(test_f1_real, 3)} ({test_f1_real})\n '
           f'test f1 macro: {round(test_f1_macro, 3)} ({test_f1_macro})\n '
-          # f'validation accuracy: {round(val_accuracy, 3)} ({val_accuracy})\n '
           f'validation f1 fake: {round(val_f1_fake, 3)} ({val_f1_fake})\n '
           f'validation f1 real: {round(val_f1_real, 3)} ({val_f1_real})\n '
           f'validation f1 macro: {round(val_f1_macro, 3)} ({val_f1_macro})\n '
