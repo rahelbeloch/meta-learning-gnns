@@ -138,30 +138,6 @@ class FewShotSampler(Sampler):
     def b_size(self):
         return self.batch_size
 
-    # def __iter__(self):
-    #
-    #     # Shuffle data
-    #     if self.shuffle:
-    #         self.shuffle_data()
-    #
-    #     # Sample few-shot batches
-    #     start_index = defaultdict(lambda: defaultdict(int))
-    #     for it in range(self.num_batches):
-    #         index_batches = dict()
-    #         for s in self.sets:
-    #
-    #             # Select N classes for the batch
-    #             class_batch = self.batches_target_lists[s][it * self.n_way:(it + 1) * self.n_way]
-    #             set_index_batch = []
-    #             for c in class_batch:  # For each class, select the next K examples and add them to the batch
-    #                 set_index_batch.extend(
-    #                     self.indices_per_class[s][c][start_index[s][c]:start_index[s][c] + self.k_shot])
-    #                 start_index[s][c] += self.k_shot
-    #             index_batches[s] = set_index_batch
-    #
-    #         full_batch = index_batches['support'] + index_batches['query']
-    #         yield full_batch
-
     def __iter__(self):
         yield from self._iter(self.num_batches, self.k_shot)
 
@@ -215,32 +191,6 @@ class BatchSampler(FewShotSampler):
     def __iter__(self):
         offset = int(self.new_b_size / 4)
         yield from super(BatchSampler, self)._iter(self.n_new_batches, offset)
-
-    # def __iter__(self):
-    #     print(f"\nNr new batches: {self.n_new_batches}")
-    #     offset = int(self.new_b_size / 4)
-    #
-    #     # Shuffle data
-    #     if self.shuffle:
-    #         self.shuffle_data()
-    #
-    #     # Sample few-shot batches
-    #     start_index = defaultdict(lambda: defaultdict(int))
-    #     for it in range(self.n_new_batches):
-    #         index_batches = dict()
-    #         for s in self.sets:
-    #
-    #             # Select N classes for the batch
-    #             class_batch = self.batches_target_lists[s][it * self.n_way:(it + 1) * self.n_way]
-    #             set_index_batch = []
-    #             for c in class_batch:  # For each class, select the next K examples and add them to the batch
-    #                 set_index_batch.extend(
-    #                     self.indices_per_class[s][c][start_index[s][c]:start_index[s][c] + offset])
-    #                 start_index[s][c] += offset
-    #             index_batches[s] = set_index_batch
-    #
-    #         full_batch = index_batches['support'] + index_batches['query']
-    #         yield full_batch
 
     def __len__(self):
         return self.n_new_batches

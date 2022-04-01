@@ -104,8 +104,7 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
 
     print('\nInitializing trainer ..........\n')
     trainer = initialize_trainer(epochs, patience, patience_metric, seed, data_train, data_eval, k_shot, h_size,
-                                 feature_type, checkpoint, progress_bar, wb_mode,
-                                 (train_loader.b_size, train_val_loader.b_size, test_loader.b_size))
+                                 feature_type, checkpoint, progress_bar, wb_mode, loaders)
 
     if model_name == 'gat':
         model = GatBase(model_params, optimizer_hparams, train_graph.label_names, b_size)
@@ -240,7 +239,7 @@ def verify_not_overlapping_samples(train_val_loader):
 
 
 def initialize_trainer(epochs, patience, patience_metric, seed, data_train, data_eval, k_shot, h_size, f_type,
-                       checkpoint, progress_bar, wb_mode, loader_b_sizes):
+                       checkpoint, progress_bar, wb_mode, loaders):
     """
     Initializes a Lightning Trainer for respective parameters as given in the function header. Creates a proper
     folder name for the respective model files, initializes logging and early stopping.
@@ -262,11 +261,12 @@ def initialize_trainer(epochs, patience, patience_metric, seed, data_train, data
                              h_size=h_size,
                              checkpoint=checkpoint,
                              data_train=data_train,
+                             data_eval=data_eval,
                              feature_type=f_type,
-                             loader_batch_sizes=loader_b_sizes,
+                             batch_sizes=dict(train=loaders[0].b_size, val=loaders[1].b_size, test=loaders[2].b_size),
+                             num_batches=dict(train=len(loaders[0]), val=len(loaders[1]), test=len(loaders[2])),
                              # TODO: add these parameters to Wandb
                              # train_splits=train_split_size,
-                             data_eval=data_eval,
                              # eval_splits=eval_split_size,
                              # nr_train_docs=nr_train_docs,
                              # top_users=top_users,
@@ -276,7 +276,6 @@ def initialize_trainer(epochs, patience, patience_metric, seed, data_train, data
                              # feature_type=feature_type
                          )
                          )
-
     cls, metric, mode = EarlyStopping, 'val_f1_macro', 'max'
     if patience_metric == 'loss':
         cls, metric, mode = LossEarlyStopping, 'train_loss', 'min'
