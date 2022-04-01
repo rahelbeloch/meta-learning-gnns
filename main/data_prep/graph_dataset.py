@@ -110,6 +110,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         # calculate class imbalance for the loss function
         self.class_ratio = torch.bincount(self.y_data) / self.y_data.shape[0]
+        print(f"\n Class ratio: {self.class_ratio}\n")
 
         edge_list_file = self.data_complete_path(self.get_file_name(EDGE_LIST_FILE_NAME))
         if not edge_list_file.exists():
