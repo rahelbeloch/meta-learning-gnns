@@ -1,3 +1,4 @@
+import torch.nn.functional as func
 from torch import nn
 
 from models.GraphTrainer import GraphTrainer
@@ -108,7 +109,6 @@ class GatBase(GraphTrainer):
         for mode_dict, _ in self.metrics.values():
             mode_dict[mode].update(predictions, targets)
 
-
         # logits are not yet put into a sigmoid layer, because the loss module does this combined
         return logits, targets
 
@@ -117,19 +117,7 @@ class GatBase(GraphTrainer):
             torch.cuda.empty_cache()
 
         logits, targets = self.forward(batch, mode='train')
-
-        new_targets = torch.zeros_like(logits)
-        for i in range(new_targets.shape[0]):
-            new_targets[i, targets[i]] = 1
-        new_targets = new_targets.float()
-
-        # print(f"\nLogits dtype {logits.dtype}")
-        # print(f"Logits Shape {logits.shape}")
-        # print(f"New Targets {new_targets}")
-        # print(f"New Targets dtype {new_targets.dtype}")
-        # print(f"New Targets Shape {new_targets.shape}")
-
-        loss = self.loss_module(logits, new_targets)
+        loss = self.loss_module(logits, func.one_hot(targets).float())
 
         # only log this once in the end of an epoch (averaged over steps)
         self.log_on_epoch(f"train_loss", loss)
@@ -143,7 +131,11 @@ class GatBase(GraphTrainer):
         return dict(loss=loss)
 
     def validation_step(self, batch, batch_idx):
-        self.forward(batch, mode='val')
+        logits, targets = self.forward(batch, mode='val')
+        loss = self.loss_module(logits, func.one_hot(targets).float())
+
+        # only log this once in the end of an epoch (averaged over steps)
+        self.log_on_epoch(f"val_loss", loss)
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default, logs it per epoch (weighted average over batches)
