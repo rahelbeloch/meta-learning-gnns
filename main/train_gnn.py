@@ -276,9 +276,13 @@ def initialize_trainer(epochs, patience, patience_metric, seed, data_train, data
                              # feature_type=feature_type
                          )
                          )
-    cls, metric, mode = EarlyStopping, 'val_f1_macro', 'max'
+
     if patience_metric == 'loss':
         cls, metric, mode = LossEarlyStopping, 'train_loss', 'min'
+    elif patience_metric == 'f1_macro':
+        cls, metric, mode = EarlyStopping, 'val_f1_macro', 'max'
+    else:
+        raise ValueError(f"Patience metric '{patience_metric}' is not supported.")
 
     early_stop_callback = cls(
         monitor=metric,
