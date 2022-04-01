@@ -15,7 +15,7 @@ from samplers.batch_sampler import split_list
 class ProtoMAML(GraphTrainer):
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, opt_hparams, n_inner_updates, label_names):
+    def __init__(self, model_params, opt_hparams, label_names):
         """
         Inputs
             lr - Learning rate of the outer loop Adam optimizer
@@ -57,7 +57,7 @@ class ProtoMAML(GraphTrainer):
         output_bias = init_bias.detach().requires_grad_()
 
         # Optimize inner loop model on support set
-        for _ in range(self.hparams.n_inner_updates):
+        for _ in range(self.model_params.n_inner_updates):
             # Determine loss on the support set
             loss, predictions = run_model(local_model, output_weight, output_bias, support_graphs, support_labels, mode)
 

@@ -27,6 +27,9 @@ class ProtoNet(GraphTrainer):
         super().__init__(model_params['output_dim'])
         self.save_hyperparameters()
 
+        # the output dimension for the prototypical network is not num classes, but the prototypes dimension!
+        model_params['output_dim'] = model_params['proto_dim']
+
         self.model = GatNet(model_params)
 
     def configure_optimizers(self):

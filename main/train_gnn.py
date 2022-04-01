@@ -26,7 +26,7 @@ if torch.cuda.is_available():
 
 def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
           h_size, top_users, top_users_excluded, k_shot, lr, lr_cl, lr_inner,
-          lr_outer, hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_docs,
+          lr_output, hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_docs,
           train_split_size, feature_type, vocab_size, n_inner_updates, num_workers, gat_dropout, lin_dropout,
           attn_dropout, wb_mode):
     os.makedirs(LOG_PATH, exist_ok=True)
@@ -54,7 +54,7 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
           f'(splits: {str(eval_split_size)})\n nr_train_docs: {nr_train_docs}\n hop_size: {h_size}\n '
           f'top_users: {top_users}K\n top_users_excluded: {top_users_excluded}%\n num_workers: {num_workers}\n '
           f'vocab_size: {vocab_size}\n feature_type: {feature_type}\n\n lr: {lr}\n lr_cl: {lr_cl}\n '
-          f'outer_lr: {lr_outer}\n inner_lr: {lr_inner}\n n_updates: {n_inner_updates}\n proto_dim: {proto_dim}\n')
+          f'lr_output: {lr_output}\n inner_lr: {lr_inner}\n n_updates: {n_inner_updates}\n proto_dim: {proto_dim}\n')
 
     # reproducible results
     pl.seed_everything(seed)
@@ -73,12 +73,7 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
     train_class_ratio = train_graph.class_ratio
     f1_train_label, _ = train_graph.f1_target_label, eval_graph.f1_target_label
 
-    optimizer_hparams = {
-        "lr_cl": lr_cl,
-        "lr": lr,
-        'lr_inner': lr_inner,
-        'lr_output': lr_outer
-    }
+    optimizer_hparams = {"lr": lr}
 
     model_params = {
         'model': model_name,
@@ -86,7 +81,6 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
         'feat_reduce_dim': feat_reduce_dim,
         'input_dim': train_graph_size[1],
         'output_dim': len(train_labels),
-        'proto_dim': proto_dim,
         'class_weight': train_class_ratio,
         'gat_dropout': gat_dropout,
         'lin_dropout': lin_dropout,
@@ -102,18 +96,46 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
     # verify_not_overlapping_samples(test_val_loader)
     # verify_not_overlapping_samples(test_loader)
 
-    print('\nInitializing trainer ..........\n')
-    trainer = initialize_trainer(epochs, patience, patience_metric, seed, data_train, data_eval, k_shot, h_size,
-                                 feature_type, checkpoint, progress_bar, wb_mode, loaders)
+    wandb_config = dict(
+        seed=seed,
+        max_epochs=epochs,
+        patience=patience,
+        patience_metric=patience_metric,
+        k_shot=k_shot,
+        h_size=h_size,
+        checkpoint=checkpoint,
+        data_train=data_train,
+        data_eval=data_eval,
+        feature_type=feature_type,
+        batch_sizes=dict(train=loaders[0].b_size, val=loaders[1].b_size, test=loaders[2].b_size),
+        num_batches=dict(train=len(loaders[0]), val=len(loaders[1]), test=len(loaders[2])),
+        train_splits=dict(train=train_split_size[0], val=train_split_size[1], test=train_split_size[2]),
+        eval_splits=dict(train=eval_split_size[0], val=eval_split_size[1], test=eval_split_size[2]),
+        nr_train_docs=nr_train_docs,
+        top_users=top_users,
+        top_users_excluded=top_users_excluded,
+        num_workers=num_workers,
+        vocab_size=vocab_size
+    )
 
     if model_name == 'gat':
+        optimizer_hparams.update(lr_cl=lr_cl)
+
         model = GatBase(model_params, optimizer_hparams, train_graph.label_names, b_size)
     elif model_name == 'prototypical':
+        model_params.update(proto_dim=proto_dim)
+
         model = ProtoNet(model_params, optimizer_hparams, train_graph.label_names)
     elif model_name == 'gmeta':
-        model = ProtoMAML(model_params, optimizer_hparams, n_inner_updates, train_graph.label_names)
+        model_params.update(n_inner_updates=n_inner_updates)
+        optimizer_hparams.update(lr_output=lr_output, lr_inner=lr_inner)
+
+        model = ProtoMAML(model_params, optimizer_hparams, train_graph.label_names)
     else:
         raise ValueError(f'Model name {model_name} unknown!')
+
+    print('\nInitializing trainer ..........\n')
+    trainer = initialize_trainer(epochs, patience, patience_metric, data_train, progress_bar, wb_mode, wandb_config)
 
     if not evaluation:
         # Training
@@ -216,44 +238,11 @@ def verify_not_overlapping_samples(train_val_loader):
     assert not_different_examples == 0
 
 
-def initialize_trainer(epochs, patience, patience_metric, seed, data_train, data_eval, k_shot, h_size, f_type,
-                       checkpoint, progress_bar, wb_mode, loaders):
+def initialize_trainer(epochs, patience, patience_metric, data_train, progress_bar, wb_mode, wandb_config):
     """
     Initializes a Lightning Trainer for respective parameters as given in the function header. Creates a proper
     folder name for the respective model files, initializes logging and early stopping.
     """
-
-    model_checkpoint = cb.ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_f1_macro")
-
-    logger = WandbLogger(project='meta-gnn',
-                         name=f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}_{data_train}",
-                         log_model=True if wb_mode == 'online' else False,
-                         save_dir=LOG_PATH,
-                         offline=wb_mode == 'offline',
-                         config=dict(
-                             seed=seed,
-                             max_epochs=epochs,
-                             patience=patience,
-                             patience_metric=patience_metric,
-                             k_shot=k_shot,
-                             h_size=h_size,
-                             checkpoint=checkpoint,
-                             data_train=data_train,
-                             data_eval=data_eval,
-                             feature_type=f_type,
-                             batch_sizes=dict(train=loaders[0].b_size, val=loaders[1].b_size, test=loaders[2].b_size),
-                             num_batches=dict(train=len(loaders[0]), val=len(loaders[1]), test=len(loaders[2])),
-                             # TODO: add these parameters to Wandb
-                             # train_splits=train_split_size,
-                             # eval_splits=eval_split_size,
-                             # nr_train_docs=nr_train_docs,
-                             # top_users=top_users,
-                             # top_users_excluded=top_users_excluded,
-                             # num_workers=num_workers,
-                             # vocab_size=vocab_size,
-                             # feature_type=feature_type
-                         )
-                         )
 
     if patience_metric == 'loss':
         cls, metric, mode = LossEarlyStopping, 'train_loss', 'min'
@@ -261,6 +250,13 @@ def initialize_trainer(epochs, patience, patience_metric, seed, data_train, data
         cls, metric, mode = EarlyStopping, 'val_f1_macro', 'max'
     else:
         raise ValueError(f"Patience metric '{patience_metric}' is not supported.")
+
+    logger = WandbLogger(project='meta-gnn',
+                         name=f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}_{data_train}",
+                         log_model=True if wb_mode == 'online' else False,
+                         save_dir=LOG_PATH,
+                         offline=wb_mode == 'offline',
+                         config=wandb_config)
 
     early_stop_callback = cls(
         monitor=metric,
@@ -270,13 +266,15 @@ def initialize_trainer(epochs, patience, patience_metric, seed, data_train, data
         mode=mode
     )
 
+    mc_callback = cb.ModelCheckpoint(save_weights_only=True, mode=mode, monitor=metric)
+
     trainer = pl.Trainer(move_metrics_to_cpu=True,
                          log_every_n_steps=1,
                          logger=logger,
                          enable_checkpointing=True,
                          gpus=1 if torch.cuda.is_available() else 0,
                          max_epochs=epochs,
-                         callbacks=[model_checkpoint, early_stop_callback],
+                         callbacks=[mc_callback, early_stop_callback],
                          enable_progress_bar=progress_bar,
                          num_sanity_val_steps=0)
 
@@ -395,7 +393,7 @@ if __name__ == "__main__":
     # META PARAMETERS
 
     parser.add_argument('--proto-dim', dest='proto_dim', type=int, default=64)
-    parser.add_argument('--outer-lr', dest='lr_outer', type=float, default=0.01)
+    parser.add_argument('--output-lr', dest='lr_output', type=float, default=0.01)
     parser.add_argument('--inner-lr', dest='lr_inner', type=float, default=0.01)
     parser.add_argument('--n-updates', dest='n_updates', type=int, default=5,
                         help="Inner gradient updates during meta learning.")
@@ -452,7 +450,7 @@ if __name__ == "__main__":
         lr=params["lr"],
         lr_cl=params["lr_cl"],
         lr_inner=params["lr_inner"],
-        lr_outer=params["lr_outer"],
+        lr_output=params["lr_output"],
         hidden_dim=params["hidden_dim"],
         feat_reduce_dim=params["feat_reduce_dim"],
         proto_dim=params["proto_dim"],
