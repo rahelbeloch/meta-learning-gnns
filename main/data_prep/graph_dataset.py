@@ -47,19 +47,19 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         self.read_files()
 
-        if self._analyse_node_degrees or self.dataset == 'gossipcop':
-            print('\nAnalysing node degrees ..........')
+        # if self._analyse_node_degrees or self.dataset == 'gossipcop':
+        #     print('\nAnalysing node degrees ..........')
 
             # Checking node degree distribution
-            node_degrees, probs = self.plot_node_degree_dist(self.adj)
+            # node_degrees, probs = self.plot_node_degree_dist(self.adj)
 
-            if self.dataset == 'gossipcop':
-                print(f"\nFixing node degrees for dataset '{self.dataset}'..........")
-                self.fix_node_degree_distribution(node_degrees, probs)
-
-                if self._verbose:
-                    # compute and plot the new node distribution
-                    self.plot_node_degree_dist(self.adj)
+            # if self.dataset == 'gossipcop':
+            #     print(f"\nFixing node degrees for dataset '{self.dataset}'..........")
+            #     self.fix_node_degree_distribution(node_degrees, probs)
+            #
+            #     if self._verbose:
+            #         # compute and plot the new node distribution
+            #         self.plot_node_degree_dist(self.adj)
 
         # check that no overlap between train/test and train/val
 
@@ -109,8 +109,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         self._labels = self.y_data.unique()
 
         # calculate class imbalance for the loss function
-        self.class_ratio = torch.bincount(self.y_data) / self.y_data.shape[0]
-        print(f"\n Class ratio: {self.class_ratio}\n")
+        self.compute_class_ratio()
 
         edge_list_file = self.data_complete_path(self.get_file_name(EDGE_LIST_FILE_NAME))
         if not edge_list_file.exists():
@@ -154,12 +153,17 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
             print(f"Vocabulary size: {self.vocab_size}")
             print(f'No. of nodes in graph: {num_nodes}')
 
+    def compute_class_ratio(self):
+        self.class_ratio = torch.bincount(self.y_data) / self.y_data.shape[0]
+        print(f"\n Class ratio: {self.class_ratio}\n")
+
     def fix_node_degree_distribution(self, node_degrees, probs, keep_threshold=0.97):
         """
         Find the bin (number of neighboring nodes) where at least 97% of the graph nodes fall in and discard the rest
         of the nodes.
         """
 
+        # TODO: filter only user nodes out and not document nodes!!
         max_degree = np.argwhere(np.cumsum(probs) <= keep_threshold).squeeze().max()
         outliers = np.where(node_degrees > max_degree)[0].shape[0]
 
@@ -185,13 +189,39 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         edges = torch.where(new_adj == 1)
         self.edge_index = torch.tensor(list(zip(list(edges[0]), list(edges[1])))).t()
 
-        self.y_data = self.y_data[new_node_indices]
+        # noinspection PyTypeChecker
+        old_max_doc_id = self.y_data.shape[0]
+        filtered_doc_labels = (new_node_indices <= old_max_doc_id)[:old_max_doc_id]
+        self.y_data = self.y_data[filtered_doc_labels]
+
         self._labels = self.y_data.unique()
+
         # calculate class imbalance for the loss function
-        self.class_ratio = torch.bincount(self.y_data) / self.y_data.shape[0]
+        self.compute_class_ratio()
 
         # TODO: reset the features (also recalculate them for the user nodes??)
+        filename = self.data_complete_path(self.get_file_name(USER_2_DOC_ID_FILE_NAME))
+        user_doc_id_mapping = load_json_file(filename)
+
+        new_max_doc_id = self.y_data.shape[0]
+        old_max_user_id = self.x_data.shape[0]
+
+        user_features = []
+        for user_id in range(old_max_doc_id, old_max_user_id):
+            user_docs = torch.tensor(user_doc_id_mapping[str(user_id)])
+            new_user_docs = user_docs[user_docs < new_max_doc_id]
+            new_user_feature = self.x_data[new_user_docs].sum(axis=0)
+            if self.feature_type == 'one-hot':
+                new_user_feature = new_user_feature >= 1
+                new_user_feature = new_user_feature.int()
+            user_features.append(new_user_feature)
+
+        # first copy the document features
         self.x_data = self.x_data[new_node_indices]
+
+        # then copy the user features
+        self.x_data[self.y_data.shape[0]:] = torch.stack(user_features)
+
         num_nodes, self.vocab_size = self.x_data.shape
 
         # reset split masks

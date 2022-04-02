@@ -336,19 +336,7 @@ class GraphPreprocessor(GraphIO):
         hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs")
 
-        print("\nCreating features for users nodes...")
-        start = time.time()
-
-        feature_id_mapping = self.get_feature_id_mapping(feature_ids)
-        feature_id_mapping = dict(sorted(feature_id_mapping.items(), key=lambda it: it[0]))
-
-        features_users = []
-        for user_id, doc_ids in feature_id_mapping.items():
-            features_users.append(doc_features[doc_ids].sum(axis=0))
-        user_features = torch.stack(features_users)
-
-        hrs, mins, secs = calc_elapsed_time(start, time.time())
-        print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
+        user_features = self.get_user_features(doc_features, feature_ids)
 
         print(f"\nCreating feature matrix and storing doc and user features...")
         start = time.time()
@@ -371,6 +359,27 @@ class GraphPreprocessor(GraphIO):
         filename = self.data_complete_path(self.get_file_name(FEAT_MATRIX_FILE_NAME))
         print(f"\nMatrix construction done! Saving in: {filename}")
         save_npz(filename, feature_matrix.tocsr())
+
+    def get_user_features(self, doc_features, feature_ids):
+        print("\nCreating features for users nodes...")
+        start = time.time()
+
+        feature_id_mapping = self.get_feature_id_mapping(feature_ids)
+        feature_id_mapping = dict(sorted(feature_id_mapping.items(), key=lambda it: it[0]))
+
+        filename = self.data_complete_path(self.get_file_name(USER_2_DOC_ID_FILE_NAME))
+        save_json_file(feature_id_mapping, filename)
+
+        features_users = []
+        for user_id, doc_ids in feature_id_mapping.items():
+            features_users.append(doc_features[doc_ids].sum(axis=0))
+
+        user_features = torch.stack(features_users)
+
+        hrs, mins, secs = calc_elapsed_time(start, time.time())
+        print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
+
+        return user_features
 
     @abc.abstractmethod
     def docs_to_adj(self, adj_matrix, edge_type):

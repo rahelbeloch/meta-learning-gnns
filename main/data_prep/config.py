@@ -30,6 +30,7 @@ EDGE_TYPE_FILE_NAME = f'{EDGE_TYPE_FILE}.npz'
 SPLIT_MASK_FILE_NAME = 'split_mask_type=%s_vsize=%s_train=%s_val=%s_test=%s.json'
 
 USER_2_ID_FILE_NAME = 'user2id_train_type=%s_vsize=%s_train=%s_val=%s_test=%s.json'
+USER_2_DOC_ID_FILE_NAME = 'user2docIds_train_type=%s_vsize=%s_train=%s_val=%s_test=%s.json'
 DOC_2_ID_FILE_NAME = 'doc2id_train_type=%s_vsize=%s_train=%s_val=%s_test=%s.json'
 DOC_2_LABELS_FILE_NAME = 'doc2labels.json'
 
