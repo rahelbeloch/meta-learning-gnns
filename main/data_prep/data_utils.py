@@ -90,7 +90,9 @@ def get_num_workers(sampler, num_workers):
         # mac has 8 CPUs
         return 0
     elif type(sampler) == BatchSampler:
-        return 3
+        for r in reversed(range(2, 11)):
+            if (len(sampler) / r) >= 2:
+                return r
     elif type(sampler) in [FewShotSampler, FewShotMamlSampler]:
         return 4
     return 0

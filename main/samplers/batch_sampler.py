@@ -178,8 +178,8 @@ class BatchSampler(FewShotSampler):
         super().__init__(targets, max_n_query, mode, n_way, k_shot, shuffle, shuffle_once, verbose)
 
         # TODO: must be divisible by self.k_shot * self.n_way
-        self.new_b_size = 480
-        # self.new_b_size = 360
+        # self.new_b_size = 688   # --> 5 batches
+        self.new_b_size = 344   # --> 10 batches
 
         self.n_old_batches = super(BatchSampler, self).__len__()
 

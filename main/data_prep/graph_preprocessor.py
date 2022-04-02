@@ -462,7 +462,8 @@ class GraphPreprocessor(GraphIO):
 
         self.maybe_load_id_mappings()
 
-        train_mask, val_mask, test_mask = np.zeros(self.n_nodes), np.zeros(self.n_nodes), np.zeros(self.n_nodes)
+        train_mask, val_mask, test_mask = np.zeros(len(self.doc2id)), np.zeros(len(self.doc2id)), np.zeros(
+            len(self.doc2id))
 
         for doc, doc_id in self.doc2id.items():
             doc_n = str(doc)
