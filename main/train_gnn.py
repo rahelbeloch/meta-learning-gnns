@@ -28,7 +28,7 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
           h_size, top_users, top_users_excluded, k_shot, lr, lr_cl, lr_inner,
           lr_output, hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_docs,
           train_split_size, feature_type, vocab_size, n_inner_updates, num_workers, gat_dropout, lin_dropout,
-          attn_dropout, wb_mode, warmup, max_iters):
+          attn_dropout, wb_mode, warmup, max_iters, gat_heads):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     eval_split_size = (0.0, 0.25, 0.75) if data_eval != data_train else None
@@ -49,7 +49,8 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
 
     print(f'\nConfiguration:\n\n mode: {"TEST" if evaluation else "TRAIN"}\n seed: {seed}\n max epochs: {epochs}\n '
           f'patience: {patience}\n patience metric: {patience_metric}\n k_shot: {k_shot}\n\n model_name: {model_name}\n'
-          f' hidden_dim: {hidden_dim}\n feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n\n'
+          f' hidden_dim: {hidden_dim}\n feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n '
+          f' gat heads: {gat_heads}\n\n'
           f' data_train: {data_train} (splits: {str(train_split_size)})\n data_eval: {data_eval} '
           f'(splits: {str(eval_split_size)})\n nr_train_docs: {nr_train_docs}\n hop_size: {h_size}\n '
           f'top_users: {top_users}K\n top_users_excluded: {top_users_excluded}%\n num_workers: {num_workers}\n '
@@ -88,7 +89,7 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
         'lin_dropout': lin_dropout,
         'attn_dropout': attn_dropout,
         'concat': True,
-        'n_heads': 2
+        'n_heads': gat_heads
     }
 
     train_loader, train_val_loader, test_loader, test_val_loader = loaders
@@ -392,6 +393,7 @@ if __name__ == "__main__":
     parser.add_argument('--model', dest='model', default='gat', choices=SUPPORTED_MODELS,
                         help='Select the model you want to use.')
     parser.add_argument('--hidden-dim', dest='hidden_dim', type=int, default=512)
+    parser.add_argument('--gat-heads', dest='gat_heads', type=int, default=2)
     parser.add_argument('--feature-reduce-dim', dest='feat_reduce_dim', type=int, default=256)
     parser.add_argument('--checkpoint', default=model_checkpoint, type=str, metavar='PATH',
                         help='Path to latest checkpoint (default: None)')
@@ -475,5 +477,6 @@ if __name__ == "__main__":
         attn_dropout=params["attn_dropout"],
         wb_mode=params['wb_mode'],
         warmup=params['warmup'],
-        max_iters=params['max_iters']
+        max_iters=params['max_iters'],
+        gat_heads=params['gat_heads']
     )
