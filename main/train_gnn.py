@@ -24,11 +24,10 @@ if torch.cuda.is_available():
     torch.cuda.empty_cache()
 
 
-def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
-          h_size, top_users, top_users_excluded, k_shot, lr, lr_cl, lr_inner,
-          lr_output, hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_docs,
-          train_split_size, feature_type, vocab_size, n_inner_updates, num_workers, gat_dropout, lin_dropout,
-          attn_dropout, wb_mode, warmup, max_iters, gat_heads):
+def train(progress_bar, model_name, seed, epochs, patience, patience_metric, h_size, top_users, top_users_excluded,
+          k_shot, lr, lr_cl, lr_inner, lr_output, hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval,
+          dirs, checkpoint, train_docs, train_split_size, feature_type, vocab_size, n_inner_updates, num_workers,
+          gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup, max_iters, gat_heads):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     eval_split_size = (0.0, 0.25, 0.75) if data_eval != data_train else None
@@ -65,26 +64,22 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
     # the data preprocessing
     print('\nLoading data ..........')
 
-    loaders, b_size, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
-                                                        top_users_excluded, k_shot, train_split_size, eval_split_size,
-                                                        feature_type, vocab_size, dirs, num_workers)
+    loaders, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
+                                                top_users_excluded, k_shot, train_split_size, eval_split_size,
+                                                feature_type, vocab_size, dirs, num_workers)
 
-    train_labels, eval_labels = train_graph.labels, train_graph.labels
-    train_graph_size, _ = train_graph.size, eval_graph.size
-    train_class_ratio = train_graph.class_ratio
-
-    f1_train_label, _ = train_graph.f1_target_label, eval_graph.f1_target_label
+    train_loader, train_val_loader, test_loader, test_val_loader = loaders
 
     optimizer_hparams = {"lr": lr, "warmup": warmup,
-                         "max_iters": len(loaders[0]) * epochs if max_iters < 0 else max_iters}
+                         "max_iters": len(train_loader) * epochs if max_iters < 0 else max_iters}
 
     model_params = {
         'model': model_name,
         'hid_dim': hidden_dim,
         'feat_reduce_dim': feat_reduce_dim,
-        'input_dim': train_graph_size[1],
-        'output_dim': len(train_labels),
-        'class_weight': train_class_ratio,
+        'input_dim': train_graph.size[1],
+        'output_dim': len(train_graph.labels),
+        'class_weight': train_graph.class_ratio,
         'gat_dropout': gat_dropout,
         'lin_dropout': lin_dropout,
         'attn_dropout': attn_dropout,
@@ -92,12 +87,23 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
         'n_heads': gat_heads
     }
 
-    train_loader, train_val_loader, test_loader, test_val_loader = loaders
+    if model_name == 'gat':
+        optimizer_hparams.update(lr_cl=lr_cl)
 
-    # verify_not_overlapping_samples(train_loader)
-    # verify_not_overlapping_samples(train_val_loader)
-    # verify_not_overlapping_samples(test_val_loader)
-    # verify_not_overlapping_samples(test_loader)
+        model = GatBase(model_params, optimizer_hparams, train_graph.label_names, train_loader.b_size)
+    elif model_name == 'prototypical':
+        model_params.update(proto_dim=proto_dim)
+
+        model = ProtoNet(model_params, optimizer_hparams, train_graph.label_names, train_loader.b_size)
+    elif model_name == 'gmeta':
+        model_params.update(n_inner_updates=n_inner_updates)
+        optimizer_hparams.update(lr_output=lr_output, lr_inner=lr_inner)
+
+        model = ProtoMAML(model_params, optimizer_hparams, train_graph.label_names)
+    else:
+        raise ValueError(f'Model name {model_name} unknown!')
+
+    print('\nInitializing trainer ..........\n')
 
     wandb_config = dict(
         seed=seed,
@@ -110,8 +116,8 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
         data_train=data_train,
         data_eval=data_eval,
         feature_type=feature_type,
-        batch_sizes=dict(train=loaders[0].b_size, val=loaders[1].b_size, test=loaders[2].b_size),
-        num_batches=dict(train=len(loaders[0]), val=len(loaders[1]), test=len(loaders[2])),
+        batch_sizes=dict(train=train_loader.b_size, val=train_val_loader.b_size, test=test_loader.b_size),
+        num_batches=dict(train=len(train_loader), val=len(train_val_loader), test=len(test_loader)),
         train_splits=dict(train=train_split_size[0], val=train_split_size[1], test=train_split_size[2]),
         nr_train_docs=nr_train_docs,
         top_users=top_users,
@@ -120,23 +126,6 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
         vocab_size=vocab_size
     )
 
-    if model_name == 'gat':
-        optimizer_hparams.update(lr_cl=lr_cl)
-
-        model = GatBase(model_params, optimizer_hparams, train_graph.label_names, b_size)
-    elif model_name == 'prototypical':
-        model_params.update(proto_dim=proto_dim)
-
-        model = ProtoNet(model_params, optimizer_hparams, train_graph.label_names, b_size)
-    elif model_name == 'gmeta':
-        model_params.update(n_inner_updates=n_inner_updates)
-        optimizer_hparams.update(lr_output=lr_output, lr_inner=lr_inner)
-
-        model = ProtoMAML(model_params, optimizer_hparams, train_graph.label_names)
-    else:
-        raise ValueError(f'Model name {model_name} unknown!')
-
-    print('\nInitializing trainer ..........\n')
     trainer = initialize_trainer(epochs, patience, patience_metric, data_train, progress_bar, wb_mode, wandb_config)
 
     if not evaluation:
@@ -157,13 +146,13 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric,
         model_path = checkpoint
 
     # Evaluation
-
     model = model.load_from_checkpoint(model_path)
 
     # model was trained on another dataset --> reinitialize gat classifier
     if model_name == 'gat' and data_eval is not None and data_eval != data_train:
-        model.reset_classifier_dimensions(len(eval_labels))
-
+        # TODO: this is completely newly setting the output layer, erases all pretrained weights!
+        model.reset_classifier_dimensions(len(eval_graph.labels))
+        # f1_train_label, _ = train_graph.f1_target_label, eval_graph.f1_target_label
         # TODO: set also the target label for f1 score
         # f1_targets[1]
 
@@ -211,33 +200,6 @@ def get_epoch_num(model_path):
     if expected_epoch.endswith('-'):
         expected_epoch = expected_epoch[:1]
     return int(expected_epoch)
-
-
-def verify_not_overlapping_samples(train_val_loader):
-    # support and query set should have same classes, but distinct examples
-    first_n_equal, second_n_equal, not_different_examples = 0, 0, 0
-    for sub_graphs, targets in iter(train_val_loader):
-        chunked = targets.chunk(2, dim=0)
-        bin_1 = torch.bincount(chunked[0])
-        bin_2 = torch.bincount(chunked[1])
-        # support and query should have same classes
-        comp = bin_1 == bin_2
-        sh = comp.shape[0]
-
-        if sh == 1 and comp[0].item() is False:
-            first_n_equal += 1
-
-        if sh == 2 and comp[1].item() is False:
-            second_n_equal += 1
-
-        # different examples...
-        center_indices = [s.orig_center_idx.item() for s in sub_graphs]
-        not_different = len(center_indices) != len(set(center_indices))
-        if not_different:
-            not_different_examples += 1
-    assert first_n_equal == 0
-    assert second_n_equal == 0
-    assert not_different_examples == 0
 
 
 def initialize_trainer(epochs, patience, patience_metric, data_train, progress_bar, wb_mode, wandb_config):
@@ -337,8 +299,6 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
 
 
 def round_format(metric):
-    # locale.setlocale(locale.LC_ALL, 'de_DE')
-    # return locale.format_string('%.3f', round(metric, 3), grouping=True)
     return f"{round(metric, 3):.3f}".replace(".", ",")
 
 

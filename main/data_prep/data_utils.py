@@ -78,9 +78,12 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
 
     test_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'test', n_query_eval)
 
-    loaders = (train_loader, train_val_loader, test_loader, test_val_loader)
+    verify_not_overlapping_samples(train_loader)
+    verify_not_overlapping_samples(train_val_loader)
+    verify_not_overlapping_samples(test_val_loader)
+    verify_not_overlapping_samples(test_loader)
 
-    return loaders, train_loader.b_size, graph_data_train, graph_data_eval
+    return (train_loader, train_val_loader, test_loader, test_val_loader), graph_data_train, graph_data_eval
 
 
 def get_num_workers(sampler, num_workers):
@@ -144,3 +147,49 @@ def get_max_n_query(graph_data):
         n_queries[split] = get_n_query_for_samples(samples, n_classes)
 
     return n_queries
+
+
+def verify_not_overlapping_samples(train_val_loader):
+    """
+    Runs check to verify that support and query set have the same classes but distinct examples.
+    """
+
+    n_class1_diff, n_class2_diff, support_duplicates, query_duplicates, num_equals = 0, 0, 0, 0, 0
+
+    for support_graphs, query_graphs, support_targets, query_targets in iter(train_val_loader):
+        # Support and query should have same number of examples...
+
+        # support_bins = torch.bincount(support_targets)
+        # query_bins = torch.bincount(query_targets)
+        # difference = torch.abs(support_bins - query_bins)
+        #
+        # if difference.shape[0] > 0:
+        #     n_class1_diff += difference[0]
+        #
+        # if difference.shape[0] > 1:
+        #     n_class2_diff += difference[1]
+
+        # ... but different examples within each set ...
+        support_center_idx = [s.orig_center_idx for s in support_graphs]
+        query_center_idx = [s.orig_center_idx for s in query_graphs]
+
+        s_duplicates = abs(len(support_center_idx) - len(set(support_center_idx)))
+        support_duplicates += s_duplicates
+
+        q_duplicates = abs(len(query_center_idx) - len(set(query_center_idx)))
+        query_duplicates += q_duplicates
+
+        # ... and different examples across all sets.
+        n_equals = set(support_center_idx).intersection(set(query_center_idx))
+        num_equals += len(n_equals)
+
+    # difference in n query and n support
+    # assert n_class1_diff == 0, \
+    #     f"Class 1: Difference in number of samples in query and support is not 0 but: {n_class1_diff}!"
+    # assert n_class2_diff == 0, \
+    #     f"Class 2: Difference in number of samples in query and support is not 0 but: {n_class2_diff}!"
+
+    assert support_duplicates == 0, f"Support set contains {support_duplicates} duplicates!"
+    assert query_duplicates == 0, f"Query set contains {query_duplicates} duplicates!"
+
+    assert num_equals == 0, f"Query and support set intersect with {num_equals} samples!"
