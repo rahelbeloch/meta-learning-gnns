@@ -137,17 +137,6 @@ class ProtoNet(GraphTrainer):
             n_pad = self.num_classes - targets.shape[1]
             targets = func.pad(targets, pad=(0, n_pad), value=0)
 
-        # print(predictions.shape)
-        # print(targets.shape)
-        # print(predictions[:5])
-        # print(targets[:5])
-        # print("Unequal shape")
-
-        # print(predictions.shape)
-        # print(targets.shape)
-        # print(predictions[:5])
-        # print(targets[:5])
-
         # meta_loss = func.binary_cross_entropy_with_logits(logits, targets.float())
 
         # for binary cross entropy / binary cross entropy with logits
