@@ -65,3 +65,4 @@ class GraphTrainer(pl.LightningModule):
 
         self.metrics['f1_target'][0][mode].reset()
         self.metrics['f1_macro'][0][mode].reset()
+        self.metrics['loss'][0] = []
