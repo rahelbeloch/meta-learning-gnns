@@ -123,7 +123,7 @@ class GatBase(GraphTrainer):
 
         # only log this once in the end of an epoch (averaged over steps)
         self.log_on_epoch(f"train_loss", loss)
-        self.metrics['loss']['train'].append(loss.item())
+        self.loss['train'].append(loss.item())
 
         # logging in optimizer step does not work, therefore here
         self.log('lr_rate', self.lr_scheduler.get_lr()[0])
@@ -138,7 +138,7 @@ class GatBase(GraphTrainer):
 
         # only log this once in the end of an epoch (averaged over steps)
         self.log_on_epoch(f"val_loss", loss)
-        self.metrics['loss']['val'] = loss.item()
+        self.loss['val'].append(loss.item())
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default, logs it per epoch (weighted average over batches)

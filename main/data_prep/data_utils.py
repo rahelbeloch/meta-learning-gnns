@@ -78,10 +78,10 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
 
     test_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'test', n_query_eval)
 
-    verify_not_overlapping_samples(train_loader)
-    verify_not_overlapping_samples(train_val_loader)
-    verify_not_overlapping_samples(test_val_loader)
-    verify_not_overlapping_samples(test_loader)
+    # verify_not_overlapping_samples(train_loader)
+    # verify_not_overlapping_samples(train_val_loader)
+    # verify_not_overlapping_samples(test_val_loader)
+    # verify_not_overlapping_samples(test_loader)
 
     return (train_loader, train_val_loader, test_loader, test_val_loader), graph_data_train, graph_data_eval
 
@@ -159,11 +159,7 @@ def verify_not_overlapping_samples(loader):
 
     n_class1_diff, n_class2_diff, support_duplicates, query_duplicates, num_equals = 0, 0, 0, 0, 0
 
-    if type(loader.b_sampler) == FewShotMamlSampler:
-        pass
-
     for batch in iter(loader):
-
         if type(loader.b_sampler) != FewShotMamlSampler:
             support_graphs, query_graphs, support_targets, query_targets = batch
         else:

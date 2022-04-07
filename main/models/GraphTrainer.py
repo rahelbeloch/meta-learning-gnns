@@ -25,13 +25,14 @@ class GraphTrainer(pl.LightningModule):
                     raise ValueError(f"Metric with key '{name}' not supported.")
                 split_dict[s] = metric(num_classes=n_classes, average=avg).to(self._device)
 
-        self.metrics['loss'] = {'train': [], 'val': [], 'test': []}
+        self.loss = {'train': [], 'val': [], 'test': []}
 
     def log_on_epoch(self, metric, value):
         self.log(metric, value, on_step=False, on_epoch=True)
 
     def log(self, metric, value, on_step=True, on_epoch=False, **kwargs):
-        super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=self.hparams['batch_size'])
+        b_size = self.hparams['batch_size']
+        super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=b_size)
 
     def validation_epoch_end(self, outputs) -> None:
         super().validation_epoch_end(outputs)
@@ -51,7 +52,7 @@ class GraphTrainer(pl.LightningModule):
         f1_1, f1_2 = self.metrics['f1_target'][0][mode].compute()
         f1_macro = self.metrics['f1_macro'][0][mode].compute()
 
-        loss_list = self.metrics['loss'][mode]
+        loss_list = self.loss[mode]
         epoch_loss = sum(loss_list) / len(loss_list)
 
         if verbose:
@@ -65,4 +66,4 @@ class GraphTrainer(pl.LightningModule):
 
         self.metrics['f1_target'][0][mode].reset()
         self.metrics['f1_macro'][0][mode].reset()
-        self.metrics['loss'][mode] = []
+        self.loss[mode] = []
