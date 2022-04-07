@@ -28,7 +28,7 @@ class GatBase(GraphTrainer):
 
         self.model = GatNet(model_params)
 
-        self.lr_scheduler = None        # initialized later
+        self.lr_scheduler = None  # initialized later
 
         # # TODO: move this to GatNet
         # if checkpoint is not None:
@@ -108,6 +108,7 @@ class GatBase(GraphTrainer):
         predictions = torch.sigmoid(logits).argmax(dim=-1)
 
         for mode_dict, _ in self.metrics.values():
+            # shapes should be: pred (batch_size), targets: (batch_size)
             mode_dict[mode].update(predictions, targets)
 
         # logits are not yet put into a sigmoid layer, because the loss module does this combined

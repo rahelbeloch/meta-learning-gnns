@@ -2,9 +2,10 @@ import time
 from statistics import mean, stdev
 
 import numpy as np
-import torch.nn.functional as func
+import torch.nn
 import torchmetrics as tm
 from torch import optim
+from torch.nn import functional as func
 from tqdm.auto import tqdm
 
 from models.GraphTrainer import GraphTrainer
@@ -29,6 +30,15 @@ class ProtoNet(GraphTrainer):
 
         # the output dimension for the prototypical network is not num classes, but the prototypes dimension!
         model_params['output_dim'] = model_params['proto_dim']
+
+        self.num_classes = model_params["class_weight"].shape[0]
+
+        # flipping the weights
+        flipped_weights = torch.flip(model_params["class_weight"], dims=[0])
+
+        # self.loss_module = torch.nn.BCEWithLogitsLoss(weight=flipped_weights)
+        self.loss_module = torch.nn.BCELoss(weight=flipped_weights)
+        # self.loss_module = torch.nn.CrossEntropyLoss(weight=flipped_weights)
 
         self.model = GatNet(model_params)
 
@@ -76,12 +86,13 @@ class ProtoNet(GraphTrainer):
         dist = torch.pow(prototypes[None, :] - feats[:, None], 2).sum(dim=2)
 
         # TODO: was log_softmax, now no softmax/sigmoid because this is handled by the loss function
-        # predictions = torch.log_softmax(-dist)
-        logits = -dist
+        # predictions = func.log_softmax(-dist, dim=1)
+        predictions = torch.sigmoid(-dist)
 
         # noinspection PyUnresolvedReferences
         labels = (classes[None, :] == targets[:, None]).to(torch.int32)
-        return logits, labels
+
+        return predictions, labels
 
     def calculate_loss(self, batch, mode):
         """
@@ -114,19 +125,54 @@ class ProtoNet(GraphTrainer):
         assert query_logits.shape[0] == query_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
 
-        logits, targets = ProtoNet.classify_features(prototypes, classes, query_logits, query_targets)
+        predictions, targets = ProtoNet.classify_features(prototypes, classes, query_logits, query_targets)
 
-        meta_loss = func.binary_cross_entropy_with_logits(logits, targets.float())
-        # meta_loss = func.cross_entropy(predictions, targets)
+        if predictions.shape[1] != self.num_classes:
+            # if predictions only have one class, we need to pad in order to use weight in loss function
+            n_pad = self.num_classes - predictions.shape[1]
+            predictions = func.pad(predictions, pad=(0, n_pad), value=0)
+
+        if targets.shape[1] != self.num_classes:
+            # if targets only have one class, we need to pad in order to use weight in loss function
+            n_pad = self.num_classes - targets.shape[1]
+            targets = func.pad(targets, pad=(0, n_pad), value=0)
+
+        # print(predictions.shape)
+        # print(targets.shape)
+        # print(predictions[:5])
+        # print(targets[:5])
+        # print("Unequal shape")
+
+        # print(predictions.shape)
+        # print(targets.shape)
+        # print(predictions[:5])
+        # print(targets[:5])
+
+        # meta_loss = func.binary_cross_entropy_with_logits(logits, targets.float())
+
+        # for binary cross entropy / binary cross entropy with logits
+        targets = targets.float()
+
+        # for cross entropy
+        # targets = targets.long().argmax(dim=-1)
+
+        # targets have dimensions according to classes which are in the subgraph batch, i.e. if all sub graphs have the
+        # same label, targets has 2nd dimension = 1
+
+        meta_loss = self.loss_module(predictions, targets)
+
+        # only for binary cross entropy / binary cross entropy with logits
+        targets = targets.argmax(dim=-1)
 
         if mode == 'train':
             self.log_on_epoch(f"{mode}_loss", meta_loss)
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
-        pred = torch.sigmoid(logits).argmax(dim=-1)
-        targets = targets.argmax(dim=-1)
+        # pred = torch.sigmoid(logits).argmax(dim=-1)
+        pred = predictions.argmax(dim=-1)
 
         for mode_dict, _ in self.metrics.values():
+            # shapes should be: pred (batch_size), targets: (batch_size)
             mode_dict[mode].update(pred, targets)
 
         return meta_loss
@@ -136,9 +182,6 @@ class ProtoNet(GraphTrainer):
 
     def validation_step(self, batch, batch_idx):
         self.calculate_loss(batch, mode="val")
-
-    # def test_step(self, batch, batch_idx1, batch_idx2):
-    #     self.calculate_loss(batch, mode="test")
 
 
 @torch.no_grad()
@@ -206,7 +249,6 @@ def test_proto_net(model, dataset, num_classes, data_feats=None, k_shot=4):
         prototypes, proto_classes = model.calculate_prototypes(k_node_feats, k_targets)
 
         # Evaluate accuracy on the rest of the dataset
-        # batch_acc = tm.Accuracy(num_classes=num_classes, average='macro', multiclass=True)
         batch_f1_target = tm.F1(num_classes=num_classes, average='none', multiclass=True)
         batch_f1_macro = tm.F1(num_classes=num_classes, average='macro', multiclass=True)
 
