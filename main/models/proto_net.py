@@ -148,13 +148,13 @@ class ProtoNet(GraphTrainer):
         # targets have dimensions according to classes which are in the subgraph batch, i.e. if all sub graphs have the
         # same label, targets has 2nd dimension = 1
 
-        meta_loss = self.loss_module(predictions, targets)
+        loss = self.loss_module(predictions, targets)
 
         # only for binary cross entropy / binary cross entropy with logits
         targets = targets.argmax(dim=-1)
 
-        if mode == 'train':
-            self.log_on_epoch(f"{mode}_loss", meta_loss)
+        if mode == 'train' or mode == 'val':
+            self.log_on_epoch(f"{mode}_loss", loss)
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
         # pred = torch.sigmoid(logits).argmax(dim=-1)
@@ -164,7 +164,7 @@ class ProtoNet(GraphTrainer):
             # shapes should be: pred (batch_size), targets: (batch_size)
             mode_dict[mode].update(pred, targets)
 
-        return meta_loss
+        return loss
 
     def training_step(self, batch, batch_idx):
         return self.calculate_loss(batch, mode="train")
@@ -237,7 +237,6 @@ def test_proto_net(model, dataset, num_classes, data_feats=None, k_shot=4):
         k_node_feats, k_targets = get_as_set(k_idx, k_shot, node_features, node_targets, start_indices_per_class)
         prototypes, proto_classes = model.calculate_prototypes(k_node_feats, k_targets)
 
-        # Evaluate accuracy on the rest of the dataset
         batch_f1_target = tm.F1(num_classes=num_classes, average='none', multiclass=True)
         batch_f1_macro = tm.F1(num_classes=num_classes, average='macro', multiclass=True)
 

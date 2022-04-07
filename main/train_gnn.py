@@ -209,7 +209,7 @@ def initialize_trainer(epochs, patience, patience_metric, data_train, progress_b
     """
 
     if patience_metric == 'loss':
-        cls, metric, mode = LossEarlyStopping, 'train_loss', 'min'
+        cls, metric, mode = LossEarlyStopping, 'val_loss', 'min'
     elif patience_metric == 'f1_macro':
         cls, metric, mode = EarlyStopping, 'val_f1_macro', 'max'
     else:
@@ -267,9 +267,6 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
         model (pl.LightningModule) - The Lightning Module which should be used.
         test_dataloader (DataLoader) - Data loader for the test split.
         val_dataloader (DataLoader) - Data loader for the validation split.
-    Returns:
-        test_accuracy (float) - The achieved test accuracy.
-        val_accuracy (float) - The achieved validation accuracy.
     """
 
     print('\nTesting model on validation and test ..........\n')
@@ -281,12 +278,10 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
     test_results = results[0]
     val_results = results[1]
 
-    # test_accuracy = test_results['test_accuracy']
     test_f1_fake = test_results['test_f1_fake']
     test_f1_real = test_results['test_f1_real']
     test_f1_macro = test_results['test_f1_macro']
 
-    # val_accuracy = val_results['test_accuracy']
     val_f1_fake = val_results['test_f1_fake']
     val_f1_real = val_results['test_f1_real']
     val_f1_macro = test_results['test_f1_macro']
@@ -294,8 +289,7 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
     test_end = time.time()
     test_elapsed = test_end - test_start
 
-    return test_f1_fake, test_f1_real, test_f1_macro, \
-           val_f1_fake, val_f1_real, val_f1_macro, test_elapsed
+    return test_f1_fake, test_f1_real, test_f1_macro, val_f1_fake, val_f1_real, val_f1_macro, test_elapsed
 
 
 def round_format(metric):
