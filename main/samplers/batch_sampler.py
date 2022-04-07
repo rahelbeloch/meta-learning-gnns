@@ -1,5 +1,3 @@
-import itertools
-import random
 from collections import defaultdict
 from math import floor
 
@@ -179,7 +177,7 @@ class BatchSampler(FewShotSampler):
 
         # TODO: must be divisible by self.k_shot * self.n_way
         # self.new_b_size = 688   # --> 5 batches
-        self.new_b_size = 344   # --> 10 batches
+        self.new_b_size = 344  # --> 10 batches
 
         self.n_old_batches = super(BatchSampler, self).__len__()
 

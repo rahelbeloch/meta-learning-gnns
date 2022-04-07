@@ -96,8 +96,10 @@ def get_num_workers(sampler, num_workers):
         for r in reversed(range(2, 11)):
             if (len(sampler) / r) >= 2:
                 return r
-    elif type(sampler) in [FewShotSampler, FewShotMamlSampler]:
+    elif type(sampler) == FewShotSampler:
         return 4
+    elif type(sampler) == FewShotMamlSampler:
+        return 3
     return 0
 
 
@@ -108,18 +110,17 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
 
     shuffle = mode == 'train'
     shuffle_once = mode == 'val'
+    targets = graph_data.data.y[mask]
+    max_n_query = n_queries[mode]
 
     if model_name == 'gat' and mode == 'train':
-        # batch_sampler = BatchSampler(graph_data.data.y[mask], n_queries[mode], mode, n_way=n_classes, k_shot=k_shot,
-        #                              shuffle=shuffle, shuffle_once=shuffle_once)
-        batch_sampler = FewShotSampler(graph_data.data.y[mask], n_queries[mode], mode, n_way=n_classes, k_shot=k_shot,
-                                       shuffle=shuffle, shuffle_once=shuffle_once)
+        batch_sampler = BatchSampler(targets, max_n_query, mode, n_way=n_classes, k_shot=k_shot, shuffle=shuffle,
+                                     shuffle_once=shuffle_once)
     elif model_name == 'prototypical' or (model_name == 'gat' and mode != 'train'):
-        batch_sampler = FewShotSampler(graph_data.data.y[mask], n_queries[mode], mode, n_way=n_classes, k_shot=k_shot,
-                                       shuffle=shuffle, shuffle_once=shuffle_once)
+        batch_sampler = FewShotSampler(targets, max_n_query, mode, n_way=n_classes, k_shot=k_shot, shuffle=shuffle,
+                                       shuffle_once=shuffle_once)
     elif model_name == 'gmeta':
-        batch_sampler = FewShotMamlSampler(graph_data.data.y, mask, n_way=n_classes, k_shot=k_shot, include_query=True,
-                                           shuffle=shuffle)
+        batch_sampler = FewShotMamlSampler(targets, max_n_query, mode, n_way=n_classes, k_shot=k_shot, shuffle=shuffle)
     else:
         raise ValueError(f"Model with name '{model_name}' is not supported.")
 
@@ -151,14 +152,33 @@ def get_max_n_query(graph_data):
     return n_queries
 
 
-def verify_not_overlapping_samples(train_val_loader):
+def verify_not_overlapping_samples(loader):
     """
     Runs check to verify that support and query set have the same classes but distinct examples.
     """
 
     n_class1_diff, n_class2_diff, support_duplicates, query_duplicates, num_equals = 0, 0, 0, 0, 0
 
-    for support_graphs, query_graphs, support_targets, query_targets in iter(train_val_loader):
+    if type(loader.b_sampler) == FewShotMamlSampler:
+        pass
+
+    for batch in iter(loader):
+
+        if type(loader.b_sampler) != FewShotMamlSampler:
+            support_graphs, query_graphs, support_targets, query_targets = batch
+        else:
+            support_graphs, query_graphs, support_targets, query_targets = [], [], [], []
+            for task in batch:
+                sub_graphs, targets = task
+
+                for i, graph in enumerate(sub_graphs):
+                    if graph.set_type == 'support':
+                        support_graphs.append(graph)
+                        support_targets.append(targets[i])
+                    elif graph.set_type == 'query':
+                        query_graphs.append(graph)
+                        query_targets.append(targets[i])
+
         # Support and query should have same number of examples...
 
         # support_bins = torch.bincount(support_targets)

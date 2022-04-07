@@ -105,6 +105,7 @@ class KHopSampler(GraphSAINTSampler):
             local_b_size = self.batch_sampler.local_batch_size
             task_b_size = self.batch_sampler.task_batch_size
 
+            # all samples should be divisible by 2 (support/query), the local batch size and the size of one task
             assert len(sup_graphs) == targets.shape[0] == (local_b_size * task_b_size)
 
             targets = targets.chunk(task_b_size, dim=0)

@@ -15,7 +15,7 @@ from samplers.batch_sampler import split_list
 class ProtoMAML(GraphTrainer):
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, opt_hparams, label_names):
+    def __init__(self, model_params, opt_hparams, label_names, batch_size):
         """
         Inputs
             lr - Learning rate of the outer loop Adam optimizer
@@ -25,6 +25,8 @@ class ProtoMAML(GraphTrainer):
         """
         super().__init__(n_classes=model_params['output_dim'])
         self.save_hyperparameters()
+
+        self.n_inner_updates = model_params['n_inner_updates']
 
         self.model = GatNet(model_params)
 
@@ -57,7 +59,7 @@ class ProtoMAML(GraphTrainer):
         output_bias = init_bias.detach().requires_grad_()
 
         # Optimize inner loop model on support set
-        for _ in range(self.model_params.n_inner_updates):
+        for _ in range(self.n_inner_updates):
             # Determine loss on the support set
             loss, predictions = run_model(local_model, output_weight, output_bias, support_graphs, support_labels, mode)
 
@@ -161,6 +163,7 @@ def run_model(local_model, output_weight, output_bias, graphs, targets, mode):
 
     predictions = func.linear(feats, output_weight, output_bias)
 
+    # TODO: use binary cross entropy?
     loss = func.cross_entropy(predictions, targets)
 
     return loss, predictions

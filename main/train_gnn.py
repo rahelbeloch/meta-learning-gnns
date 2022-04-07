@@ -99,7 +99,7 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric, h_s
         model_params.update(n_inner_updates=n_inner_updates)
         optimizer_hparams.update(lr_output=lr_output, lr_inner=lr_inner)
 
-        model = ProtoMAML(model_params, optimizer_hparams, train_graph.label_names)
+        model = ProtoMAML(model_params, optimizer_hparams, train_graph.label_names, train_loader.b_size)
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 
