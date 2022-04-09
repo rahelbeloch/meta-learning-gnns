@@ -122,30 +122,30 @@ class GatBase(GraphTrainer):
 
         support_graphs, query_graphs, support_targets, query_targets = batch
 
-        # Validation requires to finetune a model, hence we need to enable gradients
-        torch.set_grad_enabled(True)
-        self.model.train()
-        self.train()
+        # # Validation requires to finetune a model, hence we need to enable gradients
+        # torch.set_grad_enabled(True)
+        # self.model.train()
+        # self.train()
+        #
+        # # local_optim = optim.SGD(local_model.parameters(), lr=self.hparams.opt_hparams['lr_inner'])
+        # local_optim = torch.optim.AdamW(self.model.parameters(), lr=self.hparams.optimizer_hparams['lr'])
+        # # local_optim = self.optimizers()
+        #
+        # local_optim.zero_grad()
+        #
+        # # fine tune on support set & evaluate on test set
+        # logits, targets = self.forward(support_graphs, support_targets, mode='val_train')
+        # loss = self.loss_module(logits, func.one_hot(support_targets).float())
+        #
+        # # Calculate gradients and perform finetune update
+        # loss.backward()
+        # local_optim.step()
+        # torch.set_grad_enabled(False)
 
-        # local_optim = optim.SGD(local_model.parameters(), lr=self.hparams.opt_hparams['lr_inner'])
-        local_optim = torch.optim.AdamW(self.model.parameters(), lr=self.hparams.optimizer_hparams['lr'])
-        # local_optim = self.optimizers()
-
-        local_optim.zero_grad()
-
-        # fine tune on support set & evaluate on test set
-        logits, targets = self.forward(support_graphs, support_targets, mode='val_train')
-        loss = self.loss_module(logits, func.one_hot(support_targets).float())
-
-        # Calculate gradients and perform finetune update
-        loss.backward()
-        local_optim.step()
-        torch.set_grad_enabled(False)
+        # self.eval()
+        # self.model.eval()
 
         # Evaluate on meta test set
-
-        self.eval()
-        self.model.eval()
 
         logits, targets = self.forward(query_graphs, query_targets, mode='val')
         loss = self.loss_module(logits, func.one_hot(targets).float())
