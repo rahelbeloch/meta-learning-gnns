@@ -77,28 +77,9 @@ class GatBase(GraphTrainer):
         super().optimizer_step(*args, **kwargs)
         self.lr_scheduler.step()  # Step per iteration
 
-    def forward(self, batch, mode=None):
-
-        support_graphs, query_graphs, support_targets, query_targets = batch
-
-        # for test and val we only want to use query samples
-        sub_graphs, targets = query_graphs, query_targets
-
-        if mode == 'train':
-            # collapse support and query set and train on whole
-            sub_graphs = support_graphs + query_graphs
-            targets = torch.cat([support_targets, query_targets])
-        elif mode == 'val':
-            # fine tune on support set & evaluate on test set
-            sub_graphs = query_graphs
-            targets = query_targets
-        elif mode == 'test':
-            # only validate on the query set to keep comparability with meta models
-            sub_graphs = query_graphs
-            targets = query_targets
+    def forward(self, sub_graphs, targets, mode=None):
 
         # make a batch out of all sub graphs and push the batch through the model
-        # [Data, Data, Data(x, y, ..)]
         x, edge_index, cl_mask = get_subgraph_batch(sub_graphs)
 
         logits = self.model(x, edge_index, mode)
@@ -118,12 +99,17 @@ class GatBase(GraphTrainer):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        logits, targets = self.forward(batch, mode='train')
+        # collapse support and query set and train on whole
+        support_graphs, query_graphs, support_targets, query_targets = batch
+        sub_graphs = support_graphs + query_graphs
+        targets = torch.cat([support_targets, query_targets])
+
+        logits, targets = self.forward(sub_graphs, targets, mode='train')
         loss = self.loss_module(logits, func.one_hot(targets).float())
 
         # only log this once in the end of an epoch (averaged over steps)
-        self.log_on_epoch(f"train_loss", loss)
-        self.loss['train'].append(loss.item())
+        self.log_on_epoch(f"train/loss", loss)
+        # self.loss['train'].append(loss.item())
 
         # logging in optimizer step does not work, therefore here
         self.log('lr_rate', self.lr_scheduler.get_lr()[0])
@@ -133,16 +119,50 @@ class GatBase(GraphTrainer):
         return dict(loss=loss)
 
     def validation_step(self, batch, batch_idx):
-        logits, targets = self.forward(batch, mode='val')
+
+        support_graphs, query_graphs, support_targets, query_targets = batch
+
+        # Validation requires to finetune a model, hence we need to enable gradients
+        torch.set_grad_enabled(True)
+        self.model.train()
+        self.train()
+
+        # local_optim = optim.SGD(local_model.parameters(), lr=self.hparams.opt_hparams['lr_inner'])
+        local_optim = torch.optim.AdamW(self.model.parameters(), lr=self.hparams.optimizer_hparams['lr'])
+        # local_optim = self.optimizers()
+
+        local_optim.zero_grad()
+
+        # fine tune on support set & evaluate on test set
+        logits, targets = self.forward(support_graphs, support_targets, mode='val_train')
+        loss = self.loss_module(logits, func.one_hot(support_targets).float())
+
+        # Calculate gradients and perform finetune update
+        loss.backward()
+        local_optim.step()
+        torch.set_grad_enabled(False)
+
+        # Evaluate on meta test set
+
+        self.eval()
+        self.model.eval()
+
+        logits, targets = self.forward(query_graphs, query_targets, mode='val')
         loss = self.loss_module(logits, func.one_hot(targets).float())
 
         # only log this once in the end of an epoch (averaged over steps)
-        self.log_on_epoch(f"val_loss", loss)
-        self.loss['val'].append(loss.item())
+        self.log_on_epoch(f"val/loss", loss)
+        # self.loss['val'].append(loss.item())
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default, logs it per epoch (weighted average over batches)
-        self.forward(batch, mode='test')
+
+        # only validate on the query set to keep comparability with metamodels
+        support_graphs, query_graphs, support_targets, query_targets = batch
+        sub_graphs = query_graphs
+        targets = query_targets
+
+        self.forward(sub_graphs, targets, mode='test')
 
 
 def load_pretrained_encoder(checkpoint_path):

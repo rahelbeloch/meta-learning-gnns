@@ -209,9 +209,9 @@ def initialize_trainer(epochs, patience, patience_metric, data_train, progress_b
     """
 
     if patience_metric == 'loss':
-        cls, metric, mode = LossEarlyStopping, 'val_loss', 'min'
+        cls, metric, mode = LossEarlyStopping, 'val/loss', 'min'
     elif patience_metric == 'f1_macro':
-        cls, metric, mode = EarlyStopping, 'val_f1_macro', 'max'
+        cls, metric, mode = EarlyStopping, 'val/f1_macro', 'max'
     else:
         raise ValueError(f"Patience metric '{patience_metric}' is not supported.")
 
@@ -278,13 +278,13 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
     test_results = results[0]
     val_results = results[1]
 
-    test_f1_fake = test_results['test_f1_fake']
-    test_f1_real = test_results['test_f1_real']
-    test_f1_macro = test_results['test_f1_macro']
+    test_f1_fake = test_results['test_f1_fake_epoch']
+    test_f1_real = test_results['test_f1_real_epoch']
+    test_f1_macro = test_results['test_f1_macro_epoch']
 
-    val_f1_fake = val_results['test_f1_fake']
-    val_f1_real = val_results['test_f1_real']
-    val_f1_macro = test_results['test_f1_macro']
+    val_f1_fake = val_results['test_f1_fake_epoch']
+    val_f1_real = val_results['test_f1_real_epoch']
+    val_f1_macro = test_results['test_f1_macro_epoch']
 
     test_end = time.time()
     test_elapsed = test_end - test_start

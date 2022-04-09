@@ -18,14 +18,14 @@ class GraphTrainer(pl.LightningModule):
         }
 
         # Metrics from torchmetrics
-        for s in SPLITS:
+        for s in SPLITS + ['val_train']:
             for name, (split_dict, avg) in self.metrics.items():
                 metric = tm.F1 if name.startswith('f1') else None
                 if metric is None:
                     raise ValueError(f"Metric with key '{name}' not supported.")
                 split_dict[s] = metric(num_classes=n_classes, average=avg).to(self._device)
 
-        self.loss = {'train': [], 'val': []}
+        # self.loss = {'train': [], 'val': []}
 
     def log_on_epoch(self, metric, value):
         self.log(metric, value, on_step=False, on_epoch=True)
@@ -45,31 +45,24 @@ class GraphTrainer(pl.LightningModule):
     def test_epoch_end(self, outputs) -> None:
         super().test_epoch_end(outputs)
         self.compute_and_log_metrics('test')
-        # val_test_metrics = outputs[1]
-        # self.log_f1(val_test_metrics, 'test_val')
 
     def compute_and_log_metrics(self, mode, verbose=True):
         f1_1, f1_2 = self.metrics['f1_target'][0][mode].compute()
         f1_macro = self.metrics['f1_macro'][0][mode].compute()
 
-        if mode in self.loss:
-            loss_list = self.loss[mode]
-            epoch_loss = sum(loss_list) / len(loss_list)
-            self.log_on_epoch(f'{mode}_loss_epoch', epoch_loss)
-            self.loss[mode] = []
+        # if mode in self.loss:
+        #     loss_list = self.loss[mode]
+        #     epoch_loss = sum(loss_list) / len(loss_list)
+        #     self.log_on_epoch(f'{mode}/loss_epoch', epoch_loss)
+        #     self.loss[mode] = []
 
         if verbose:
             label_names = self.hparams["label_names"]
 
             # we are at the end of an epoch, so log now on step
-            # self.log(f'{mode}_f1_{label_names[0]}_epoch', f1_1)
-            # self.log(f'{mode}_f1_{label_names[1]}_epoch', f1_2)
-            # self.log(f'{mode}_f1_macro_epoch', f1_macro)
-            # self.log(f'{mode}_loss_epoch', epoch_loss)
-
-            self.log_on_epoch(f'{mode}_f1_{label_names[0]}_epoch', f1_1)
-            self.log_on_epoch(f'{mode}_f1_{label_names[1]}_epoch', f1_2)
-            self.log_on_epoch(f'{mode}_f1_macro_epoch', f1_macro)
+            self.log_on_epoch(f'{mode}/f1_{label_names[0]}', f1_1)
+            self.log_on_epoch(f'{mode}/f1_{label_names[1]}', f1_2)
+            self.log_on_epoch(f'{mode}/f1_macro', f1_macro)
 
         self.metrics['f1_target'][0][mode].reset()
         self.metrics['f1_macro'][0][mode].reset()
