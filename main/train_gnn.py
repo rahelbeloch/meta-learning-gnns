@@ -27,7 +27,7 @@ if torch.cuda.is_available():
 def train(progress_bar, model_name, seed, epochs, patience, patience_metric, h_size, top_users, top_users_excluded,
           k_shot, lr, lr_cl, lr_inner, lr_output, hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval,
           dirs, checkpoint, train_docs, train_split_size, feature_type, vocab_size, n_inner_updates, num_workers,
-          gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup, max_iters, gat_heads):
+          gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup, max_iters, gat_heads, gat_batch_size):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     eval_split_size = (0.0, 0.25, 0.75) if data_eval != data_train else None
@@ -66,7 +66,7 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric, h_s
 
     loaders, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
                                                 top_users_excluded, k_shot, train_split_size, eval_split_size,
-                                                feature_type, vocab_size, dirs, num_workers)
+                                                feature_type, vocab_size, dirs, gat_batch_size, num_workers)
 
     train_loader, train_val_loader, test_loader, test_val_loader = loaders
 
@@ -377,6 +377,8 @@ if __name__ == "__main__":
     parser.add_argument('--feature-type', dest='feature_type', type=str, default='one-hot',
                         help="Type of features used.")
     parser.add_argument('--vocab-size', dest='vocab_size', type=int, default=10000, help="Size of the vocabulary.")
+    parser.add_argument('--gat-batch-size', dest='gat_batch_size', type=int, default=344,
+                        help="Size of batches for the GAT baseline.")
     parser.add_argument('--data-dir', dest='data_dir', default='data',
                         help='Select the dataset you want to use.')
 
@@ -432,5 +434,6 @@ if __name__ == "__main__":
         wb_mode=params['wb_mode'],
         warmup=params['warmup'],
         max_iters=params['max_iters'],
-        gat_heads=params['gat_heads']
+        gat_heads=params['gat_heads'],
+        gat_batch_size=params['gat_batch_size']
     )

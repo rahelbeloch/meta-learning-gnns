@@ -10,7 +10,7 @@ SUPPORTED_DATASETS = ['gossipcop', 'twitterHateSpeech']
 
 
 def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_excluded, k_shot, train_split_size,
-             eval_split_size, feature_type, vocab_size, dirs, num_workers=None):
+             eval_split_size, feature_type, vocab_size, dirs, batch_size, num_workers=None):
     """
     Creates and returns the correct data object depending on data_name.
     Args:
@@ -52,8 +52,10 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
     n_query_train = get_max_n_query(graph_data_train)
     print(f"\nUsing max query samples for episode creation: {n_query_train}\n")
 
-    train_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, 'train', n_query_train)
-    train_val_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, 'val', n_query_train)
+    train_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, 'train', n_query_train,
+                              batch_size)
+    train_val_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, 'val', n_query_train,
+                                  batch_size)
 
     print(f"\nTrain graph size: \n num_features: {graph_data_train.size[1]}\n total_nodes: {graph_data_train.size[0]}")
 
@@ -74,9 +76,11 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
 
         print(f"\nTest graph size: \n num_features: {graph_data_eval.size[1]}\n total_nodes: {graph_data_eval.size[0]}")
 
-        test_val_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'val', n_query_eval)
+        test_val_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'val', n_query_eval,
+                                     batch_size)
 
-    test_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'test', n_query_eval)
+    test_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'test', n_query_eval,
+                             batch_size)
 
     # verify_not_overlapping_samples(train_loader)
     # verify_not_overlapping_samples(train_val_loader)
@@ -103,7 +107,7 @@ def get_num_workers(sampler, num_workers):
     return 0
 
 
-def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_queries):
+def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_queries, batch_size):
     n_classes = len(graph_data.labels)
 
     mask = graph_data.mask(f"{mode}_mask")
@@ -114,7 +118,8 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
     max_n_query = n_queries[mode]
 
     if model_name == 'gat' and mode == 'train':
-        batch_sampler = BatchSampler(targets, max_n_query, mode, n_way=n_classes, k_shot=k_shot, shuffle=shuffle,
+        batch_sampler = BatchSampler(targets, max_n_query, mode, batch_size, n_way=n_classes, k_shot=k_shot,
+                                     shuffle=shuffle,
                                      shuffle_once=shuffle_once)
     elif model_name == 'prototypical' or (model_name == 'gat' and mode != 'train'):
         batch_sampler = FewShotSampler(targets, max_n_query, mode, n_way=n_classes, k_shot=k_shot, shuffle=shuffle,
