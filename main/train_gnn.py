@@ -169,12 +169,12 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric, h_s
         return
 
     wandb.log({
-        "test_f1_fake": test_f1_fake,
-        "test_f1_real": test_f1_real,
-        "test_f1_macro": test_f1_macro,
-        "test_val_f1_fake": val_f1_fake,
-        "test_val_f1_real": val_f1_real,
-        "test_val_f1_macro": val_f1_macro
+        "test/f1_fake": test_f1_fake,
+        "test/f1_real": test_f1_real,
+        "test/f1_macro": test_f1_macro,
+        "test_val/f1_fake": val_f1_fake,
+        "test_val/f1_real": val_f1_real,
+        "test_val/f1_macro": val_f1_macro
     })
 
     print(f'\nRequired time for testing: {int(test_elapsed / 60)} minutes.\n')
@@ -278,13 +278,13 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
     test_results = results[0]
     val_results = results[1]
 
-    test_f1_fake = test_results['test_f1_fake_epoch']
-    test_f1_real = test_results['test_f1_real_epoch']
-    test_f1_macro = test_results['test_f1_macro_epoch']
+    test_f1_fake = test_results['test/f1_fake']
+    test_f1_real = test_results['test/f1_real']
+    test_f1_macro = test_results['test/f1_macro']
 
-    val_f1_fake = val_results['test_f1_fake_epoch']
-    val_f1_real = val_results['test_f1_real_epoch']
-    val_f1_macro = test_results['test_f1_macro_epoch']
+    val_f1_fake = val_results['test/f1_fake']
+    val_f1_real = val_results['test/f1_real']
+    val_f1_macro = test_results['test/f1_macro']
 
     test_end = time.time()
     test_elapsed = test_end - test_start
