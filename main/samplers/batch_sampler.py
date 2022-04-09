@@ -178,8 +178,8 @@ class BatchSampler(FewShotSampler):
         # assert (batch_size / (self.k_shot * self.n_way)) % 1 == 0, "Batch size not divisible by n way and k shot."
         # must be divisible by self.k_shot * self.n_way
         # self.new_b_size = 688   # --> 5 batches
-        # self.new_b_size = 344  # --> 10 batches
-        self.new_b_size = batch_size
+        self.new_b_size = 344  # --> 10 batches
+        # self.new_b_size = batch_size
 
         self.n_old_batches = super(BatchSampler, self).__len__()
 
