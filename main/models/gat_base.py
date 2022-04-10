@@ -43,7 +43,6 @@ class GatBase(GraphTrainer):
         # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=flipped_weights)
         # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=model_params["class_weight"])
 
-
     def configure_optimizers(self):
         """
         Configures the AdamW optimizer and enables training with different learning rates for encoder and classifier.
