@@ -40,7 +40,8 @@ class GatBase(GraphTrainer):
 
         # Loss function consistent with labels?
         # Verify that this is the binary cross entropy loss
-        self.loss_module = nn.BCEWithLogitsLoss(weight=flipped_weights)
+        # self.loss_module = nn.BCEWithLogitsLoss(weight=flipped_weights)
+        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([3]))
 
     def configure_optimizers(self):
         """
