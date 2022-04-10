@@ -39,9 +39,9 @@ class GatBase(GraphTrainer):
         flipped_weights = torch.flip(model_params["class_weight"], dims=[0])
 
         # self.loss_module = nn.BCEWithLogitsLoss(weight=flipped_weights)
-        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([3]))
+        # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([3]))
         # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=flipped_weights)
-        # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=model_params["class_weight"])
+        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=model_params["class_weight"])
 
     def configure_optimizers(self):
         """
