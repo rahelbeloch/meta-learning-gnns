@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 import pytorch_lightning.callbacks as cb
 import torch
 import wandb
-from pytorch_lightning.callbacks import EarlyStopping
+from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
 
 from data_prep.config import TSV_DIR, COMPLETE_DIR
@@ -26,8 +26,9 @@ if torch.cuda.is_available():
 
 def train(progress_bar, model_name, seed, epochs, patience, patience_metric, h_size, top_users, top_users_excluded,
           k_shot, lr, lr_cl, lr_inner, lr_output, hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval,
-          dirs, checkpoint, train_docs, train_split_size, feature_type, vocab_size, n_inner_updates, num_workers,
-          gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup, max_iters, gat_heads, gat_batch_size):
+          dirs, checkpoint, train_split_size, feature_type, vocab_size, n_inner_updates, num_workers,
+          gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup, max_iters, gat_heads, gat_batch_size,
+          lr_decay_epochs, lr_decay_factor, scheduler, weight_decay, momentum, optimizer):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     eval_split_size = (0.0, 0.25, 0.75) if data_eval != data_train else None
@@ -69,7 +70,10 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric, h_s
     train_loader, train_val_loader, test_loader, test_val_loader = loaders
 
     optimizer_hparams = {"lr": lr, "warmup": warmup,
-                         "max_iters": len(train_loader) * epochs if max_iters < 0 else max_iters}
+                         "max_iters": len(train_loader) * epochs if max_iters < 0 else max_iters,
+                         "lr_decay_epochs": lr_decay_epochs, "lr_decay_factor": lr_decay_factor,
+                         "scheduler": scheduler, "weight_decay": weight_decay, "momentum": momentum,
+                         "optimizer": optimizer}
 
     model_params = {
         'model': model_name,
@@ -235,7 +239,7 @@ def initialize_trainer(epochs, patience, patience_metric, data_train, progress_b
                          enable_checkpointing=True,
                          gpus=1 if torch.cuda.is_available() else 0,
                          max_epochs=epochs,
-                         callbacks=[mc_callback, early_stop_callback],
+                         callbacks=[mc_callback, early_stop_callback, LearningRateMonitor(logging_interval='epoch')],
                          enable_progress_bar=progress_bar,
                          num_sanity_val_steps=0)
 
@@ -330,6 +334,8 @@ if __name__ == "__main__":
     parser.add_argument('--attn-dropout', dest='attn_dropout', type=float, default=0.6)
     parser.add_argument('--k-shot', dest='k_shot', type=int, default=5, help="Number of examples per task/batch.",
                         choices=SHOTS)
+
+    # OPTIMIZER
     parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
     parser.add_argument('--lr-cl', dest='lr_cl', type=float, default=0.001,
                         help="Classifier learning rate for baseline.")
@@ -338,6 +344,20 @@ if __name__ == "__main__":
     parser.add_argument("--max-iters", dest='max_iters', type=int, default=-1,
                         help='Number of iterations until the learning rate decay after warmup should last. '
                              'If not given then it is computed from the given epochs.')
+    parser.add_argument('--lr_decay_epochs', type=float, default=5,
+                        help='No. of epochs after which learning rate should be decreased')
+
+    parser.add_argument('--lr_decay_factor', type=float, default=0.8,
+                        help='Decay the learning rate of the optimizer by this multiplicative amount')
+
+    parser.add_argument('--scheduler', type=str, default='step',
+                        help='The type of lr scheduler to use anneal learning rate: step/multi_step')
+
+    parser.add_argument('--weight_decay', type=float, default=1e-3, help='weight decay for optimizer')
+
+    parser.add_argument('--momentum', type=float, default=0.8, help='Momentum for optimizer')
+
+    parser.add_argument('--optimizer', type=str, default="Adam", help='Momentum for optimizer')
 
     # MODEL CONFIGURATION
 
@@ -369,8 +389,6 @@ if __name__ == "__main__":
                              'If a checkpoint is provided we do not train again.')
     parser.add_argument('--dataset-eval', dest='dataset_eval', default='gossipcop', choices=SUPPORTED_DATASETS,
                         help='Select the dataset you want to use for evaluation.')
-    parser.add_argument('--num-train-docs', dest='num_train_docs', type=int, default=num_nodes,
-                        help="Inner gradient updates during meta learning.")
     parser.add_argument('--feature-type', dest='feature_type', type=str, default='one-hot',
                         help="Type of features used.")
     parser.add_argument('--vocab-size', dest='vocab_size', type=int, default=10000, help="Size of the vocabulary.")
@@ -419,7 +437,6 @@ if __name__ == "__main__":
         data_eval=params["dataset_eval"],
         dirs=(params["data_dir"], params["tsv_dir"], params["complete_dir"]),
         checkpoint=params["checkpoint"],
-        train_docs=params["num_train_docs"],
         train_split_size=(params["train_size"], params["val_size"], params["test_size"]),
         feature_type=params["feature_type"],
         vocab_size=params["vocab_size"],
@@ -432,5 +449,11 @@ if __name__ == "__main__":
         warmup=params['warmup'],
         max_iters=params['max_iters'],
         gat_heads=params['gat_heads'],
-        gat_batch_size=params['gat_batch_size']
+        gat_batch_size=params['gat_batch_size'],
+        lr_decay_epochs=params['lr_decay_epochs'],
+        lr_decay_factor=params['lr_decay_factor'],
+        scheduler=params['scheduler'],
+        weight_decay=params['weight_decay'],
+        momentum=params['momentum'],
+        optimizer=params['optimizer']
     )

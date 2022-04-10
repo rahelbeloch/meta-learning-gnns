@@ -1,6 +1,8 @@
 import numpy as np
 import torch.nn.functional as func
 from torch import nn, optim
+from torch.optim import AdamW, SGD
+from torch.optim.lr_scheduler import StepLR, MultiStepLR
 
 from models.GraphTrainer import GraphTrainer
 from models.gat_encoder_sparse_pushkar import GatNet
@@ -40,43 +42,67 @@ class GatBase(GraphTrainer):
 
         # self.loss_module = nn.BCEWithLogitsLoss(weight=flipped_weights)
         # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([3]))
-        # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=flipped_weights)
-        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=model_params["class_weight"])
+        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=flipped_weights)
+        # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=model_params["class_weight"])
+
+    # def configure_optimizers(self):
+    #     """
+    #     Configures the AdamW optimizer and enables training with different learning rates for encoder and classifier.
+    #     Also initializes the learning rate scheduler.
+    #     """
+    #
+    #     lr = self.hparams.optimizer_hparams['lr']
+    #
+    #     # weight_decay_enc = self.hparams.optimizer_hparams["weight_decay_enc"]
+    #     weight_decay_enc = 5e-4
+    #
+    #     params = list(self.named_parameters())
+    #
+    #     def is_encoder(n):
+    #         return n.startswith('model')
+    #
+    #     grouped_parameters = [
+    #         {
+    #             'params': [p for n, p in params if is_encoder(n)],
+    #             'lr': lr,
+    #             'weight_decay': weight_decay_enc
+    #         }
+    #     ]
+    #
+    #     optimizer = torch.optim.AdamW(grouped_parameters)
+    #
+    #     self.lr_scheduler = CosineWarmupScheduler(optimizer=optimizer, warmup=self.hparams.optimizer_hparams['warmup'],
+    #                                               max_iters=self.hparams.optimizer_hparams['max_iters'])
+    #
+    #     return [optimizer], []
 
     def configure_optimizers(self):
-        """
-        Configures the AdamW optimizer and enables training with different learning rates for encoder and classifier.
-        Also initializes the learning rate scheduler.
-        """
+        opt_params = self.hparams.optimizer_hparams
 
-        lr = self.hparams.optimizer_hparams['lr']
+        if opt_params['optimizer'] == 'Adam':
+            optimizer = AdamW(self.model.parameters(), lr=opt_params['lr'],
+                              weight_decay=opt_params['weight_decay'])
+        # elif opt_params['optimizer'] == 'RAdam':
+        #     self.optimizer = RiemannianAdam(self.model.parameters(), lr=config['lr'],
+        #                                     weight_decay=config['weight_decay'])
+        elif opt_params['optimizer'] == 'SGD':
+            optimizer = SGD(self.model.parameters(), lr=opt_params['lr'], momentum=opt_params['momentum'],
+                            weight_decay=opt_params['weight_decay'])
+        else:
+            raise ValueError("No optimizer name provided!")
 
-        # weight_decay_enc = self.hparams.optimizer_hparams["weight_decay_enc"]
-        weight_decay_enc = 5e-4
+        scheduler = None
+        if opt_params['scheduler'] == 'step':
+            scheduler = StepLR(optimizer, step_size=opt_params['lr_decay_epochs'], gamma=opt_params['lr_decay_factor'])
+        elif opt_params['scheduler'] == 'multi_step':
+            scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 30, 40, 55],
+                                    gamma=opt_params['lr_decay_factor'])
 
-        params = list(self.named_parameters())
+        return [optimizer], [] if scheduler is None else [scheduler]
 
-        def is_encoder(n):
-            return n.startswith('model')
-
-        grouped_parameters = [
-            {
-                'params': [p for n, p in params if is_encoder(n)],
-                'lr': lr,
-                'weight_decay': weight_decay_enc
-            }
-        ]
-
-        optimizer = torch.optim.AdamW(grouped_parameters)
-
-        self.lr_scheduler = CosineWarmupScheduler(optimizer=optimizer, warmup=self.hparams.optimizer_hparams['warmup'],
-                                                  max_iters=self.hparams.optimizer_hparams['max_iters'])
-
-        return [optimizer], []
-
-    def optimizer_step(self, *args, **kwargs):
-        super().optimizer_step(*args, **kwargs)
-        self.lr_scheduler.step()  # Step per iteration
+    # def optimizer_step(self, *args, **kwargs):
+    #     super().optimizer_step(*args, **kwargs)
+    #     # self.lr_scheduler.step()  # Step per iteration
 
     def forward(self, sub_graphs, targets, mode=None):
 
@@ -113,7 +139,7 @@ class GatBase(GraphTrainer):
         # self.loss['train'].append(loss.item())
 
         # logging in optimizer step does not work, therefore here
-        self.log('lr_rate', self.lr_scheduler.get_lr()[0])
+        # self.log('lr_rate', self.lr_scheduler.get_lr()[0])
 
         # back propagate every step, but only log every epoch
         # sum the loss over steps and average at the end of one epoch and then log
