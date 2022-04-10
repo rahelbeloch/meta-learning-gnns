@@ -37,7 +37,7 @@ class GatBase(GraphTrainer):
 
         # self.loss_module = nn.BCEWithLogitsLoss(weight=flipped_weights)
 
-        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([2]))
+        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([3]))
         # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=flipped_weights)
         # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=model_params["class_weight"])
 
