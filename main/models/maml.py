@@ -127,8 +127,8 @@ class MAML(pl.LightningModule):
 
         self.log(f"{mode}_loss", sum(losses) / len(losses))
         self.log(f"{mode}_acc", sum(accuracies) / len(accuracies))
-        self.log_on_epoch(f"{mode}_f1_macro", sum(f1_macros) / len(f1_macros))
-        self.log_on_epoch(f"{mode}_f1_micro", sum(f1_micros) / len(f1_micros))
+        self.log_on_epoch(f"{mode}/f1_macro", sum(f1_macros) / len(f1_macros))
+        self.log_on_epoch(f"{mode}/f1_micro", sum(f1_micros) / len(f1_micros))
 
     def log_on_epoch(self, metric, value):
         self.log(metric, value, on_step=False, on_epoch=True)

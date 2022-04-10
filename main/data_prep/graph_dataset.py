@@ -56,13 +56,12 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         isolated_nodes = contains_isolated_nodes(edge_index=self.edge_index)
         print(f"Contains isolated nodes: {isolated_nodes}")
         self.max_doc_id = list(self.doc2id.values())[-1]
-        _, _, mask = remove_isolated_nodes(edge_index=self.edge_index)
-        isolated_doc_ids_mask = mask[:self.max_doc_id + 1]
-        # noinspection PyTypeChecker,PyUnresolvedReferences
-        non_test_isolated_nodes = torch.where(False == (~isolated_doc_ids_mask == self.split_masks['test_mask']))[0]
-        assert non_test_isolated_nodes.shape[0] == 0, "The graph contains isolated nodes which are not test nodes!"
-
         first_test_doc = torch.where(self.split_masks['test_mask'] == True)[0][0].item()
+
+        _, _, isolated_mask = remove_isolated_nodes(edge_index=self.edge_index)
+        isolated_train_val_docs = isolated_mask[:self.max_doc_id][:first_test_doc]
+        non_test_isolated_nodes = torch.where(isolated_train_val_docs == True)[0]
+        assert non_test_isolated_nodes.shape[0] == 0, "The graph contains isolated nodes which are not test nodes!"
 
         isolated_train_val_indices = torch.where(torch.where(self.adj.sum(dim=1) == 1)[0] < first_test_doc)
         print(f"Nodes from train/val splits with only self connections: {isolated_train_val_indices}")

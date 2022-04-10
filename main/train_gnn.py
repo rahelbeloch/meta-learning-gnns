@@ -13,7 +13,7 @@ from pytorch_lightning.loggers import WandbLogger
 from data_prep.config import TSV_DIR, COMPLETE_DIR
 from data_prep.data_utils import get_data, SUPPORTED_DATASETS
 from models.gat_base import GatBase
-from models.proto_maml import ProtoMAML
+from models.proto_maml import ProtoMAML, test_protomaml
 from models.proto_net import ProtoNet, test_proto_net
 from samplers.batch_sampler import SHOTS
 
@@ -65,7 +65,7 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric, h_s
 
     loaders, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
                                                 top_users_excluded, k_shot, train_split_size, eval_split_size,
-                                                feature_type, vocab_size, dirs, gat_batch_size, num_workers)
+                                                feature_type, vocab_size, dirs, gat_batch_size, num_workers, True)
 
     train_loader, train_val_loader, test_loader, test_val_loader = loaders
 
@@ -166,8 +166,10 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric, h_s
     elif model_name == 'prototypical':
         (test_f1_fake, _), (test_f1_real, _), (test_f1_macro, _), test_elapsed, _ \
             = test_proto_net(model, eval_graph, len(eval_graph.labels), data_feats=None, k_shot=k_shot)
+    elif model_name == 'gmeta':
+        (test_f1_fake, _), (test_f1_real, _), (test_f1_macro, _), test_elapsed = test_protomaml(model, test_loader)
     else:
-        return
+        raise ValueError(f"Model type {model_name} not supported!")
 
     wandb.log({
         "test/f1_fake": test_f1_fake,

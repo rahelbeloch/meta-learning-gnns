@@ -172,19 +172,21 @@ class BatchSampler(FewShotSampler):
     Useful for non-meta baselines for more stable training with bigger batches.
     """
 
-    def __init__(self, targets, max_n_query, mode, batch_size, n_way=2, k_shot=5, shuffle=True, shuffle_once=False, verbose=False):
+    def __init__(self, targets, max_n_query, mode, batch_size, n_way=2, k_shot=5, shuffle=True, shuffle_once=False,
+                 verbose=False):
         super().__init__(targets, max_n_query, mode, n_way, k_shot, shuffle, shuffle_once, verbose)
 
         # assert (batch_size / (self.k_shot * self.n_way)) % 1 == 0, "Batch size not divisible by n way and k shot."
         # must be divisible by self.k_shot * self.n_way
         # self.new_b_size = 688   # --> 5 batches
-        self.new_b_size = 344  # --> 10 batches
-        # self.new_b_size = batch_size
+        # self.new_b_size = 344  # --> 10 batches
+        # self.new_b_size = 497  # --> balanced dataset, 9 batches
 
+        self.new_b_size = batch_size
         self.n_old_batches = super(BatchSampler, self).__len__()
 
         n_new_batches = 2 * self.n_old_batches * self.k_shot / self.new_b_size
-        assert n_new_batches % 1 == 0, f"New batch size {self.new_b_size} can not create even number of batches."
+        # assert n_new_batches % 1 == 0, f"New batch size {self.new_b_size} can not create even number of batches."
 
         self.n_new_batches = int(n_new_batches)
 

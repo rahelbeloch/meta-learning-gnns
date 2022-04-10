@@ -10,7 +10,7 @@ SUPPORTED_DATASETS = ['gossipcop', 'twitterHateSpeech']
 
 
 def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_excluded, k_shot, train_split_size,
-             eval_split_size, feature_type, vocab_size, dirs, batch_size, num_workers=None):
+             eval_split_size, feature_type, vocab_size, dirs, batch_size, num_workers=None, oversample_fake=False):
     """
     Creates and returns the correct data object depending on data_name.
     Args:
@@ -42,7 +42,7 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
             "Data for training and evaluation is equal and one of the split sizes is 0!"
 
     data_config = {'top_users': top_k, 'top_users_excluded': top_users_excluded, 'feature_type': feature_type,
-                   'vocab_size': vocab_size}
+                   'vocab_size': vocab_size, 'oversample_fake': oversample_fake}
 
     # creating a train and val loader from the train dataset
     train_config = {**data_config, **{'data_set': data_train, 'train_size': train_split_size[0],
@@ -107,6 +107,23 @@ def get_num_workers(sampler, num_workers):
     return 0
 
 
+# def get_graph_sampler(sampler_type, data):
+#     clusters = 5
+#     batch_size = 344
+#     shuffle = False
+#
+#     if sampler_type == 'cluster':
+#         cluster_data = ClusterData(data, num_parts=clusters, recursive=False)
+#         return ClusterLoader(cluster_data, batch_size=batch_size, shuffle=shuffle, num_workers=0)
+#     elif sampler_type == 'random_walk':
+#         return GraphSAINTRandomWalkSampler(data, batch_size=6000, walk_length=2, num_steps=5, sample_coverage=100,
+#                                            num_workers=0)
+#     elif sampler_type == 'node':
+#         return GraphSAINTNodeSampler(data, batch_size=6000, num_steps=5, sample_coverage=100, num_workers=0)
+#     elif sampler_type == 'edge':
+#         return GraphSAINTEdgeSampler(data, batch_size=6000, num_steps=5, sample_coverage=100, num_workers=0)
+
+
 def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_queries, batch_size):
     n_classes = len(graph_data.labels)
 
@@ -135,6 +152,8 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
 
     sampler = KHopSampler(graph_data, model_name, batch_sampler, n_classes, k_shot, hop_size, mode,
                           num_workers=num_workers)
+
+    # sampler = get_graph_sampler('random_walk', graph_data)
 
     print(f"{mode} sampler episodes / batches: {len(sampler)}\n")
 

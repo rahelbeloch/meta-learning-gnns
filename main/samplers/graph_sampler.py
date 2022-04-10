@@ -16,6 +16,7 @@ class KHopSampler(GraphSAINTSampler):
 
         self.k_hops = k_hops
         self.edge_index = graph.edge_index
+        self.adjacency_matrix = graph.adj
         self.model_type = model
         self.mode = mode
 
@@ -58,14 +59,14 @@ class KHopSampler(GraphSAINTSampler):
                                                                                relabel_nodes=True,
                                                                                flow="target_to_source")
 
-        # if self.mode == 'train':
-        #     # check if any of test/val nodes are samples as side node; if True --> remove them!
-        #     subgraph_nodes = set(node_indices.tolist())
-        #     intersect = self.test_val_nodes.intersection(subgraph_nodes)
-        #     if len(intersect) is not 0:
-        #         new_subgraph_nodes = subgraph_nodes - intersect
-        #         assert node_id.item() in new_subgraph_nodes, "Center node ID was removed!"
-        #         node_indices = torch.LongTensor(list(new_subgraph_nodes))
+        if self.mode == 'train':
+            # check if any of test/val nodes are samples as side node; if True --> remove them!
+            subgraph_nodes = set(node_indices.tolist())
+            intersect = self.test_val_nodes.intersection(subgraph_nodes)
+            if len(intersect) is not 0:
+                new_subgraph_nodes = subgraph_nodes - intersect
+                assert node_id.item() in new_subgraph_nodes, "Center node ID was removed!"
+                node_indices = torch.LongTensor(list(new_subgraph_nodes))
 
         return node_indices
 
