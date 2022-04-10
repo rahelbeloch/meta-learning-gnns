@@ -37,8 +37,8 @@ class ProtoNet(GraphTrainer):
         flipped_weights = torch.flip(model_params["class_weight"], dims=[0])
 
         # self.loss_module = torch.nn.BCEWithLogitsLoss(weight=flipped_weights)
-        self.loss_module = torch.nn.BCELoss(weight=flipped_weights)
-        # self.loss_module = torch.nn.CrossEntropyLoss(weight=flipped_weights)
+        # pos_weight = flipped_weights
+        self.loss_module = torch.nn.BCELoss()
 
         self.model = GatNet(model_params)
 
@@ -46,6 +46,30 @@ class ProtoNet(GraphTrainer):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.optimizer_hparams['lr'])
         scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[140, 180], gamma=0.1)
         return [optimizer], [scheduler]
+
+    # def configure_optimizers(self):
+    #     opt_params = self.hparams.optimizer_hparams
+    #
+    #     if opt_params['optimizer'] == 'Adam':
+    #         optimizer = AdamW(self.model.parameters(), lr=opt_params['lr'],
+    #                           weight_decay=opt_params['weight_decay'])
+    #     # elif opt_params['optimizer'] == 'RAdam':
+    #     #     self.optimizer = RiemannianAdam(self.model.parameters(), lr=config['lr'],
+    #     #                                     weight_decay=config['weight_decay'])
+    #     elif opt_params['optimizer'] == 'SGD':
+    #         optimizer = SGD(self.model.parameters(), lr=opt_params['lr'], momentum=opt_params['momentum'],
+    #                         weight_decay=opt_params['weight_decay'])
+    #     else:
+    #         raise ValueError("No optimizer name provided!")
+    #
+    #     scheduler = None
+    #     if opt_params['scheduler'] == 'step':
+    #         scheduler = StepLR(optimizer, step_size=opt_params['lr_decay_epochs'], gamma=opt_params['lr_decay_factor'])
+    #     elif opt_params['scheduler'] == 'multi_step':
+    #         scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 30, 40, 55],
+    #                                 gamma=opt_params['lr_decay_factor'])
+    #
+    #     return [optimizer], [] if scheduler is None else [scheduler]
 
     @staticmethod
     def calculate_prototypes(features, targets):
@@ -86,8 +110,9 @@ class ProtoNet(GraphTrainer):
         dist = torch.pow(prototypes[None, :] - feats[:, None], 2).sum(dim=2)
 
         # TODO: was log_softmax, now no softmax/sigmoid because this is handled by the loss function
-        # predictions = func.log_softmax(-dist, dim=1)
-        predictions = torch.sigmoid(-dist)
+        # predictions = func.log_softmax(-dist, dim=1)      # for CE loss
+        predictions = torch.sigmoid(-dist)                  # for BCE loss
+        # predictions = -dist                               # for BCE with logits loss
 
         # noinspection PyUnresolvedReferences
         labels = (classes[None, :] == targets[:, None]).to(torch.int32)
@@ -154,7 +179,7 @@ class ProtoNet(GraphTrainer):
         targets = targets.argmax(dim=-1)
 
         if mode == 'train' or mode == 'val':
-            self.log_on_epoch(f"{mode}_loss", loss)
+            self.log_on_epoch(f"{mode}/loss", loss)
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
         # pred = torch.sigmoid(logits).argmax(dim=-1)
