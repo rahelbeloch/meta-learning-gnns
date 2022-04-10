@@ -1,10 +1,13 @@
 import itertools
 
+import networkx as nx
 import torch
+from matplotlib import pyplot as plt
+from torch_geometric.utils import to_networkx
 
 from data_prep.data_utils import get_data, get_loader, get_max_n_query
 from data_prep.graph_dataset import TorchGeomGraphDataset
-from samplers.batch_sampler import SHOTS, get_max_n
+from samplers.batch_sampler import SHOTS
 
 data_train = 'gossipcop'
 data_eval = 'gossipcop'
@@ -23,9 +26,9 @@ def sub_graphs_loader_validation():
     """
     Validates that the center index of each subgraph is stored iin the correct indices_per_class of the batch sampler.
     """
-    loaders, b_size, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
-                                                        top_users_excluded, 5, train_split_size, eval_split_size,
-                                                        feature_type, vocab_size, dirs, num_workers)
+    loaders, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
+                                                top_users_excluded, 5, train_split_size, eval_split_size,
+                                                feature_type, vocab_size, dirs, num_workers)
 
     for loader in loaders:
         for data_list, targets in loader:
@@ -37,9 +40,9 @@ def sub_graphs_loader_validation():
 def validate_query_set_equal():
     query_shot_nodes = dict()
     for k in SHOTS:
-        loaders, b_size, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
-                                                            top_users_excluded, k, train_split_size, eval_split_size,
-                                                            feature_type, vocab_size, dirs, num_workers)
+        loaders, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
+                                                    top_users_excluded, k, train_split_size, eval_split_size,
+                                                    feature_type, vocab_size, dirs, num_workers)
 
         train_loader, train_val_loader, test_loader, test_val_loader = loaders
 
@@ -109,9 +112,9 @@ def unused_samples_stats():
     """
     Print how many samples stay unused for each loader we can create.
     """
-    loaders, b_size, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
-                                                        top_users_excluded, 5, train_split_size, eval_split_size,
-                                                        feature_type, vocab_size, dirs, num_workers)
+    loaders, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
+                                                top_users_excluded, 5, train_split_size, eval_split_size,
+                                                feature_type, vocab_size, dirs, num_workers)
 
     for loader in loaders:
         n_indices = 0
@@ -130,6 +133,24 @@ def unused_samples_stats():
         print(f'{loader.mode} loader unused support samples: {int(n_support - n_used / 2)}\n')
 
 
+def visualize_subgraphs():
+    loaders, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
+                                                top_users_excluded, 5, train_split_size, eval_split_size,
+                                                feature_type, vocab_size, dirs, num_workers=num_workers,
+                                                batch_size=344, oversample_fake=False)
+
+    for loader in loaders:
+        for episode in iter(loader):
+            support_graphs, query_graphs, support_targets, query_targets = episode
+
+            for i, graph in enumerate(support_graphs):
+
+                print(f"Label: {support_targets[i]}")
+                nx_graph = to_networkx(graph)
+                nx.draw_networkx(nx_graph)
+                plt.show()
+
+
 if __name__ == '__main__':
     # check_train_loader_query_samples()
 
@@ -145,6 +166,8 @@ if __name__ == '__main__':
 
     # sub_graphs_loader_validation()
 
-    unused_samples_stats()
+    # unused_samples_stats()
 
     # get_max_n()
+
+    visualize_subgraphs()

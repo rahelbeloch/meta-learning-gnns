@@ -25,9 +25,6 @@ class GraphPreprocessor(GraphIO):
         # temporary attributes for data which has been loaded and will be reused
         self.doc2id, self.user2id = None, None
 
-    def doc_used(self, doc_key):
-        return doc_key in self.train_docs or doc_key in self.val_docs or doc_key in self.test_docs
-
     def maybe_load_id_mappings(self):
         if self.user2id is None:
             self.user2id = self.load_if_exists(self.data_complete_path(self.get_file_name(USER_2_ID_FILE_NAME)))
@@ -61,7 +58,8 @@ class GraphPreprocessor(GraphIO):
         # self.doc2id = doc2id_train | doc2id_val
 
         assert len(set(doc2id.values())) == len(doc2id), "Doc2ID contains duplicate IDs!!"
-        assert len(doc2id) == (n_val + n_train + n_test), "Doc2id does not contain all documents!"
+        assert len(doc2id) == (n_val + n_train + n_test), \
+            "Doc2id does not contain all documents!"
         print("New doc2id len including test docs = ", len(doc2id))
         doc2id_file = self.data_complete_path(self.get_file_name(DOC_2_ID_FILE_NAME))
         print("Saving doc2id_train in : ", doc2id_file)
@@ -119,16 +117,16 @@ class GraphPreprocessor(GraphIO):
 
         print("\nDone ! All files written.")
 
-    @staticmethod
-    def doc_node_info(docs, offset=None):
+    def doc_node_info(self, docs, offset=None):
         doc2id, node_type = {}, []
 
         for doc_count, doc_name in enumerate(docs):
             doc2id[doc_name] = doc_count if offset is None else doc_count + offset
             node_type.append(1)
 
-        assert len(docs) == len(doc2id) == len(node_type), \
-            "doc2id and node type for train to not match number of train documents!"
+        assert len(doc2id) == len(docs), \
+            "doc2id for train does not match number of train documents!"
+        assert len(docs) == len(node_type), "node type for train does not match number of train documents!"
 
         return doc2id, node_type
 
@@ -278,8 +276,7 @@ class GraphPreprocessor(GraphIO):
         self.print_step("Creating feature matrix")
 
         # load all texts for test, train and val documents
-        split_path = self.data_tsv_path(f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}',
-                                        self.get_file_name(DOC_SPLITS_FOLDER_NAME))
+        split_path = self.data_tsv_path(self.data_dir_name, self.get_file_name(DOC_SPLITS_FOLDER_NAME))
 
         all_texts = {}
         for split in SPLITS:
@@ -418,9 +415,9 @@ class GraphPreprocessor(GraphIO):
         for doc_key in train_docs:
             if doc_key not in self.doc2id:
                 continue
-            if doc_key not in doc2labels:
-                raise ValueError(f'Can not retrieve label for document with key: {doc_key}')
-            label = doc2labels[doc_key]
+
+            label = self.get_doc_label(doc2labels, doc_key)
+
             doc_id = self.doc2id[doc_key]
             train_labels[doc_id] = label
             all_labels[doc_id] = label
@@ -428,9 +425,8 @@ class GraphPreprocessor(GraphIO):
         for doc_key in self.test_docs:
             if doc_key not in self.doc2id:
                 continue
-            if doc_key not in doc2labels:
-                raise ValueError(f'Can not retrieve label for document with key: {doc_key}')
-            all_labels[self.doc2id[doc_key]] = doc2labels[doc_key]
+
+            all_labels[self.doc2id[doc_key]] = self.get_doc_label(doc2labels, doc_key)
 
         # verify that all_labels really only contains labels for documents and not for users
         # assert False not in (torch.bincount(all_labels[:self.total_docs]) == torch.bincount(
@@ -452,6 +448,20 @@ class GraphPreprocessor(GraphIO):
             all_labels_file,
             converter=self.np_converter
         )
+
+    @staticmethod
+    def get_doc_label(doc2labels, doc_key):
+        doc_label_key = doc_key[:-2] if doc_key.endswith('-1') else doc_key
+        if doc_label_key not in doc2labels:
+            raise ValueError(f'Can not retrieve label for document with key: {doc_label_key}')
+        return doc2labels[doc_label_key]
+
+    @staticmethod
+    def get_doc_users(doc2users, doc_key):
+        doc_label_key = doc_key[:-2] if doc_key.endswith('-1') else doc_key
+        if doc_label_key not in doc2users:
+            raise ValueError(f'Can not retrieve label for document with key: {doc_label_key}')
+        return doc2users[doc_label_key]
 
     def create_split_masks(self):
         """

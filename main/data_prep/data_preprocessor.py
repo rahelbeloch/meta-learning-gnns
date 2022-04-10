@@ -3,6 +3,7 @@ import csv
 import json
 import random
 from collections import defaultdict, OrderedDict
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -26,7 +27,7 @@ class DataPreprocessor(GraphIO):
 
     def maybe_load_valid_users(self):
         if self.valid_users is None:
-            self.valid_users = self.load_if_exists(self.data_complete_path(VALID_USERS % self.top_users))
+            self.valid_users = self.load_if_exists(self.data_complete_path(VALID_USERS))
 
     def maybe_load_non_interaction_docs(self):
         if self.non_interaction_docs is None:
@@ -38,6 +39,9 @@ class DataPreprocessor(GraphIO):
             if percentage >= self.user_doc_threshold:
                 return True
         return False
+
+    def doc_used(self, doc_key):
+        return doc_key in self.train_docs or doc_key in self.val_docs or doc_key in self.test_docs
 
     def aggregate_user_contexts(self):
         """
@@ -79,6 +83,8 @@ class DataPreprocessor(GraphIO):
                 # only include this document ID in doc_users if we actually use it in our splits
                 # if not self.doc_used(doc_id):
                 #     continue
+
+                # only include this document ID in doc_users if it was actually shared by someone
 
                 docs_users[doc_id].update(user_ids)
                 if count == 0:
@@ -251,10 +257,19 @@ class DataPreprocessor(GraphIO):
                 invalid_only_niv[doc_key] = tokens
                 continue
 
+            label = doc_data[1]
+
             x_data.append(tokens)
-            y_data.append(doc_data[1])
+            y_data.append(label)
             doc_names.append(doc_key)
             x_lengths.append(len(tokens))
+
+            if self.oversample_fake and self.labels[label] == 'fake':
+                # add this document a second time to the dataset
+                x_data.append(tokens)
+                y_data.append(label)
+                doc_names.append(doc_key + '-1')
+                x_lengths.append(len(tokens))
 
         print(f"Average length = {sum(x_lengths) / len(x_lengths)}")
         print(f"Shortest Length = {min(x_lengths)}")
@@ -331,7 +346,10 @@ class DataPreprocessor(GraphIO):
         if self.test_size > 0:
             # one tuple is one split and contains: (x, y, doc_names)
             rest_split, test_split = split_data(splits, self.test_size, data)
-            assert len(set(test_split[2])) == len(test_split[2]), "Test split contains duplicate doc names!"
+
+            assert len(set(test_split[2])) == len(test_split[2]), \
+                "Test split contains duplicate doc names!"
+
             print_label_distribution(test_split[1], 'test')
             split_dict['test'] = test_split
         else:
@@ -347,22 +365,23 @@ class DataPreprocessor(GraphIO):
                 # split rest data into validation and train splits
                 train_split, val_split = split_data(splits, self.val_size, rest_split)
 
-            assert len(set(val_split[2])) == len(val_split[2]), "Validation split contains duplicate doc names!"
+            assert len(set(val_split[2])) == len(val_split[2]), \
+                "Validation split contains duplicate doc names!"
             print_label_distribution(val_split[1], 'val')
             split_dict['val'] = val_split
         else:
             train_split = data
 
         if train_split is not None:
-            assert len(set(train_split[2])) == len(train_split[2]), "Train split contains duplicate doc names!"
+            assert len(set(train_split[2])) == len(train_split[2]), \
+                "Train split contains duplicate doc names!"
             print_label_distribution(train_split[1], 'train')
             split_dict['train'] = train_split
 
         print("\nWriting train, val and test files...\n")
 
         folder_name = self.get_file_name(DOC_SPLITS_FOLDER_NAME)
-        split_path = self.data_tsv_path(f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}',
-                                        folder_name)
+        split_path = self.data_tsv_path(self.data_dir_name, folder_name)
 
         doc_names_split_dict = {}
         for split, data in split_dict.items():
@@ -386,10 +405,13 @@ class DataPreprocessor(GraphIO):
             doc_names_split_dict[f'{split}_docs'] = name_list
 
         file_name = self.get_file_name(DOC_SPLITS_FILE_NAME)
-        doc_splits_file = self.data_tsv_path(f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}',
-                                             file_name)
-        print("\nWriting doc splits in : ", doc_splits_file)
-        save_json_file(doc_names_split_dict, doc_splits_file, converter=self.np_converter)
+
+        doc_splits_dir = self.data_tsv_path(self.data_dir_name)
+        if not doc_splits_dir.exists():
+            doc_splits_dir.mkdir(parents=True)
+
+        print("\nWriting doc splits in : ", doc_splits_dir / file_name)
+        save_json_file(doc_names_split_dict, doc_splits_dir / file_name, converter=self.np_converter)
 
     def create_user_splits(self, max_users):
         """

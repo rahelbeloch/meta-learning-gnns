@@ -16,9 +16,9 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         self.load_doc_splits()
 
-        self.create_doc_id_dicts()
-        self.create_follower_following_relationships()
-        self.create_feature_matrix()
+        # self.create_doc_id_dicts()
+        # self.create_follower_following_relationships()
+        # self.create_feature_matrix()
         self.create_adj_matrix()
         self.create_labels()
         self.create_split_masks()
@@ -35,19 +35,19 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
         edge_list = []
         not_used = 0
 
-        for file_path in self.get_engagement_files():
-            doc_key = file_path.stem
-            if doc_key == '':
-                continue
-            src_file = load_json_file(file_path)
-            users = map(str, src_file['users'])
+        print("Loading doc2users dictionary...")
+        doc2users = load_json_file(self.data_complete_path(DOC_2_USERS_FILE_NAME))
+
+        for doc_id in self.doc2id:
+
+            users = self.get_doc_users(doc2users, doc_id)
             for user in users:
-                if doc_key in self.test_docs:
+                if doc_id in self.test_docs:
                     # no connections between users and test documents!
                     continue
 
-                if doc_key in self.doc2id and user in self.user2id:
-                    doc_id = self.doc2id[doc_key]
+                if doc_id in self.doc2id and user in self.user2id:
+                    doc_id = self.doc2id[doc_id]
                     user_id = self.user2id[user]
 
                     edge_list.append((doc_id, user_id))
@@ -155,6 +155,9 @@ if __name__ == '__main__':
     parser.add_argument('--val-size', dest='val_size', type=float, default=0.1, help='Size of validation split.')
 
     parser.add_argument('--test-size', dest='test_size', type=float, default=0.2, help='Size of train split.')
+
+    parser.add_argument('--oversample-fake', dest='oversample_fake', type=bool, default=True,
+                        help='If dataset imbalance should be equaled out or not.')
 
     args, unparsed = parser.parse_known_args()
 

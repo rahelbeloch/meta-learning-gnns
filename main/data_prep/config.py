@@ -33,6 +33,7 @@ USER_2_ID_FILE_NAME = 'user2id_train_type=%s_vsize=%s_train=%s_val=%s_test=%s.js
 USER_2_DOC_ID_FILE_NAME = 'user2docIds_train_type=%s_vsize=%s_train=%s_val=%s_test=%s.json'
 DOC_2_ID_FILE_NAME = 'doc2id_train_type=%s_vsize=%s_train=%s_val=%s_test=%s.json'
 DOC_2_LABELS_FILE_NAME = 'doc2labels.json'
+DOC_2_USERS_FILE_NAME = 'doc2users.json'
 
 # NOT REQUIRED
 

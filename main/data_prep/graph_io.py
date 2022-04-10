@@ -1,5 +1,6 @@
 import abc
 import datetime
+from pathlib import Path
 
 import nltk
 from importlib_resources import files
@@ -21,7 +22,7 @@ class GraphIO:
 
     def __init__(self, config, data_dir, tsv_dir=TSV_DIR, complete_dir=COMPLETE_DIR, enforce_raw=True):
         self.dataset = config['data_set']
-
+        self.oversample_fake = config['oversample_fake'] if 'oversample_fake' in config else False
         self.top_users = config['top_users']
         self.top_users_excluded = config['top_users_excluded'] / 100
 
@@ -35,10 +36,11 @@ class GraphIO:
         self.data_tsv_dir = self.create_dir(data_path / tsv_dir / self.dataset).parent
         self.data_complete_dir = self.create_dir(data_path / complete_dir / self.dataset).parent
 
-        self.create_dir(
-            data_path / tsv_dir / self.dataset / f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}')
-        self.create_dir(
-            data_path / complete_dir / self.dataset / f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}')
+        self.data_dir_name = Path(f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}'
+                                  f'_fakeOversample{str(self.oversample_fake)}')
+
+        self.create_dir(data_path / tsv_dir / self.dataset / self.data_dir_name)
+        self.create_dir(data_path / complete_dir / self.dataset / self.data_dir_name)
 
         self.non_interaction_docs, self.vocab_size = None, config['vocab_size']
 
@@ -54,7 +56,7 @@ class GraphIO:
 
     def load_doc_splits(self):
         file_name = self.get_file_name(DOC_SPLITS_FILE_NAME)
-        path = self.data_tsv_path(f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}', file_name)
+        path = self.data_tsv_path(self.data_dir_name, file_name)
         doc_splits = load_json_file(path)
         self.train_docs = doc_splits['train_docs'] if 'train_docs' in doc_splits else []
         self.val_docs = doc_splits['val_docs'] if 'val_docs' in doc_splits else []
@@ -90,9 +92,7 @@ class GraphIO:
         return self.data_tsv_dir.joinpath(self.dataset, *parts)
 
     def data_complete_path(self, *parts):
-        return self.data_complete_dir.joinpath(self.dataset,
-                                               f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}',
-                                               *parts)
+        return self.data_complete_dir.joinpath(self.dataset, self.data_dir_name, *parts)
 
     @staticmethod
     def np_converter(obj):

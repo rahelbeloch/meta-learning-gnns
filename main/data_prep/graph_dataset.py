@@ -29,6 +29,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
     Parent class for graph datasets. It loads the graph from respective files.
     """
 
+    # noinspection PyTypeChecker,PyUnresolvedReferences
     def __init__(self, config, split_size, data_dir, tsv_dir, complete_dir, verbose=False, analyse_node_degrees=False):
         super().__init__(config, data_dir=data_dir, tsv_dir=tsv_dir, complete_dir=complete_dir, enforce_raw=False)
 
@@ -45,7 +46,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         self.x_data, self.y_data = None, None
         self.edge_index, self.edge_type = None, None
         self.adj = None
-        self.node2id = None
+        self.doc2id = None
         self.split_masks = None
 
         self.read_files()
@@ -54,12 +55,17 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         # should not occur in the train or val split, only in the test split
         isolated_nodes = contains_isolated_nodes(edge_index=self.edge_index)
         print(f"Contains isolated nodes: {isolated_nodes}")
-        max_doc_id = list(self.doc2id.values())[-1]
+        self.max_doc_id = list(self.doc2id.values())[-1]
         _, _, mask = remove_isolated_nodes(edge_index=self.edge_index)
-        isolated_doc_ids_mask = mask[:max_doc_id + 1]
+        isolated_doc_ids_mask = mask[:self.max_doc_id + 1]
         # noinspection PyTypeChecker,PyUnresolvedReferences
         non_test_isolated_nodes = torch.where(False == (~isolated_doc_ids_mask == self.split_masks['test_mask']))[0]
         assert non_test_isolated_nodes.shape[0] == 0, "The graph contains isolated nodes which are not test nodes!"
+
+        first_test_doc = torch.where(self.split_masks['test_mask'] == True)[0][0].item()
+
+        isolated_train_val_indices = torch.where(torch.where(self.adj.sum(dim=1) == 1)[0] < first_test_doc)
+        print(f"Nodes from train/val splits with only self connections: {isolated_train_val_indices}")
 
         # if self._analyse_node_degrees or self.dataset == 'gossipcop':
         #     print('\nAnalysing node degrees ..........')
@@ -110,6 +116,10 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         self.print_step("Reading files for Torch Geometric Graph")
 
+        doc2id_file = self.data_complete_path(
+            DOC_2_ID_FILE_NAME % (self.feature_type, self.vocab_size, self.train_size, self.val_size, self.test_size))
+        self.doc2id = json.load(open(doc2id_file, 'r'))
+
         feat_matrix_file = self.data_complete_path(self.get_file_name(FEAT_MATRIX_FILE_NAME))
         if not feat_matrix_file.exists():
             raise ValueError(f"Feature matrix file does not exist: {feat_matrix_file}")
@@ -138,10 +148,6 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         else:
             # create from edge_list file
             self.adj = get_adj_matrix(self.edge_index, num_nodes)
-
-        doc2id_file = self.data_complete_path(
-            DOC_2_ID_FILE_NAME % (self.feature_type, self.vocab_size, self.train_size, self.val_size, self.test_size))
-        self.doc2id = json.load(open(doc2id_file, 'r'))
 
         # node_type_file = self.data_complete_path(NODE_TYPE_FILE_NAME % self.top_users)
         # node_type = np.load(node_type_file)

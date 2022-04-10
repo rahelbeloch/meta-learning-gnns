@@ -5,7 +5,7 @@ from collections import defaultdict
 import nltk
 
 from data_prep.config import *
-from data_prep.data_preprocess_utils import load_json_file, sanitize_text
+from data_prep.data_preprocess_utils import load_json_file, sanitize_text, save_json_file
 from data_prep.data_preprocessor import DataPreprocessor
 from data_prep.graph_io import FEATURE_TYPES
 
@@ -92,6 +92,7 @@ class TSVPreprocessor(DataPreprocessor):
 
         dest_dir = self.data_tsv_path('engagements')
 
+        doc2users = {}
         doc2labels = {}
         contents = []
 
@@ -128,6 +129,7 @@ class TSVPreprocessor(DataPreprocessor):
                     if len(tokens) >= min_len:
                         contents.append([doc_name, "_".join(tokens), label])
                         doc2labels[doc_name] = label
+                        doc2users[doc_name] = set(users)
                     else:
                         invalid_min_length.append(doc_name)
 
@@ -136,10 +138,16 @@ class TSVPreprocessor(DataPreprocessor):
         print(f"Total docs without interactions (after valid users) : {len(no_valid_users)}")
         print(f"Total docs invalid and removed (length < {min_len}) = {len(set(invalid_min_length))}")
 
-        assert len(doc2labels) == len(contents), "doc2labels is not of same length as contents list!"
+        assert len(doc2labels) == len(contents) == len(doc2users), "doc2labels is not of same length as contents list!"
 
         self.store_doc2label(doc2labels)
         self.store_doc_contents(contents)
+
+        # store doc2users
+        doc2users_file = self.data_complete_path(DOC_2_USERS_FILE_NAME)
+
+        print(f"Writing doc2users JSON in :  {doc2users_file}")
+        save_json_file(doc2users, doc2users_file, converter=self.np_converter)
 
 
 if __name__ == '__main__':
@@ -190,6 +198,9 @@ if __name__ == '__main__':
     parser.add_argument('--val-size', dest='val_size', type=float, default=0.1, help='Size of validation split.')
 
     parser.add_argument('--test-size', dest='test_size', type=float, default=0.2, help='Size of train split.')
+
+    parser.add_argument('--oversample-fake', dest='oversample_fake', type=bool, default=True,
+                        help='If dataset imbalance should be equaled out or not.')
 
     args, unparsed = parser.parse_known_args()
     args = args.__dict__
