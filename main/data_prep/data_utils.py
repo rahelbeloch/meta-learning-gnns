@@ -131,6 +131,8 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
 
     num_workers = get_num_workers(batch_sampler, num_workers)
 
+    print(f"Num workers: {num_workers}")
+
     sampler = KHopSampler(graph_data, model_name, batch_sampler, n_classes, k_shot, hop_size, mode,
                           num_workers=num_workers)
 
