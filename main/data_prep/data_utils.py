@@ -10,7 +10,7 @@ SUPPORTED_DATASETS = ['gossipcop', 'twitterHateSpeech']
 
 
 def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_excluded, k_shot, train_split_size,
-             eval_split_size, feature_type, vocab_size, dirs, batch_size, num_workers=None, oversample_fake=False):
+             eval_split_size, feature_type, vocab_size, dirs, batch_size, num_workers=None, balance_data=False):
     """
     Creates and returns the correct data object depending on data_name.
     Args:
@@ -42,7 +42,7 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
             "Data for training and evaluation is equal and one of the split sizes is 0!"
 
     data_config = {'top_users': top_k, 'top_users_excluded': top_users_excluded, 'feature_type': feature_type,
-                   'vocab_size': vocab_size, 'oversample_fake': oversample_fake}
+                   'vocab_size': vocab_size, 'balance_data': balance_data}
 
     # creating a train and val loader from the train dataset
     train_config = {**data_config, **{'data_set': data_train, 'train_size': train_split_size[0],

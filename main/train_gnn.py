@@ -24,7 +24,8 @@ if torch.cuda.is_available():
     torch.cuda.empty_cache()
 
 
-def train(progress_bar, model_name, seed, epochs, patience, patience_metric, h_size, top_users, top_users_excluded,
+def train(balance_data, progress_bar, model_name, seed, epochs, patience, patience_metric, h_size, top_users,
+          top_users_excluded,
           k_shot, lr, lr_cl, lr_inner, lr_output, hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval,
           dirs, checkpoint, train_split_size, feature_type, vocab_size, n_inner_updates, num_workers,
           gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup, max_iters, gat_heads, gat_batch_size,
@@ -65,7 +66,8 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric, h_s
 
     loaders, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
                                                 top_users_excluded, k_shot, train_split_size, eval_split_size,
-                                                feature_type, vocab_size, dirs, gat_batch_size, num_workers, True)
+                                                feature_type, vocab_size, dirs, gat_batch_size, num_workers,
+                                                balance_data)
 
     train_loader, train_val_loader, test_loader, test_val_loader = loaders
 
@@ -327,6 +329,8 @@ if __name__ == "__main__":
     parser.add_argument('--no-progress-bar', dest='progress_bar', action='store_false')
     parser.set_defaults(progress_bar=True)
 
+    parser.add_argument('--wb-mode', dest='wb_mode', type=str, default='offline')
+
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--epochs', dest='epochs', type=int, default=1)
     parser.add_argument('--patience-metric', dest='patience_metric', type=str, default='loss')
@@ -399,6 +403,10 @@ if __name__ == "__main__":
     parser.add_argument('--data-dir', dest='data_dir', default='data',
                         help='Select the dataset you want to use.')
 
+    parser.add_argument('--balanced-data', dest='no_balanced_data', action='store_false')
+    parser.add_argument('--no-balanced-data', dest='no_balanced_data', action='store_true')
+    parser.set_defaults(no_balanced_data=True)
+
     # parser.add_argument('--train-size', dest='train_size', type=float, default=0.875)
     # parser.add_argument('--val-size', dest='val_size', type=float, default=0.125)
     # parser.add_argument('--test-size', dest='test_size', type=float, default=0.0)
@@ -411,13 +419,12 @@ if __name__ == "__main__":
     parser.add_argument('--complete-dir', dest='complete_dir', default=complete_dir,
                         help='Select the dataset you want to use.')
 
-    parser.add_argument('--wb-mode', dest='wb_mode', type=str, default='offline')
-
     params = vars(parser.parse_args())
 
     os.environ["WANDB_MODE"] = params['wb_mode']
 
     train(
+        balance_data=not params['no_balanced_data'],
         progress_bar=params['progress_bar'],
         model_name=params['model'],
         seed=params['seed'],

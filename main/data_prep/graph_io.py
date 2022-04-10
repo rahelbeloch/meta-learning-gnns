@@ -22,7 +22,7 @@ class GraphIO:
 
     def __init__(self, config, data_dir, tsv_dir=TSV_DIR, complete_dir=COMPLETE_DIR, enforce_raw=True):
         self.dataset = config['data_set']
-        self.oversample_fake = config['oversample_fake'] if 'oversample_fake' in config else False
+        self.oversample_fake = config['balance_data'] if 'balance_data' in config else False
         self.top_users = config['top_users']
         self.top_users_excluded = config['top_users_excluded'] / 100
 

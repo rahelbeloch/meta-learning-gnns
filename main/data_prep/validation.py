@@ -137,7 +137,7 @@ def visualize_subgraphs():
     loaders, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
                                                 top_users_excluded, 5, train_split_size, eval_split_size,
                                                 feature_type, vocab_size, dirs, num_workers=num_workers,
-                                                batch_size=344, oversample_fake=False)
+                                                batch_size=344, balance_data=False)
 
     for loader in loaders:
         for episode in iter(loader):
