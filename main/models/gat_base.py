@@ -33,8 +33,9 @@ class GatBase(GraphTrainer):
         # self.lr_scheduler = None  # initialized later
 
         # flipping the weights
-        flipped_weights = torch.flip(model_params["class_weight"], dims=[0])
-        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=flipped_weights)
+        # flipped_weights = torch.flip(model_params["class_weight"], dims=[0])
+        # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=flipped_weights)
+        self.loss_module = nn.BCEWithLogitsLoss()
         # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=model_params["class_weight"])
 
     # def configure_optimizers(self):
@@ -121,9 +122,9 @@ class GatBase(GraphTrainer):
 
         logits = self.forward(sub_graphs, targets, mode='train')
 
-        batch_balance = torch.bincount(targets) / targets.shape[0]
-        print(f"\nBatch balance: {batch_balance}")
-        self.loss_module.pos_weight = torch.flip(batch_balance, dims=[0])
+        # batch_balance = torch.bincount(targets) / targets.shape[0]
+        # print(f"\nBatch balance: {batch_balance}")
+        # self.loss_module.pos_weight = torch.flip(batch_balance, dims=[0])
 
         loss = self.loss_module(logits, func.one_hot(targets).float())
 
@@ -169,9 +170,9 @@ class GatBase(GraphTrainer):
 
         logits = self.forward(query_graphs, query_targets, mode='val')
 
-        batch_balance = torch.bincount(query_targets) / query_targets.shape[0]
-        print(f"\nBatch balance: {batch_balance}")
-        self.loss_module.pos_weight = torch.flip(batch_balance, dims=[0])
+        # batch_balance = torch.bincount(query_targets) / query_targets.shape[0]
+        # print(f"\nBatch balance: {batch_balance}")
+        # self.loss_module.pos_weight = torch.flip(batch_balance, dims=[0])
 
         loss = self.loss_module(logits, func.one_hot(query_targets).float())
 
