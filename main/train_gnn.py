@@ -41,8 +41,6 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric, h_s
     if k_shot not in SHOTS:
         raise ValueError(f"'{k_shot}' is not valid!")
 
-    nr_train_docs = 'all' if (train_docs is None or train_docs == -1) else str(train_docs)
-
     # if we only want to evaluate, model should be initialized with nr of labels from evaluation data
     evaluation = checkpoint is not None and Path(checkpoint).exists()
 
@@ -51,7 +49,7 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric, h_s
           f' hidden_dim: {hidden_dim}\n feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n '
           f' gat heads: {gat_heads}\n\n'
           f' data_train: {data_train} (splits: {str(train_split_size)})\n data_eval: {data_eval} '
-          f'(splits: {str(eval_split_size)})\n nr_train_docs: {nr_train_docs}\n hop_size: {h_size}\n '
+          f'(splits: {str(eval_split_size)})\n hop_size: {h_size}\n '
           f'top_users: {top_users}K\n top_users_excluded: {top_users_excluded}%\n num_workers: {num_workers}\n '
           f'vocab_size: {vocab_size}\n feature_type: {feature_type}\n\n lr: {lr}\n lr_cl: {lr_cl}\n '
           f'lr_output: {lr_output}\n inner_lr: {lr_inner}\n n_updates: {n_inner_updates}\n proto_dim: {proto_dim}\n')
@@ -119,7 +117,6 @@ def train(progress_bar, model_name, seed, epochs, patience, patience_metric, h_s
         batch_sizes=dict(train=train_loader.b_size, val=train_val_loader.b_size, test=test_loader.b_size),
         num_batches=dict(train=len(train_loader), val=len(train_val_loader), test=len(test_loader)),
         train_splits=dict(train=train_split_size[0], val=train_split_size[1], test=train_split_size[2]),
-        nr_train_docs=nr_train_docs,
         top_users=top_users,
         top_users_excluded=top_users_excluded,
         num_workers=num_workers,
