@@ -58,7 +58,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         _, _, mask = remove_isolated_nodes(edge_index=self.edge_index)
         isolated_doc_ids_mask = mask[:max_doc_id + 1]
         # noinspection PyTypeChecker,PyUnresolvedReferences
-        non_test_isolated_nodes = torch.where((~isolated_doc_ids_mask == self.split_masks['test_mask']) is False)[0]
+        non_test_isolated_nodes = torch.where(False == (~isolated_doc_ids_mask == self.split_masks['test_mask']))[0]
         assert non_test_isolated_nodes.shape[0] == 0, "The graph contains isolated nodes which are not test nodes!"
 
         # if self._analyse_node_degrees or self.dataset == 'gossipcop':
