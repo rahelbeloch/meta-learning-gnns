@@ -403,9 +403,9 @@ if __name__ == "__main__":
     parser.add_argument('--data-dir', dest='data_dir', default='data',
                         help='Select the dataset you want to use.')
 
-    parser.add_argument('--balanced-data', dest='no_balanced_data', action='store_false')
-    parser.add_argument('--no-balanced-data', dest='no_balanced_data', action='store_true')
-    parser.set_defaults(no_balanced_data=True)
+    parser.add_argument('--balance-data', dest='no_balance_data', action='store_false')
+    parser.add_argument('--no-balance-data', dest='no_balance_data', action='store_true')
+    parser.set_defaults(no_balance_data=True)
 
     # parser.add_argument('--train-size', dest='train_size', type=float, default=0.875)
     # parser.add_argument('--val-size', dest='val_size', type=float, default=0.125)
@@ -424,7 +424,7 @@ if __name__ == "__main__":
     os.environ["WANDB_MODE"] = params['wb_mode']
 
     train(
-        balance_data=not params['no_balanced_data'],
+        balance_data=not params['no_balance_data'],
         progress_bar=params['progress_bar'],
         model_name=params['model'],
         seed=params['seed'],
