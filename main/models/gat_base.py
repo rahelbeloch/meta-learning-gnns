@@ -1,11 +1,10 @@
-import numpy as np
 import torch.nn.functional as func
-from torch import nn, optim
+from torch import nn
 from torch.optim import AdamW, SGD
 from torch.optim.lr_scheduler import StepLR, MultiStepLR
 
 from models.GraphTrainer import GraphTrainer
-from models.gat_encoder_sparse_pushkar import GatNet
+from models.gat_encoder_sparse_pushkar import GraphNet, GatNet
 from models.train_utils import *
 
 
@@ -29,20 +28,17 @@ class GatBase(GraphTrainer):
         self.save_hyperparameters()
 
         self.model = GatNet(model_params)
+        # self.model = GraphNet(model_params)
 
-        self.lr_scheduler = None  # initialized later
-
-        # # TODO: move this to GatNet
-        # if checkpoint is not None:
-        #     encoder = load_pretrained_encoder(checkpoint)
-        #     self.model.load_state_dict(encoder)
+        # self.lr_scheduler = None  # initialized later
 
         # flipping the weights
         flipped_weights = torch.flip(model_params["class_weight"], dims=[0])
 
         # self.loss_module = nn.BCEWithLogitsLoss(weight=flipped_weights)
-        # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([3]))
-        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=flipped_weights)
+
+        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([3]))
+        # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=flipped_weights)
         # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=model_params["class_weight"])
 
     # def configure_optimizers(self):
@@ -192,44 +188,44 @@ class GatBase(GraphTrainer):
         self.forward(sub_graphs, targets, mode='test')
 
 
-def load_pretrained_encoder(checkpoint_path):
-    """
-    Load a pretrained encoder state dict and remove 'model.' from the keys in the state dict, so that solely
-    the encoder can be loaded.
+# def load_pretrained_encoder(checkpoint_path):
+#     """
+#     Load a pretrained encoder state dict and remove 'model.' from the keys in the state dict, so that solely
+#     the encoder can be loaded.
+#
+#     Args:
+#         checkpoint_path (str) - Path to a checkpoint for the DocumentClassifier.
+#     Returns:
+#         encoder_state_dict (dict) - Containing all keys for weights of encoder.
+#     """
+#     checkpoint = torch.load(checkpoint_path)
+#     encoder_state_dict = {}
+#     for layer, param in checkpoint["state_dict"].items():
+#         if layer.startswith("model"):
+#             new_layer = layer[layer.index(".") + 1:]
+#             encoder_state_dict[new_layer] = param
+#
+#     return encoder_state_dict
 
-    Args:
-        checkpoint_path (str) - Path to a checkpoint for the DocumentClassifier.
-    Returns:
-        encoder_state_dict (dict) - Containing all keys for weights of encoder.
-    """
-    checkpoint = torch.load(checkpoint_path)
-    encoder_state_dict = {}
-    for layer, param in checkpoint["state_dict"].items():
-        if layer.startswith("model"):
-            new_layer = layer[layer.index(".") + 1:]
-            encoder_state_dict[new_layer] = param
 
-    return encoder_state_dict
-
-
-# noinspection PyProtectedMember
-class CosineWarmupScheduler(optim.lr_scheduler._LRScheduler):
-    """
-    Learning rate scheduler, combining warm-up with a cosine-shaped learning rate decay.
-    """
-
-    def __init__(self, optimizer, warmup, max_iters):
-        self.warmup = warmup
-        self.max_num_iters = max_iters
-        super().__init__(optimizer)
-
-    def get_lr(self):
-        lr_factor = self.get_lr_factor()
-        return [base_lr * lr_factor for base_lr in self.base_lrs]
-
-    def get_lr_factor(self):
-        current_step = self.last_epoch
-        lr_factor = 0.5 * (1 + np.cos(np.pi * current_step / self.max_num_iters))
-        if current_step < self.warmup:
-            lr_factor *= current_step * 1.0 / self.warmup
-        return lr_factor
+# # noinspection PyProtectedMember
+# class CosineWarmupScheduler(optim.lr_scheduler._LRScheduler):
+#     """
+#     Learning rate scheduler, combining warm-up with a cosine-shaped learning rate decay.
+#     """
+#
+#     def __init__(self, optimizer, warmup, max_iters):
+#         self.warmup = warmup
+#         self.max_num_iters = max_iters
+#         super().__init__(optimizer)
+#
+#     def get_lr(self):
+#         lr_factor = self.get_lr_factor()
+#         return [base_lr * lr_factor for base_lr in self.base_lrs]
+#
+#     def get_lr_factor(self):
+#         current_step = self.last_epoch
+#         lr_factor = 0.5 * (1 + np.cos(np.pi * current_step / self.max_num_iters))
+#         if current_step < self.warmup:
+#             lr_factor *= current_step * 1.0 / self.warmup
+#         return lr_factor

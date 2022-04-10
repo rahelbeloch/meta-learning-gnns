@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as func
 from torch import nn
+from torch_geometric.nn import GATConv
 
 
 class GatNet(torch.nn.Module):
@@ -152,3 +153,45 @@ class SparseGATLayer(nn.Module):
         ret = torch.sparse.mm(sparse_coefs, seq_fts).div(coef_sum) + self.bias
 
         return func.elu(ret) if self.concat else ret
+
+
+class GraphNet(torch.nn.Module):
+    def __init__(self, model_params):
+        super(GraphNet, self).__init__()
+
+        self.n_heads = model_params["n_heads"]
+
+        self.in_dim = model_params["input_dim"]
+        self.out_dim = model_params["output_dim"]
+        self.hid_dim = model_params["hid_dim"]
+        self.feat_reduce_dim = model_params["feat_reduce_dim"]
+
+        self.gat_dropout = model_params["gat_dropout"]
+        self.lin_dropout = model_params["lin_dropout"]
+        self.attn_dropout = model_params["attn_dropout"]
+
+        self.fc_dim = 64
+
+        self.conv1 = GATConv(self.in_dim, self.hid_dim, heads=self.n_heads, concat=True, dropout=0.1)
+        self.conv2 = GATConv(self.n_heads * self.hid_dim, self.hid_dim, heads=self.n_heads, concat=True, dropout=0.1)
+
+        # Attention output layer or linear classifier
+
+        # self.conv2 = GATConv(3*self.embed_dim, self.out_dim, heads=self.n_heads, concat=False, dropout=0.1)
+
+        self.classifier = nn.Sequential(nn.Dropout(self.lin_dropout),
+                                        nn.Linear(self.n_heads * self.hid_dim, self.fc_dim),
+                                        nn.ReLU(),
+                                        nn.Linear(self.fc_dim, self.out_dim))
+
+    def forward(self, x, edge_index, mode):
+        # node_mask = torch.FloatTensor(x.shape[0], 1).uniform_() > self.node_drop
+        # if self.training:
+        #     x = node_mask.to(device) * x  # / (1 - self.node_drop)
+
+        x = func.relu(self.conv1(x.float(), edge_index))
+        x = func.dropout(x, p=self.attn_dropout, training=mode == 'train')
+        x = self.conv2(x.float(), edge_index)
+        out = self.classifier(x)
+        # return out, node_mask
+        return out
