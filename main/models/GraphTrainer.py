@@ -18,7 +18,7 @@ class GraphTrainer(pl.LightningModule):
         }
 
         # Metrics from torchmetrics
-        for s in SPLITS + ['val_train']:
+        for s in SPLITS:
             for name, (split_dict, avg) in self.metrics.items():
                 metric = tm.F1 if name.startswith('f1') else None
                 if metric is None:
