@@ -27,8 +27,8 @@ class GatBase(GraphTrainer):
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace + saves config in wandb
         self.save_hyperparameters()
 
-        # self.model = GatNet(model_params)
-        self.model = GraphNet(model_params)
+        self.model = GatNet(model_params)
+        # self.model = GraphNet(model_params)
 
         # self.lr_scheduler = None  # initialized later
 
@@ -92,10 +92,6 @@ class GatBase(GraphTrainer):
 
         return [optimizer], [] if scheduler is None else [scheduler]
 
-    # def optimizer_step(self, *args, **kwargs):
-    #     super().optimizer_step(*args, **kwargs)
-    #     # self.lr_scheduler.step()  # Step per iteration
-
     def forward(self, sub_graphs, targets, mode=None):
 
         # make a batch out of all sub graphs and push the batch through the model
@@ -112,7 +108,7 @@ class GatBase(GraphTrainer):
             mode_dict[mode].update(predictions, targets)
 
         # logits are not yet put into a sigmoid layer, because the loss module does this combined
-        return logits, targets
+        return logits
 
     def training_step(self, batch, batch_idx):
         if torch.cuda.is_available():
@@ -123,7 +119,12 @@ class GatBase(GraphTrainer):
         sub_graphs = support_graphs + query_graphs
         targets = torch.cat([support_targets, query_targets])
 
-        logits, targets = self.forward(sub_graphs, targets, mode='train')
+        logits = self.forward(sub_graphs, targets, mode='train')
+
+        batch_balance = torch.bincount(targets) / targets.shape[0]
+        print(f"\nBatch balance: {batch_balance}")
+        self.loss_module.pos_weight = torch.flip(batch_balance, dims=[0])
+
         loss = self.loss_module(logits, func.one_hot(targets).float())
 
         # only log this once in the end of an epoch (averaged over steps)
@@ -166,8 +167,13 @@ class GatBase(GraphTrainer):
 
         # Evaluate on meta test set
 
-        logits, targets = self.forward(query_graphs, query_targets, mode='val')
-        loss = self.loss_module(logits, func.one_hot(targets).float())
+        logits = self.forward(query_graphs, query_targets, mode='val')
+
+        batch_balance = torch.bincount(query_targets) / query_targets.shape[0]
+        print(f"\nBatch balance: {batch_balance}")
+        self.loss_module.pos_weight = torch.flip(batch_balance, dims=[0])
+
+        loss = self.loss_module(logits, func.one_hot(query_targets).float())
 
         # only log this once in the end of an epoch (averaged over steps)
         self.log_on_epoch(f"val/loss", loss)
@@ -182,7 +188,6 @@ class GatBase(GraphTrainer):
         targets = query_targets
 
         self.forward(sub_graphs, targets, mode='test')
-
 
 # def load_pretrained_encoder(checkpoint_path):
 #     """
