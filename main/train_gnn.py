@@ -239,7 +239,7 @@ def initialize_trainer(epochs, patience, patience_metric, data_train, progress_b
 
     trainer = pl.Trainer(move_metrics_to_cpu=True,
                          log_every_n_steps=1,
-                         logger=logger,
+                         # logger=logger,
                          enable_checkpointing=True,
                          gpus=1 if torch.cuda.is_available() else 0,
                          max_epochs=epochs,
