@@ -173,14 +173,14 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
     else:
         raise ValueError(f"Model type {model_name} not supported!")
 
-    wandb.log({
-        "test/f1_fake": test_f1_fake,
-        "test/f1_real": test_f1_real,
-        "test/f1_macro": test_f1_macro,
-        "test_val/f1_fake": val_f1_fake,
-        "test_val/f1_real": val_f1_real,
-        "test_val/f1_macro": val_f1_macro
-    })
+    # wandb.log({
+    #     "test/f1_fake": test_f1_fake,
+    #     "test/f1_real": test_f1_real,
+    #     "test/f1_macro": test_f1_macro,
+    #     "test_val/f1_fake": val_f1_fake,
+    #     "test_val/f1_real": val_f1_real,
+    #     "test_val/f1_macro": val_f1_macro
+    # })
 
     print(f'\nRequired time for testing: {int(test_elapsed / 60)} minutes.\n')
     print(f'Test Results:\n '
@@ -220,12 +220,12 @@ def initialize_trainer(epochs, patience, patience_metric, data_train, progress_b
     else:
         raise ValueError(f"Patience metric '{patience_metric}' is not supported.")
 
-    logger = WandbLogger(project='meta-gnn',
-                         name=f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}_{data_train}",
-                         log_model=True if wb_mode == 'online' else False,
-                         save_dir=LOG_PATH,
-                         offline=wb_mode == 'offline',
-                         config=wandb_config)
+    # logger = WandbLogger(project='meta-gnn',
+    #                      name=f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}_{data_train}",
+    #                      log_model=True if wb_mode == 'online' else False,
+    #                      save_dir=LOG_PATH,
+    #                      offline=wb_mode == 'offline',
+    #                      config=wandb_config)
 
     early_stop_callback = cls(
         monitor=metric,
