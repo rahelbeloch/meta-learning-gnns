@@ -156,7 +156,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--test-size', dest='test_size', type=float, default=0.2, help='Size of train split.')
 
-    parser.add_argument('--balance-data', dest='balance_data', type=bool, default=True,
+    parser.add_argument('--balance-data', dest='balance_data', type=bool, default=False,
                         help='If dataset imbalance should be balanced out or not.')
 
     args, unparsed = parser.parse_known_args()
