@@ -4,7 +4,7 @@ from torch.optim import AdamW, SGD
 from torch.optim.lr_scheduler import StepLR, MultiStepLR
 
 from models.GraphTrainer import GraphTrainer
-from models.gat_encoder_sparse_pushkar import GraphNet, GatNet
+from models.gat_encoder_sparse_pushkar import GatNet
 from models.train_utils import *
 
 
@@ -33,10 +33,10 @@ class GatBase(GraphTrainer):
         # self.lr_scheduler = None  # initialized later
 
         # flipping the weights
-        # flipped_weights = torch.flip(model_params["class_weight"], dims=[0])
-        # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=flipped_weights)
+        flipped_weights = torch.flip(model_params["class_weight"], dims=[0])
+        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=flipped_weights)
 
-        self.loss_module = nn.BCEWithLogitsLoss()
+        # self.loss_module = nn.BCEWithLogitsLoss()
 
     # def configure_optimizers(self):
     #     """

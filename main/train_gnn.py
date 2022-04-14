@@ -25,11 +25,11 @@ if torch.cuda.is_available():
 
 
 def train(balance_data, progress_bar, model_name, seed, epochs, patience, patience_metric, h_size, top_users,
-          top_users_excluded,
-          k_shot, lr, lr_cl, lr_inner, lr_output, hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval,
-          dirs, checkpoint, train_split_size, feature_type, vocab_size, n_inner_updates, num_workers,
-          gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup, max_iters, gat_heads, gat_batch_size,
-          lr_decay_epochs, lr_decay_factor, scheduler, weight_decay, momentum, optimizer):
+          top_users_excluded, k_shot, lr, lr_cl, lr_inner, lr_output, hidden_dim, feat_reduce_dim,
+          proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size, feature_type, vocab_size,
+          n_inner_updates, num_workers, gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup, max_iters,
+          gat_heads, gat_batch_size, lr_decay_epochs, lr_decay_factor, scheduler, weight_decay, momentum, optimizer,
+          suffix):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     eval_split_size = (0.0, 0.25, 0.75) if data_eval != data_train else None
@@ -126,10 +126,12 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         top_users=top_users,
         top_users_excluded=top_users_excluded,
         num_workers=num_workers,
-        vocab_size=vocab_size
+        vocab_size=vocab_size,
+        balance_data=balance_data
     )
 
-    trainer = initialize_trainer(epochs, patience, patience_metric, data_train, progress_bar, wb_mode, wandb_config)
+    trainer = initialize_trainer(epochs, patience, patience_metric, data_train, progress_bar, wb_mode, wandb_config,
+                                 suffix)
 
     if not evaluation:
         # Training
@@ -207,7 +209,7 @@ def get_epoch_num(model_path):
     return int(expected_epoch)
 
 
-def initialize_trainer(epochs, patience, patience_metric, data_train, progress_bar, wb_mode, wandb_config):
+def initialize_trainer(epochs, patience, patience_metric, data_train, progress_bar, wb_mode, wandb_config, suffix=None):
     """
     Initializes a Lightning Trainer for respective parameters as given in the function header. Creates a proper
     folder name for the respective model files, initializes logging and early stopping.
@@ -221,7 +223,7 @@ def initialize_trainer(epochs, patience, patience_metric, data_train, progress_b
         raise ValueError(f"Patience metric '{patience_metric}' is not supported.")
 
     logger = WandbLogger(project='meta-gnn',
-                         name=f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}_{data_train}",
+                         name=f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}_{suffix}",
                          log_model=True if wb_mode == 'online' else False,
                          save_dir=LOG_PATH,
                          offline=wb_mode == 'offline',
@@ -410,6 +412,7 @@ if __name__ == "__main__":
     # parser.add_argument('--train-size', dest='train_size', type=float, default=0.875)
     # parser.add_argument('--val-size', dest='val_size', type=float, default=0.125)
     # parser.add_argument('--test-size', dest='test_size', type=float, default=0.0)
+
     parser.add_argument('--train-size', dest='train_size', type=float, default=0.7)
     parser.add_argument('--val-size', dest='val_size', type=float, default=0.1)
     parser.add_argument('--test-size', dest='test_size', type=float, default=0.2)
@@ -418,6 +421,8 @@ if __name__ == "__main__":
                         help='Select the dataset you want to use.')
     parser.add_argument('--complete-dir', dest='complete_dir', default=complete_dir,
                         help='Select the dataset you want to use.')
+
+    parser.add_argument('--suffix', dest='suffix', default='', help='Suffix for the run name to better identify.')
 
     params = vars(parser.parse_args())
 
@@ -464,5 +469,6 @@ if __name__ == "__main__":
         scheduler=params['scheduler'],
         weight_decay=params['weight_decay'],
         momentum=params['momentum'],
-        optimizer=params['optimizer']
+        optimizer=params['optimizer'],
+        suffix=params['suffix']
     )
