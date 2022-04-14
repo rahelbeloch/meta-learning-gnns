@@ -1,64 +1,64 @@
---model prototypical --seed 2222 --lr 1e-4 --hidden-dim 128 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-4 --hidden-dim 128 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-4 --hidden-dim 64 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-4 --hidden-dim 64 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-4 --hidden-dim 128 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-4 --hidden-dim 128 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-4 --hidden-dim 64 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-4 --hidden-dim 64 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-4 --hidden-dim 128 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-4 --hidden-dim 128 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-4 --hidden-dim 64 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-4 --hidden-dim 64 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-4 --hidden-dim 128 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-4 --hidden-dim 128 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-4 --hidden-dim 64 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-4 --hidden-dim 64 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-3 --hidden-dim 128 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-3 --hidden-dim 128 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-3 --hidden-dim 64 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-3 --hidden-dim 64 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-3 --hidden-dim 128 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-3 --hidden-dim 128 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-3 --hidden-dim 64 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-3 --hidden-dim 64 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-3 --hidden-dim 128 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-3 --hidden-dim 128 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-3 --hidden-dim 64 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-3 --hidden-dim 64 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-3 --hidden-dim 128 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-3 --hidden-dim 128 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-3 --hidden-dim 64 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-3 --hidden-dim 64 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-4 --hidden-dim 512 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-4 --hidden-dim 512 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-4 --hidden-dim 256 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-4 --hidden-dim 256 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-4 --hidden-dim 512 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-4 --hidden-dim 512 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-4 --hidden-dim 256 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-4 --hidden-dim 256 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-4 --hidden-dim 512 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-4 --hidden-dim 512 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-4 --hidden-dim 256 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-4 --hidden-dim 256 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-4 --hidden-dim 512 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-4 --hidden-dim 512 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-4 --hidden-dim 256 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-4 --hidden-dim 256 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-3 --hidden-dim 512 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-3 --hidden-dim 512 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-3 --hidden-dim 256 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-3 --hidden-dim 256 --k-shot 5 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-3 --hidden-dim 512 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-3 --hidden-dim 512 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-3 --hidden-dim 256 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-3 --hidden-dim 256 --k-shot 10 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-3 --hidden-dim 512 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-3 --hidden-dim 512 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-3 --hidden-dim 256 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-3 --hidden-dim 256 --k-shot 20 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-3 --hidden-dim 512 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-3 --hidden-dim 512 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 1e-3 --hidden-dim 256 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model prototypical --seed 2222 --lr 5e-3 --hidden-dim 256 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
+--model prototypical --seed 2222 --lr 1e-4 --hidden-dim 128 --k-shot 5 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-4 --hidden-dim 128 --k-shot 5 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-4 --hidden-dim 64 --k-shot 5 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-4 --hidden-dim 64 --k-shot 5 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-4 --hidden-dim 128 --k-shot 10 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-4 --hidden-dim 128 --k-shot 10 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-4 --hidden-dim 64 --k-shot 10 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-4 --hidden-dim 64 --k-shot 10 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-4 --hidden-dim 128 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-4 --hidden-dim 128 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-4 --hidden-dim 64 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-4 --hidden-dim 64 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-4 --hidden-dim 128 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-4 --hidden-dim 128 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-4 --hidden-dim 64 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-4 --hidden-dim 64 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-3 --hidden-dim 128 --k-shot 5 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-3 --hidden-dim 128 --k-shot 5 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-3 --hidden-dim 64 --k-shot 5 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-3 --hidden-dim 64 --k-shot 5 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-3 --hidden-dim 128 --k-shot 10 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-3 --hidden-dim 128 --k-shot 10 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-3 --hidden-dim 64 --k-shot 10 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-3 --hidden-dim 64 --k-shot 10 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-3 --hidden-dim 128 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-3 --hidden-dim 128 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-3 --hidden-dim 64 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-3 --hidden-dim 64 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-3 --hidden-dim 128 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-3 --hidden-dim 128 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-3 --hidden-dim 64 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-3 --hidden-dim 64 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-4 --hidden-dim 512 --k-shot 5 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-4 --hidden-dim 512 --k-shot 5 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-4 --hidden-dim 256 --k-shot 5 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-4 --hidden-dim 256 --k-shot 5 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-4 --hidden-dim 512 --k-shot 10 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-4 --hidden-dim 512 --k-shot 10 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-4 --hidden-dim 256 --k-shot 10 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-4 --hidden-dim 256 --k-shot 10 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-4 --hidden-dim 512 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-4 --hidden-dim 512 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-4 --hidden-dim 256 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-4 --hidden-dim 256 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-4 --hidden-dim 512 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-4 --hidden-dim 512 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-4 --hidden-dim 256 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-4 --hidden-dim 256 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-3 --hidden-dim 512 --k-shot 5 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-3 --hidden-dim 512 --k-shot 5 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-3 --hidden-dim 256 --k-shot 5 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-3 --hidden-dim 256 --k-shot 5 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-3 --hidden-dim 512 --k-shot 10 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-3 --hidden-dim 512 --k-shot 10 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-3 --hidden-dim 256 --k-shot 10 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-3 --hidden-dim 256 --k-shot 10 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-3 --hidden-dim 512 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-3 --hidden-dim 512 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-3 --hidden-dim 256 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-3 --hidden-dim 256 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-3 --hidden-dim 512 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-3 --hidden-dim 512 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 1e-3 --hidden-dim 256 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
+--model prototypical --seed 2222 --lr 5e-3 --hidden-dim 256 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --balance-data
