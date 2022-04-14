@@ -1,4 +1,0 @@
---model gat --seed 3292 --lr 1e-4 --hidden-dim 16 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --gat-batch-size 344 --gat-heads 8 --feature-reduce-dim 128
---model gat --seed 3292 --lr 5e-4 --hidden-dim 16 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --gat-batch-size 344 --gat-heads 8 --feature-reduce-dim 128
---model gat --seed 3292 --lr 1e-3 --hidden-dim 16 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --gat-batch-size 344 --gat-heads 8 --feature-reduce-dim 128
---model gat --seed 3292 --lr 5e-3 --hidden-dim 16 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --gat-batch-size 344 --gat-heads 8 --feature-reduce-dim 128
