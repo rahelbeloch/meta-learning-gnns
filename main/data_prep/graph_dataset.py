@@ -177,7 +177,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         self.class_ratio = torch.bincount(self.y_data) / self.y_data.shape[0]
 
         for i in range(len(self.class_ratio)):
-            print(f"Ratio class '{self.label_names[i]}': {self.class_ratio[i]}")
+            print(f"Ratio class '{self.label_names[i]}': {round(self.class_ratio[i].item(), 3)}")
 
     def fix_node_degree_distribution(self, node_degrees, probs, keep_threshold=0.97):
         """

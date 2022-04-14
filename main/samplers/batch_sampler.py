@@ -10,7 +10,7 @@ SHOTS = [5, 10, 20, 40]
 
 class FewShotSampler(Sampler):
 
-    def __init__(self, targets, max_n_query, mode, n_way=2, k_shot=5, shuffle=True, shuffle_once=False, verbose=False):
+    def __init__(self, targets, max_n_query, mode, n_way=2, k_shot=5, verbose=False):
         """
         Support sets should contain n_way * k_shot examples. So, e.g. 2 * 5 = 10 sub graphs.
         Query set is of same size ...
@@ -19,11 +19,6 @@ class FewShotSampler(Sampler):
             targets - Tensor containing all targets of the graph.
             n_way - Number of classes to sample per batch.
             k_shot - Number of examples to sample per class in the batch.
-            shuffle - If True, examples and classes are newly shuffled in each
-                      iteration (for training).
-            shuffle_once - If True, examples and classes are shuffled once in
-                           the beginning, but kept constant across iterations
-                           (for validation).
         """
         super().__init__(None)
 
@@ -38,8 +33,6 @@ class FewShotSampler(Sampler):
 
         # is the maximum number of query examples which should be used
         self.max_n_query = max_n_query
-
-        self.shuffle = shuffle
 
         # Organize examples by set type and class
         self.sets = ['query', 'support']
@@ -106,27 +99,12 @@ class FewShotSampler(Sampler):
         for s in self.sets:
             self.batches_target_lists[s] = [c for c in self.classes for _ in range(self.batches_per_class[s][c])]
 
-        # if shuffle_once or self.shuffle:
-        #     self.shuffle_data()
-        # else:
         for s in self.sets:
             # For testing, we iterate over classes instead of shuffling them
             sort_idxs = [i + p * self.num_classes for i, c in enumerate(self.classes) for p in
                          range(self.batches_per_class[s][c])]
 
             self.batches_target_lists[s] = np.array(self.batches_target_lists[s])[np.argsort(sort_idxs)].tolist()
-
-    # def shuffle_data(self):
-    #     # Shuffle the examples per class
-    #     for c, s in itertools.product(self.classes, self.sets):
-    #         perm = torch.randperm(self.indices_per_class[s][c].shape[0])
-    #         self.indices_per_class[s][c] = self.indices_per_class[s][c][perm]
-    #
-    #     # Shuffle the target list from which we sample. Note that this way of shuffling
-    #     # does not prevent to choose the same class twice in a batch. However, for
-    #     # training and validation, this is not a problem.
-    #     for s in self.sets:
-    #         random.shuffle(self.batches_target_lists[s])
 
     @property
     def query_samples(self):
@@ -140,10 +118,6 @@ class FewShotSampler(Sampler):
         yield from self._iter(self.num_batches, self.k_shot)
 
     def _iter(self, n_batches, offset):
-        # Shuffle data
-        # if self.shuffle:
-        #     self.shuffle_data()
-
         # Sample few-shot batches
         start_index = defaultdict(lambda: defaultdict(int))
         for it in range(n_batches):
@@ -172,9 +146,8 @@ class BatchSampler(FewShotSampler):
     Useful for non-meta baselines for more stable training with bigger batches.
     """
 
-    def __init__(self, targets, max_n_query, mode, batch_size, n_way=2, k_shot=5, shuffle=True, shuffle_once=False,
-                 verbose=False):
-        super().__init__(targets, max_n_query, mode, n_way, k_shot, shuffle, shuffle_once, verbose)
+    def __init__(self, targets, max_n_query, mode, batch_size, n_way=2, k_shot=5, verbose=False):
+        super().__init__(targets, max_n_query, mode, n_way, k_shot, verbose)
 
         # assert (batch_size / (self.k_shot * self.n_way)) % 1 == 0, "Batch size not divisible by n way and k shot."
         # must be divisible by self.k_shot * self.n_way

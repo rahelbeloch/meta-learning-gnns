@@ -13,8 +13,6 @@ from models.gat_encoder_sparse_pushkar import GatNet
 from models.train_utils import *
 from samplers.graph_sampler import KHopSamplerSimple
 
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-
 
 class ProtoNet(GraphTrainer):
 
@@ -36,8 +34,9 @@ class ProtoNet(GraphTrainer):
         # flipping the weights
         flipped_weights = torch.flip(model_params["class_weight"], dims=[0])
 
-        # self.loss_module = torch.nn.BCEWithLogitsLoss(weight=flipped_weights)
-        # pos_weight = flipped_weights
+        # self.loss_module = torch.nn.BCEWithLogitsLoss(pos_weight=flipped_weights)
+
+        # TODO: BCE loss does not have pos_weight --> do this differently
         self.loss_module = torch.nn.BCELoss()
 
         self.model = GatNet(model_params)

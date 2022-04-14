@@ -1,6 +1,8 @@
 import torch
 from torch_geometric.data import Batch
 
+from data_prep.data_utils import DEVICE
+
 
 def accuracy(predictions, labels):
     # noinspection PyUnresolvedReferences
@@ -28,7 +30,7 @@ def accuracy(predictions, labels):
 
 
 def get_subgraph_batch(graphs):
-    batch = Batch.from_data_list(graphs)
+    batch = Batch.from_data_list(graphs).to(DEVICE)
     x = batch.x.float()
 
     # create the classification node mask

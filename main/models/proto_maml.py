@@ -3,14 +3,13 @@ from copy import deepcopy
 from statistics import mean, stdev
 
 import torch.nn.functional as func
-import torchmetrics
 from torch import optim
-# tqdm for loading bars
+from torchmetrics import F1
 from tqdm.auto import tqdm
 
 from models.GraphTrainer import GraphTrainer
 from models.gat_encoder_sparse_pushkar import GatNet
-from models.proto_net import ProtoNet, DEVICE
+from models.proto_net import ProtoNet
 from models.train_utils import *
 from samplers.batch_sampler import split_list
 
@@ -51,7 +50,6 @@ class ProtoMAML(GraphTrainer):
         support_feats = support_feats[cl_mask]
 
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
-        support_labels = self.get_labels(classes, support_targets)
 
         # Copy model for inner-loop model and optimizer
         local_model = deepcopy(self.model)
@@ -68,8 +66,8 @@ class ProtoMAML(GraphTrainer):
         # Optimize inner loop model on support set
         for _ in range(self.n_inner_updates):
             # Determine loss on the support set
-            loss, predictions = run_model(local_model, output_weight, output_bias, support_graphs, support_labels, mode,
-                                          self.loss_module)
+            loss, predictions = run_model(local_model, output_weight, output_bias, support_graphs, support_targets,
+                                          mode, self.loss_module)
 
             # Calculate gradients and perform inner loop update
             loss.backward()
@@ -90,10 +88,10 @@ class ProtoMAML(GraphTrainer):
 
         return local_model, output_weight, output_bias, classes
 
-    @staticmethod
-    def get_labels(classes, targets):
-        # noinspection PyUnresolvedReferences
-        return (classes[None, :] == targets[:, None]).long().argmax(dim=-1)
+    # @staticmethod
+    # def get_labels(classes, targets):
+    #     # noinspection PyUnresolvedReferences
+    #     return (classes[None, :] == targets[:, None]).long().argmax(dim=-1)
 
     def outer_loop(self, batch, mode="train"):
         losses = []
@@ -112,7 +110,6 @@ class ProtoMAML(GraphTrainer):
                                                                                    mode)
 
             # Determine loss of query set
-            # query_labels = self.get_labels(classes, query_targets)
             loss, predictions = run_model(local_model, output_weight, output_bias, query_graphs, query_targets, mode,
                                           self.loss_module)
 
@@ -161,7 +158,7 @@ class ProtoMAML(GraphTrainer):
         torch.set_grad_enabled(False)
 
 
-def run_model(local_model, output_weight, output_bias, graphs, targets, mode, loss_module):
+def run_model(local_model, output_weight, output_bias, graphs, targets, mode, loss_module=None):
     """
     Execute a model with given output layer weights and inputs.
     """
@@ -176,55 +173,56 @@ def run_model(local_model, output_weight, output_bias, graphs, targets, mode, lo
     targets = func.one_hot(targets) if logits.shape[1] == 2 else targets.unsqueeze(dim=1)
 
     # loss = func.cross_entropy(predictions, targets)
-    loss = loss_module(logits, targets.float())
+    loss = loss_module(logits, targets.float()) if loss_module is not None else None
 
     return loss, logits
 
 
-def test_protomaml(model, test_loader):
+def test_protomaml(model, test_loader, num_classes):
+    mode = 'test'
     model = model.to(DEVICE)
     model.eval()
 
+    # TODO: use inner loop updates of 200 --> should be higher than in training
+
     test_start = time.time()
 
-    # We iterate through the full dataset in two manners.
-    # First, to select the k-shot batch. Second, to evaluate the model on all others
+    # Iterate through the full dataset in two manners:
+    # First, to select the k-shot batch. Second, to evaluate the model on all other batches.
 
     f1_macros, f1_fakes, f1_reals = [], [], []
 
-    for batch_idx, task_batch in tqdm(enumerate(test_loader), "Performing few-shot finetuning"):
+    for support_batch_idx, batch in tqdm(enumerate(test_loader), "\nPerforming few-shot fine tuning in testing"):
+        support_graphs, _, support_targets, _ = batch
 
-        graphs, targets = task_batch
-        support_graphs, _ = split_list(graphs)
-        support_targets, _ = split_list(targets)
-
-        support_graphs = support_graphs.to(DEVICE)
+        # graphs are automatically put to device in adapt few shot
         support_targets = support_targets.to(DEVICE)
 
         # Finetune new model on support set
-        local_model, output_weight, output_bias, classes = model.adapt_few_shot(support_graphs, support_targets)
+        local_model, output_weight, output_bias, classes = model.adapt_few_shot(support_graphs, support_targets, mode)
 
-        f1, f1_macro = torchmetrics.F1(num_classes=2, average='none'), torchmetrics.F1(num_classes=2, average='macro')
+        f1 = F1(num_classes=num_classes, average='none').to(DEVICE)
+        f1_macro = F1(num_classes=num_classes, average='macro').to(DEVICE)
 
         with torch.no_grad():  # No gradients for query set needed
             local_model.eval()
 
             # Evaluate all examples in test dataset
-            for task_batch1 in test_loader:
-                graphs, targets = task_batch1
-                _, query_graphs = split_list(graphs)
-                _, query_targets = split_list(targets)
+            for query_batch_idx, test_batch in enumerate(test_loader):
 
-                query_graphs = query_graphs.to(DEVICE)
-                query_targets = query_targets.to(DEVICE)
+                if support_batch_idx == query_batch_idx:
+                    # Exclude support set elements
+                    continue
 
-                query_labels = (classes[None, :] == query_targets[:, None]).long().argmax(dim=-1)
+                support_graphs, query_graphs, support_targets, query_targets = batch
+                graphs = support_graphs + query_graphs
+                targets = torch.cat([support_targets, query_targets]).to(DEVICE)
 
-                _, predictions = model.run_model(local_model, output_weight, output_bias, query_graphs, query_labels)
+                _, predictions = run_model(local_model, output_weight, output_bias, graphs, targets, mode)
 
                 pred = predictions.argmax(dim=-1)
-                f1.update(pred, query_labels)
-                f1_macro.update(pred, query_labels)
+                f1.update(pred, targets)
+                f1_macro.update(pred, targets)
 
             f1_macros.append(f1_macro.compute().item())
             f1_1, f1_2 = f1.compute()

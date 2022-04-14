@@ -8,6 +8,8 @@ from samplers.maml_batch_sampler import FewShotMamlSampler
 
 SUPPORTED_DATASETS = ['gossipcop', 'twitterHateSpeech']
 
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+
 
 def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_excluded, k_shot, train_split_size,
              eval_split_size, feature_type, vocab_size, dirs, batch_size, num_workers=None, balance_data=False):
@@ -129,20 +131,15 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
 
     mask = graph_data.mask(f"{mode}_mask")
 
-    shuffle = mode == 'train'
-    shuffle_once = mode == 'val'
     targets = graph_data.data.y[mask]
     max_n_query = n_queries[mode]
 
     if model_name == 'gat' and mode == 'train':
-        batch_sampler = BatchSampler(targets, max_n_query, mode, batch_size, n_way=n_classes, k_shot=k_shot,
-                                     shuffle=shuffle,
-                                     shuffle_once=shuffle_once)
+        batch_sampler = BatchSampler(targets, max_n_query, mode, batch_size, n_way=n_classes, k_shot=k_shot)
     elif model_name == 'prototypical' or (model_name == 'gat' and mode != 'train'):
-        batch_sampler = FewShotSampler(targets, max_n_query, mode, n_way=n_classes, k_shot=k_shot, shuffle=shuffle,
-                                       shuffle_once=shuffle_once)
+        batch_sampler = FewShotSampler(targets, max_n_query, mode, n_way=n_classes, k_shot=k_shot)
     elif model_name == 'gmeta':
-        batch_sampler = FewShotMamlSampler(targets, max_n_query, mode, n_way=n_classes, k_shot=k_shot, shuffle=shuffle)
+        batch_sampler = FewShotMamlSampler(targets, max_n_query, mode, n_way=n_classes, k_shot=k_shot)
     else:
         raise ValueError(f"Model with name '{model_name}' is not supported.")
 

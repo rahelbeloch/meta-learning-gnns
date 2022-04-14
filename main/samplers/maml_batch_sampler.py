@@ -36,17 +36,15 @@ from samplers.batch_sampler import FewShotSampler
 
 class FewShotMamlSampler(FewShotSampler):
 
-    def __init__(self, dataset_targets, max_n_query, mode, n_way, k_shot, batch_size=16, shuffle=True):
+    def __init__(self, dataset_targets, max_n_query, mode, n_way, k_shot, batch_size=16):
         """
         Inputs:
             dataset_targets - PyTorch tensor of the labels of the data elements.
             batch_size - Number of tasks to aggregate in a batch
             n_way - Number of classes to sample per batch.
             k_shot - Number of examples to sample per class in the batch.
-            shuffle - If True, examples and classes are newly shuffled in each
-                      iteration (for training)
         """
-        super().__init__(dataset_targets, max_n_query, mode, n_way, k_shot, shuffle)
+        super().__init__(dataset_targets, max_n_query, mode, n_way, k_shot)
         self.task_batch_size = batch_size
         self.local_batch_size = self.batch_size * 2  # to account for support and query
 
