@@ -16,8 +16,8 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         self.load_doc_splits()
 
-        self.create_doc_id_dicts()
-        self.create_follower_following_relationships()
+        # self.create_doc_id_dicts()
+        # self.create_follower_following_relationships()
         self.create_feature_matrix()
         self.create_adj_matrix()
         self.create_labels()
@@ -118,7 +118,7 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
 if __name__ == '__main__':
     # complete_dir = COMPLETE_small_DIR
-    # tsv_dir = TSV_small_DIR
+    # tsv_dir = TSV_small_DIRf
 
     complete_dir = COMPLETE_DIR
     tsv_dir = TSV_DIR

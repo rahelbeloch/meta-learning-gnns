@@ -339,7 +339,7 @@ class GraphPreprocessor(GraphIO):
         start = time.time()
         total = doc_features.shape[0] + user_features.shape[0]
 
-        feature_matrix = lil_matrix((total, self.vocab_size))
+        feature_matrix = lil_matrix((total, self.vocab_size), )
         print(f"Size of feature matrix = {feature_matrix.shape}")
 
         feature_matrix[:len(doc_features)] = doc_features
