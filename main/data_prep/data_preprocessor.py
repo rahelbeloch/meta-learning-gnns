@@ -263,12 +263,13 @@ class DataPreprocessor(GraphIO):
             doc_names.append(doc_key)
             x_lengths.append(len(tokens))
 
-            if self.oversample_fake and self.labels[label] == 'fake':
-                # add this document a second time to the dataset
-                x_data.append(tokens)
-                y_data.append(label)
-                doc_names.append(doc_key + '-1')
-                x_lengths.append(len(tokens))
+            # moved to after splits
+            # if self.oversample_fake and self.labels[label] == 'fake':
+            #     # add this document a second time to the dataset
+            #     x_data.append(tokens)
+            #     y_data.append(label)
+            #     doc_names.append(doc_key + '-1')
+            #     x_lengths.append(len(tokens))
 
         print(f"Average length = {sum(x_lengths) / len(x_lengths)}")
         print(f"Shortest Length = {min(x_lengths)}")
@@ -371,7 +372,36 @@ class DataPreprocessor(GraphIO):
             print_label_distribution(val_split[1], 'val')
             split_dict['val'] = val_split
         else:
+
+            # TODO: oversample if flag is enabled
+            # if self.oversample_fake and self.labels[label] == 'fake':
+            # # add this document a second time to the dataset
+            #     x_data.append(tokens)
+            #     y_data.append(label)
+            #     doc_names.append(doc_key + '-1')
+            #     x_lengths.append(len(tokens))
+
+            counted = np.bincount(data)
+
             train_split = data
+
+        if train_split is not None and self.oversample_fake:
+            fake_indices = np.argwhere(train_split[1] == 0).squeeze()
+            texts = train_split[0][fake_indices]
+            labels = train_split[1][fake_indices]
+            doc_names = train_split[2][fake_indices]
+
+            new_doc_names = []
+            for i, name in enumerate(doc_names):
+                new_doc_names.append(name + '-1')
+            new_doc_names = np.array(new_doc_names)
+
+            # append texts, labels and doc names
+            new_train_split = (np.concatenate((train_split[0], texts)),
+                               np.concatenate((train_split[1], labels)),
+                               np.concatenate((train_split[2], new_doc_names)))
+
+            train_split = new_train_split
 
         if train_split is not None:
             assert len(set(train_split[2])) == len(train_split[2]), \

@@ -29,7 +29,7 @@ def split_data(splits, size, data):
 
 
 def get_label_distribution(labels):
-    fake, real = (labels == 1).sum(), (labels == 0).sum()
+    fake, real = (labels == 0).sum(), (labels == 1).sum()
     denom = fake + real
     return fake / denom, real / denom
 
