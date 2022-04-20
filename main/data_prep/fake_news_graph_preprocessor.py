@@ -16,8 +16,8 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
 
         self.load_doc_splits()
 
-        # self.create_doc_id_dicts()
-        # self.create_follower_following_relationships()
+        self.create_doc_id_dicts()
+        self.create_follower_following_relationships()
         self.create_feature_matrix()
         self.create_adj_matrix()
         self.create_labels()
