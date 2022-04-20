@@ -142,7 +142,6 @@ class ProtoMAML(GraphTrainer):
             # noinspection PyUnresolvedReferences
             opt.zero_grad()
 
-        self.compute_and_log_metrics(mode)
         self.log_on_epoch(f"{mode}/loss", sum(losses) / len(losses))
 
     def training_step(self, batch, batch_idx):
