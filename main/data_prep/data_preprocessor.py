@@ -3,7 +3,6 @@ import csv
 import json
 import random
 from collections import defaultdict, OrderedDict
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -327,6 +326,8 @@ class DataPreprocessor(GraphIO):
 
             duplicates_file = self.data_tsv_path('duplicates_info.json')
             save_json_file(duplicates, duplicates_file, converter=self.np_converter)
+
+        print(f"\nValid documents used: {len(data[0])}")
 
         return data
 

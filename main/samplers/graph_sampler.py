@@ -88,8 +88,9 @@ class KHopSampler(GraphSAINTSampler):
             data, target = self.as_data_target(adj, center_indices, node_indices)
             data_list_collated.append((data, target))
 
+        sup_graphs, labels = list(map(list, zip(*data_list_collated)))
+
         if self.model_type in ['prototypical', 'gat'] or (self.model_type == 'gmeta' and self.mode == 'test'):
-            sup_graphs, labels = list(map(list, zip(*data_list_collated)))
 
             supp_sub_graphs, query_sub_graphs = split_list(sup_graphs)
             supp_labels, query_labels = split_list(labels)
@@ -99,8 +100,6 @@ class KHopSampler(GraphSAINTSampler):
 
             # converts list of all given samples (e.g. (local batch size * task batch size) x 3) into a list of
             # batches (task batch size x 3 x local batch size). Makes it easier to process in the PL Maml.
-            sup_graphs, labels = list(map(list, zip(*data_list_collated)))
-
             targets = torch.tensor(labels)
 
             local_b_size = self.batch_sampler.local_batch_size

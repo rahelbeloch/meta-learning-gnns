@@ -5,10 +5,15 @@ import torchmetrics as tm
 from data_prep.graph_preprocessor import SPLITS
 
 
+# from models.gat_base import GatBase
+
+
 class GraphTrainer(pl.LightningModule):
 
     def __init__(self, n_classes):
         super().__init__()
+
+        type(self)
 
         self._device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -17,8 +22,12 @@ class GraphTrainer(pl.LightningModule):
             'f1_target': ({}, 'none')
         }
 
+        splits = SPLITS
+        if 'GatBase' in str(type(self)):
+            splits += ['val_tune']
+
         # Metrics from torchmetrics
-        for s in SPLITS:
+        for s in splits:
             for name, (split_dict, avg) in self.metrics.items():
                 metric = tm.F1 if name.startswith('f1') else None
                 if metric is None:

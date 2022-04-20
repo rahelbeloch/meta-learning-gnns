@@ -130,7 +130,7 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         balance_data=balance_data
     )
 
-    trainer = initialize_trainer(epochs, patience, patience_metric, data_train, progress_bar, wb_mode, wandb_config,
+    trainer = initialize_trainer(model_name, epochs, patience, patience_metric, progress_bar, wb_mode, wandb_config,
                                  suffix)
 
     if not evaluation:
@@ -138,7 +138,11 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
 
         print('\nFitting model ..........\n')
         start = time.time()
-        trainer.fit(model, train_loader, train_val_loader)
+
+        # we want to train on the support set of the validation loader and validate only on query set of validation
+        val_loaders = [train_val_loader, train_val_loader] if model_name == 'gat' else train_val_loader
+
+        trainer.fit(model, train_loader, val_loaders)
 
         end = time.time()
         elapsed = end - start
@@ -210,21 +214,24 @@ def get_epoch_num(model_path):
     return int(expected_epoch)
 
 
-def initialize_trainer(epochs, patience, patience_metric, data_train, progress_bar, wb_mode, wandb_config, suffix=None):
+def initialize_trainer(model_name, epochs, patience, patience_metric, progress_bar, wb_mode, wandb_config, suffix=None):
     """
     Initializes a Lightning Trainer for respective parameters as given in the function header. Creates a proper
     folder name for the respective model files, initializes logging and early stopping.
     """
 
     if patience_metric == 'loss':
-        cls, metric, mode = LossEarlyStopping, 'val/loss', 'min'
+        metric = 'val/loss/dataloader_idx_1' if model_name == 'gat' else 'val/loss'
+        cls, metric, mode = LossEarlyStopping, metric, 'min'
     elif patience_metric == 'f1_macro':
         cls, metric, mode = EarlyStopping, 'val/f1_macro', 'max'
     else:
         raise ValueError(f"Patience metric '{patience_metric}' is not supported.")
 
+    suffix = f'_{suffix}' if suffix is not None else ''
+
     logger = WandbLogger(project='meta-gnn',
-                         name=f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}_{suffix}",
+                         name=f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}{suffix}",
                          log_model=True if wb_mode == 'online' else False,
                          save_dir=LOG_PATH,
                          offline=wb_mode == 'offline',
