@@ -436,6 +436,8 @@ if __name__ == "__main__":
 
     os.environ["WANDB_MODE"] = params['wb_mode']
 
+    wandb.init(settings=wandb.Settings(start_method="fork"))
+
     train(
         balance_data=not params['no_balance_data'],
         progress_bar=params['progress_bar'],
