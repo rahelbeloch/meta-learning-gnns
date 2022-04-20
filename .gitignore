@@ -133,6 +133,7 @@ dmypy.json
 /logs
 main/data_prep/.vector_cache
 main/.vector_cache
+main/wandb
 
 # Intellij project files
 /.idea/*
