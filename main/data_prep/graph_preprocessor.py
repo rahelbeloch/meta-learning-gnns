@@ -339,10 +339,11 @@ class GraphPreprocessor(GraphIO):
         start = time.time()
         total = doc_features.shape[0] + user_features.shape[0]
 
-        feature_matrix = csr_matrix((total, self.vocab_size))
+        # feature_matrix = csr_matrix((total, self.vocab_size))
+        feature_matrix = lil_matrix((total, self.vocab_size))
         print(f"Size of feature matrix = {feature_matrix.shape}")
 
-        # feature_matrix[:len(doc_features)] = doc_features
+        feature_matrix[:len(doc_features)] = doc_features
         # feature_matrix[len(doc_features):] = user_features
 
         hrs, mins, secs = calc_elapsed_time(start, time.time())
@@ -355,8 +356,8 @@ class GraphPreprocessor(GraphIO):
 
         filename = self.data_complete_path(self.get_file_name(FEAT_MATRIX_FILE_NAME))
         print(f"\nMatrix construction done! Saving in: {filename}")
-        save_npz(filename, feature_matrix)
-        # save_npz(filename, feature_matrix.tocsr())
+        # save_npz(filename, feature_matrix)
+        save_npz(filename, feature_matrix.tocsr())
 
     def get_user_features(self, doc_features, feature_ids):
         print("\nCreating features for users nodes...")
