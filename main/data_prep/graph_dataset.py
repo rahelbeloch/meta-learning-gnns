@@ -51,13 +51,9 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         self.read_files()
 
-        # some verification of isolated nodes
-        # should not occur in the train or val split, only in the test split
-        isolated_nodes = contains_isolated_nodes(edge_index=self.edge_index)
-        print(f"Contains isolated nodes: {isolated_nodes}")
+        # some verification of isolated nodes: should not occur in the train or val split, only in the test split
         self.max_doc_id = list(self.doc2id.values())[-1]
         first_test_doc = torch.where(self.split_masks['test_mask'] == True)[0][0].item()
-
         _, _, isolated_mask = remove_isolated_nodes(edge_index=self.edge_index)
         isolated_train_val_docs = isolated_mask[:self.max_doc_id][:first_test_doc]
         isolated_train_val_nodes = torch.where(isolated_train_val_docs == False)[0]
