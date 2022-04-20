@@ -30,44 +30,11 @@ class GatBase(GraphTrainer):
         self.model = GatNet(model_params)
         # self.model = GraphNet(model_params)
 
-        # self.lr_scheduler = None  # initialized later
-
         # flipping the weights
         flipped_weights = torch.flip(model_params["class_weight"], dims=[0])
         self.loss_module = nn.BCEWithLogitsLoss(pos_weight=flipped_weights)
 
         # self.loss_module = nn.BCEWithLogitsLoss()
-
-    # def configure_optimizers(self):
-    #     """
-    #     Configures the AdamW optimizer and enables training with different learning rates for encoder and classifier.
-    #     Also initializes the learning rate scheduler.
-    #     """
-    #
-    #     lr = self.hparams.optimizer_hparams['lr']
-    #
-    #     # weight_decay_enc = self.hparams.optimizer_hparams["weight_decay_enc"]
-    #     weight_decay_enc = 5e-4
-    #
-    #     params = list(self.named_parameters())
-    #
-    #     def is_encoder(n):
-    #         return n.startswith('model')
-    #
-    #     grouped_parameters = [
-    #         {
-    #             'params': [p for n, p in params if is_encoder(n)],
-    #             'lr': lr,
-    #             'weight_decay': weight_decay_enc
-    #         }
-    #     ]
-    #
-    #     optimizer = torch.optim.AdamW(grouped_parameters)
-    #
-    #     self.lr_scheduler = CosineWarmupScheduler(optimizer=optimizer, warmup=self.hparams.optimizer_hparams['warmup'],
-    #                                               max_iters=self.hparams.optimizer_hparams['max_iters'])
-    #
-    #     return [optimizer], []
 
     def configure_optimizers(self):
         opt_params = self.hparams.optimizer_hparams
@@ -130,55 +97,45 @@ class GatBase(GraphTrainer):
 
         # only log this once in the end of an epoch (averaged over steps)
         self.log_on_epoch(f"train/loss", loss)
-        # self.loss['train'].append(loss.item())
-
-        # logging in optimizer step does not work, therefore here
-        # self.log('lr_rate', self.lr_scheduler.get_lr()[0])
 
         # back propagate every step, but only log every epoch
         # sum the loss over steps and average at the end of one epoch and then log
         return dict(loss=loss)
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch, batch_idx, dataloader_idx):
 
         support_graphs, query_graphs, support_targets, query_targets = batch
 
-        # # Validation requires to finetune a model, hence we need to enable gradients
-        # torch.set_grad_enabled(True)
-        # self.model.train()
-        # self.train()
-        #
-        # # local_optim = optim.SGD(local_model.parameters(), lr=self.hparams.opt_hparams['lr_inner'])
-        # local_optim = torch.optim.AdamW(self.model.parameters(), lr=self.hparams.optimizer_hparams['lr'])
-        # # local_optim = self.optimizers()
-        #
-        # local_optim.zero_grad()
-        #
-        # # fine tune on support set & evaluate on test set
-        # logits, targets = self.forward(support_graphs, support_targets, mode='val_train')
-        # loss = self.loss_module(logits, func.one_hot(support_targets).float())
-        #
-        # # Calculate gradients and perform finetune update
-        # loss.backward()
-        # local_optim.step()
-        # torch.set_grad_enabled(False)
+        if dataloader_idx == 0:
+            # finetune on the support part
 
-        # self.eval()
-        # self.model.eval()
+            # Validation requires to finetune a model, hence we need to enable gradients
+            torch.set_grad_enabled(True)
+            self.model.train()
+            self.train()
 
-        # Evaluate on meta test set
+            # fine tune on support set & evaluate on test set
+            logits = self.forward(support_graphs, support_targets, mode='val_tune')
+            loss = self.loss_module(logits, func.one_hot(support_targets).float())
 
-        logits = self.forward(query_graphs, query_targets, mode='val')
+            # Calculate gradients and perform finetune update
+            loss.backward()
 
-        # batch_balance = torch.bincount(query_targets) / query_targets.shape[0]
-        # print(f"\nBatch balance: {batch_balance}")
-        # self.loss_module.pos_weight = torch.flip(batch_balance, dims=[0])
+            torch.set_grad_enabled(False)
 
-        loss = self.loss_module(logits, func.one_hot(query_targets).float())
+        elif dataloader_idx == 1:
+            # Evaluate on meta test set
 
-        # only log this once in the end of an epoch (averaged over steps)
-        self.log_on_epoch(f"val/loss", loss)
-        # self.loss['val'].append(loss.item())
+            logits = self.forward(query_graphs, query_targets, mode='val')
+
+            # batch_balance = torch.bincount(query_targets) / query_targets.shape[0]
+            # print(f"\nBatch balance: {batch_balance}")
+            # self.loss_module.pos_weight = torch.flip(batch_balance, dims=[0])
+
+            loss = self.loss_module(logits, func.one_hot(query_targets).float())
+
+            # only log this once in the end of an epoch (averaged over steps)
+            self.log_on_epoch(f"val/loss", loss)
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default, logs it per epoch (weighted average over batches)
