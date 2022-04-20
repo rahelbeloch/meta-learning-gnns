@@ -342,8 +342,8 @@ class GraphPreprocessor(GraphIO):
         feature_matrix = csr_matrix((total, self.vocab_size))
         print(f"Size of feature matrix = {feature_matrix.shape}")
 
-        feature_matrix[:len(doc_features)] = doc_features
-        feature_matrix[len(doc_features):] = user_features
+        # feature_matrix[:len(doc_features)] = doc_features
+        # feature_matrix[len(doc_features):] = user_features
 
         hrs, mins, secs = calc_elapsed_time(start, time.time())
         print(f"Done. Took {hrs}hrs and {mins}mins and {secs}secs\n")
