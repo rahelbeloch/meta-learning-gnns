@@ -60,10 +60,11 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         _, _, isolated_mask = remove_isolated_nodes(edge_index=self.edge_index)
         isolated_train_val_docs = isolated_mask[:self.max_doc_id][:first_test_doc]
-        non_test_isolated_nodes = torch.where(isolated_train_val_docs == True)[0]
-        assert non_test_isolated_nodes.shape[0] == 0, "The graph contains isolated nodes which are not test nodes!"
+        isolated_train_val_nodes = torch.where(isolated_train_val_docs == False)[0]
+        assert isolated_train_val_nodes.shape[0] == 0, "Edge index contains isolated nodes which are not test nodes!"
 
-        isolated_train_val_indices = torch.where(torch.where(self.adj.sum(dim=1) == 1)[0] < first_test_doc)
+        isolated_train_val_indices = torch.where(torch.where(self.adj.sum(dim=1) == 1)[0] < first_test_doc)[0]
+        assert isolated_train_val_indices.shape[0] == 0, "Adjacency contains isolated nodes which are not test nodes!"
         print(f"Nodes from train/val splits with only self connections: {isolated_train_val_indices}")
 
         # if self._analyse_node_degrees or self.dataset == 'gossipcop':

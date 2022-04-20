@@ -46,9 +46,11 @@ class FakeNewsGraphPreprocessor(GraphPreprocessor):
                     # no connections between users and test documents!
                     continue
 
-                if doc_id in self.doc2id and user in self.user2id:
+                str_user = str(user)
+
+                if doc_id in self.doc2id and str_user in self.user2id:
                     doc_id = self.doc2id[doc_id]
-                    user_id = self.user2id[user]
+                    user_id = self.user2id[str_user]
 
                     edge_list.append((doc_id, user_id))
                     edge_list.append((user_id, doc_id))
