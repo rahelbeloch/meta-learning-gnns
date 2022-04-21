@@ -17,7 +17,7 @@ from samplers.batch_sampler import split_list
 class ProtoMAML(GraphTrainer):
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, opt_hparams, label_names, batch_size):
+    def __init__(self, model_params, optimizer_hparams, label_names, batch_size):
         """
         Inputs
             lr - Learning rate of the outer loop Adam optimizer
@@ -30,14 +30,13 @@ class ProtoMAML(GraphTrainer):
 
         self.n_inner_updates = model_params['n_inner_updates']
 
-        flipped_weights = torch.flip(model_params["class_weight"], dims=[0])
-        # pos_weight = flipped_weights
+        # no class weighting for the meta learner
         self.loss_module = torch.nn.BCEWithLogitsLoss()
 
         self.model = GatNet(model_params)
 
     def configure_optimizers(self):
-        optimizer = optim.AdamW(self.parameters(), lr=self.hparams.opt_hparams['lr'])
+        optimizer = optim.AdamW(self.parameters(), lr=self.hparams.optimizer_hparams['lr'])
         scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[140, 180], gamma=0.1)
         return [optimizer], [scheduler]
 
@@ -54,7 +53,7 @@ class ProtoMAML(GraphTrainer):
         # Copy model for inner-loop model and optimizer
         local_model = deepcopy(self.model)
         local_model.train()
-        local_optim = optim.SGD(local_model.parameters(), lr=self.hparams.opt_hparams['lr_inner'])
+        local_optim = optim.SGD(local_model.parameters(), lr=self.hparams.optimizer_hparams['lr_inner'])
         local_optim.zero_grad()
 
         # Create output layer weights with prototype-based initialization
@@ -74,8 +73,8 @@ class ProtoMAML(GraphTrainer):
             local_optim.step()
 
             # Update output layer via SGD
-            output_weight.data -= self.hparams.opt_hparams['lr_output'] * output_weight.grad
-            output_bias.data -= self.hparams.opt_hparams['lr_output'] * output_bias.grad
+            output_weight.data -= self.hparams.optimizer_hparams['lr_output'] * output_weight.grad
+            output_bias.data -= self.hparams.optimizer_hparams['lr_output'] * output_bias.grad
 
             # Reset gradients
             local_optim.zero_grad()

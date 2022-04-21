@@ -36,7 +36,7 @@ from samplers.batch_sampler import FewShotSampler
 
 class FewShotMamlSampler(FewShotSampler):
 
-    def __init__(self, dataset_targets, max_n_query, mode, n_way, k_shot, batch_size=16):
+    def __init__(self, dataset_targets, max_n_query, mode, n_way, k_shot, batch_size=3):
         """
         Inputs:
             dataset_targets - PyTorch tensor of the labels of the data elements.
