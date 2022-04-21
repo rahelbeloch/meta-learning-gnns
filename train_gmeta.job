@@ -6,7 +6,7 @@
 #SBATCH --output=logs/job_outputs/meta_gnn_%A_%a.out
 
 # GPU Settings
-#SBATCH --partition=gpu_titanrtx
+#SBATCH --partition=gpu_titanrtx_shared
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
 
