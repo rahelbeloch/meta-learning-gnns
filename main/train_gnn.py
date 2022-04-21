@@ -241,7 +241,7 @@ def initialize_trainer(model_name, epochs, patience, patience_metric, progress_b
     early_stop_callback = cls(
         monitor=metric,
         min_delta=0.00,
-        patience=patience,  # loss computation happens per default after each training epoch
+        patience=patience,
         verbose=False,
         mode=mode
     )

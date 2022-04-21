@@ -105,7 +105,7 @@ def get_num_workers(sampler, num_workers):
     elif type(sampler) == FewShotSampler:
         return 4
     elif type(sampler) == FewShotMamlSampler:
-        return 3
+        return 2
     return 0
 
 
