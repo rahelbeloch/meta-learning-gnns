@@ -222,7 +222,8 @@ def initialize_trainer(model_name, epochs, patience, patience_metric, progress_b
 
     if patience_metric == 'loss':
         metric = 'val/loss/dataloader_idx_1' if model_name == 'gat' else 'val/loss'
-        cls, metric, mode = LossEarlyStopping, metric, 'min'
+        # cls, metric, mode = LossEarlyStopping, metric, 'min'
+        cls, metric, mode = EarlyStopping, metric, 'min'
     elif patience_metric == 'f1_macro':
         cls, metric, mode = EarlyStopping, 'val/f1_macro', 'max'
     else:
@@ -263,14 +264,14 @@ def initialize_trainer(model_name, epochs, patience, patience_metric, progress_b
     return trainer
 
 
-class LossEarlyStopping(EarlyStopping):
-    def on_validation_end(self, trainer, pl_module):
-        # override this to disable early stopping at the end of val loop
-        pass
-
-    def on_train_end(self, trainer, _):
-        # instead, do it at the end of training loop
-        self._run_early_stopping_check(trainer)
+# class LossEarlyStopping(EarlyStopping):
+#     def on_validation_end(self, trainer, pl_module):
+#         # override this to disable early stopping at the end of val loop
+#         pass
+#
+#     def on_train_end(self, trainer, _):
+#         # instead, do it at the end of training loop
+#         self._run_early_stopping_check(trainer)
 
 
 def evaluate(trainer, model, test_dataloader, val_dataloader):
