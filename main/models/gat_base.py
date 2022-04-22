@@ -206,7 +206,7 @@ class GatBase(GraphTrainer):
             loss = self.loss_module(logits, func.one_hot(query_targets).float())
 
             # only log this once in the end of an epoch (averaged over steps)
-            self.log_on_epoch(f"val/query_loss", loss)
+            self.log_on_epoch(f"val_query/loss", loss)
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default, logs it per epoch (weighted average over batches)
