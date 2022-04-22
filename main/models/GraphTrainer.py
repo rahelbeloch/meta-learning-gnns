@@ -45,7 +45,8 @@ class GraphTrainer(pl.LightningModule):
 
     def validation_epoch_end(self, outputs) -> None:
         super().validation_epoch_end(outputs)
-        self.compute_and_log_metrics('val')
+        self.compute_and_log_metrics('val_support')
+        self.compute_and_log_metrics('val_query')
 
     def training_epoch_end(self, outputs) -> None:
         super().training_epoch_end(outputs)
