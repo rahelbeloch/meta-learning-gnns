@@ -180,9 +180,12 @@ class GatBase(GraphTrainer):
             # Evaluate on meta test set
             mode = 'val'
 
-            x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
+            # with extra validation model
+            # x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
             # logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
-            logits = self.model(x, edge_index, mode)[cl_mask].squeeze()
+
+            # with only 1 model
+            logits = self.forward(query_graphs, query_targets, 'val')
 
             loss = self.loss_module(logits, query_targets.float())
 
