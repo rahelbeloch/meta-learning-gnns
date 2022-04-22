@@ -222,7 +222,7 @@ def initialize_trainer(model_name, epochs, patience, patience_metric, progress_b
 
     if patience_metric == 'loss':
         # metric = 'val/loss/dataloader_idx_1' if model_name == 'gat' else 'val/loss'
-        metric = 'val/query_loss'
+        metric = 'val_query/loss'
         # cls, metric, mode = LossEarlyStopping, metric, 'min'
         cls, metric, mode = EarlyStopping, metric, 'min'
     elif patience_metric == 'f1_macro':
