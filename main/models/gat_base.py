@@ -211,7 +211,8 @@ class GatBase(GraphTrainer):
             x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
             logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
 
-            predictions = (logits.sigmoid() > 0.5).long()
+            # predictions = (logits.sigmoid() > 0.5).long()
+            predictions = torch.sigmoid(logits).argmax(dim=-1)
 
             for mode_dict, _ in self.metrics.values():
                 # shapes should be: pred (batch_size), targets: (batch_size)
@@ -221,7 +222,7 @@ class GatBase(GraphTrainer):
             # logits = self.forward(query_graphs, query_targets, mode)
 
             # loss = self.loss_module(logits, query_targets.float())
-            loss = self.loss_module(logits, func.one_hot(query_targets).float())
+            loss = func.binary_cross_entropy_with_logits(logits, func.one_hot(query_targets).float())
 
             # only log this once in the end of an epoch (averaged over steps)
             self.log_on_epoch(f"{mode}/loss", loss)
