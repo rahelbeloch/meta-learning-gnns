@@ -2,18 +2,11 @@ import pytorch_lightning as pl
 import torch
 import torchmetrics as tm
 
-from data_prep.graph_preprocessor import SPLITS
-
-
-# from models.gat_base import GatBase
-
 
 class GraphTrainer(pl.LightningModule):
 
-    def __init__(self, n_classes):
+    def __init__(self, n_classes, validation_sets):
         super().__init__()
-
-        type(self)
 
         self._device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -22,11 +15,9 @@ class GraphTrainer(pl.LightningModule):
             'f1_target': ({}, 'none')
         }
 
-        splits = ['train', 'test']
-        if 'GatBase' in str(type(self)):
-            splits += ['val_support', 'val_query']
-        else:
-            splits += ['val']
+        self.validation_sets = validation_sets
+
+        splits = ['train', 'test'] + validation_sets
 
         # Metrics from torchmetrics
         for s in splits:
@@ -35,8 +26,6 @@ class GraphTrainer(pl.LightningModule):
                 if metric is None:
                     raise ValueError(f"Metric with key '{name}' not supported.")
                 split_dict[s] = metric(num_classes=n_classes, average=avg).to(self._device)
-
-        # self.loss = {'train': [], 'val': []}
 
     def log_on_epoch(self, metric, value):
         self.log(metric, value, on_step=False, on_epoch=True)
@@ -47,8 +36,8 @@ class GraphTrainer(pl.LightningModule):
 
     def validation_epoch_end(self, outputs) -> None:
         super().validation_epoch_end(outputs)
-        self.compute_and_log_metrics('val_support')
-        self.compute_and_log_metrics('val_query')
+        for s in self.validation_sets:
+            self.compute_and_log_metrics(s)
 
     def training_epoch_end(self, outputs) -> None:
         super().training_epoch_end(outputs)

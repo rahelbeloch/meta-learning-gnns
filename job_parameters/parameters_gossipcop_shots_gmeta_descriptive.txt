@@ -1,0 +1,16 @@
+
+GMETA
+- task numbers in each batch: 4, 8, 16, 32, 64
+- inner update learning rate: 1e−2, 5e−3, 1e−3, 5e−4
+- outer update learning rate: 1e−2, 5e−3, 1e−3, 5e−4
+- hidden dimension: 64, 128, and 256.
+- gradient update steps: 5/10 in training, 10/20 in testing
+
+ME
+
+- task numbers train: 16, 32, (64)
+- task numbers val/test: 2
+- inner update learning rate: 1e−2, 5e−3, 1e−3, 5e−4
+- outer update learning rate: 1e−2, 5e−3, 1e−3, 5e−4
+- hidden dimension: 16, (64)
+- gradient update steps: 5 in training, 5 in testing

@@ -23,7 +23,7 @@ class GatBase(GraphTrainer):
             optimizer_hparams - Hyperparameters for the optimizer, as dictionary. This includes learning rate,
             weight decay, etc.
         """
-        super().__init__(model_params["output_dim"])
+        super().__init__(model_params["output_dim"], validation_sets=['val_support', 'val_query'])
 
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace + saves config in wandb
         self.save_hyperparameters()

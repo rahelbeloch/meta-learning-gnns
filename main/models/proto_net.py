@@ -23,7 +23,7 @@ class ProtoNet(GraphTrainer):
             proto_dim - Dimensionality of prototype feature space
             lr - Learning rate of Adam optimizer
         """
-        super().__init__(model_params['output_dim'])
+        super().__init__(model_params['output_dim'], validation_sets=['val'])
         self.save_hyperparameters()
 
         # the output dimension for the prototypical network is not num classes, but the prototypes dimension!
@@ -42,7 +42,9 @@ class ProtoNet(GraphTrainer):
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.optimizer_hparams['lr'])
-        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[140, 180], gamma=0.1)
+        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[140, 180],
+                                                   gamma=self.hparams.optimizer_hparams['lr_decay_factor'])
+
         return [optimizer], [scheduler]
 
     # def configure_optimizers(self):
@@ -109,13 +111,18 @@ class ProtoNet(GraphTrainer):
 
         # TODO: was log_softmax, now no softmax/sigmoid because this is handled by the loss function
         # predictions = func.log_softmax(-dist, dim=1)      # for CE loss
-        predictions = torch.sigmoid(-dist)  # for BCE loss
-        # predictions = -dist                               # for BCE with logits loss
+        # predictions = torch.sigmoid(-dist)  # for BCE loss
+
+        # for BCE with logits loss: don't use negative dist
+        logits = dist
+
+        # for metrics
+        predictions = ((-dist).sigmoid() > 0.5).long()
 
         # noinspection PyUnresolvedReferences
         labels = (classes[None, :] == targets[:, None]).to(torch.int32)
 
-        return predictions, labels
+        return predictions, logits, labels
 
     def calculate_loss(self, batch, mode):
         """
@@ -148,17 +155,18 @@ class ProtoNet(GraphTrainer):
         assert query_logits.shape[0] == query_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
 
-        predictions, targets = ProtoNet.classify_features(prototypes, classes, query_logits, query_targets)
+        # predictions, logits and targets: batch size x 1
+        predictions, logits, targets = ProtoNet.classify_features(prototypes, classes, query_logits, query_targets)
 
-        if predictions.shape[1] != self.num_classes:
-            # if predictions only have one class, we need to pad in order to use weight in loss function
-            n_pad = self.num_classes - predictions.shape[1]
-            predictions = func.pad(predictions, pad=(0, n_pad), value=0)
-
-        if targets.shape[1] != self.num_classes:
-            # if targets only have one class, we need to pad in order to use weight in loss function
-            n_pad = self.num_classes - targets.shape[1]
-            targets = func.pad(targets, pad=(0, n_pad), value=0)
+        # if predictions.shape[1] != self.num_classes:
+        #     # if predictions only have one class, we need to pad in order to use weight in loss function
+        #     n_pad = self.num_classes - predictions.shape[1]
+        #     predictions = func.pad(predictions, pad=(0, n_pad), value=0)
+        #
+        # if targets.shape[1] != self.num_classes:
+        #     # if targets only have one class, we need to pad in order to use weight in loss function
+        #     n_pad = self.num_classes - targets.shape[1]
+        #     targets = func.pad(targets, pad=(0, n_pad), value=0)
 
         # meta_loss = func.binary_cross_entropy_with_logits(logits, targets.float())
 
@@ -171,7 +179,13 @@ class ProtoNet(GraphTrainer):
         # targets have dimensions according to classes which are in the subgraph batch, i.e. if all sub graphs have the
         # same label, targets has 2nd dimension = 1
 
-        loss = self.loss_module(predictions, targets)
+        loss = self.loss_module(logits, targets)
+
+        # if True in torch.isnan(support_logits) or True in torch.isnan(query_logits) or True in torch.isnan(loss):
+        #     print(f'Step: {self.global_step}')
+        #     print(f'nan in support logits: {True in torch.isnan(support_logits)}')
+        #     print(f'nan in query logits: {True in torch.isnan(query_logits)}')
+        #     print(f'nan in loss: {True in torch.isnan(loss)}')
 
         # only for binary cross entropy / binary cross entropy with logits
         targets = targets.argmax(dim=-1)
@@ -181,11 +195,11 @@ class ProtoNet(GraphTrainer):
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
         # pred = torch.sigmoid(logits).argmax(dim=-1)
-        pred = predictions.argmax(dim=-1)
+        # pred = predictions.argmax(dim=-1)
 
         for mode_dict, _ in self.metrics.values():
             # shapes should be: pred (batch_size), targets: (batch_size)
-            mode_dict[mode].update(pred, targets)
+            mode_dict[mode].update(predictions, targets)
 
         return loss
 
