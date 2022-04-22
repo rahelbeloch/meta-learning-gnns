@@ -33,7 +33,7 @@ class GatBase(GraphTrainer):
         # Deep copy of the model: one for train, one for val --> update validation model with weights from train model
         # validation fine-tuning should happen on a copy of the model NOT on the model which is trained
         # --> Training should not be affected by validation
-        # self.validation_model = GatNet(model_params)
+        self.validation_model = GatNet(model_params)
 
         # flipping the weights
         # pos_weight = 1 // model_params["class_weight"][0]
