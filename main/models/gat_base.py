@@ -175,7 +175,8 @@ class GatBase(GraphTrainer):
                 mode_dict[mode].update(predictions, support_targets)
 
             # loss = func.binary_cross_entropy_with_logits(logits, support_targets.float())
-            loss = func.binary_cross_entropy_with_logits(logits, func.one_hot(query_targets).float())
+            loss = func.binary_cross_entropy_with_logits(logits, func.one_hot(support_targets).float())
+            # loss = self.loss_module(logits, func.one_hot(support_targets).float())
 
             self.log_on_epoch(f"{mode}/loss", loss)
 
@@ -220,6 +221,7 @@ class GatBase(GraphTrainer):
 
             # loss = self.loss_module(logits, func.one_hot(query_targets).float())
             loss = func.binary_cross_entropy_with_logits(logits, func.one_hot(query_targets).float())
+            # loss = self.loss_module(logits, func.one_hot(query_targets).float())
 
             # only log this once in the end of an epoch (averaged over steps)
             self.log_on_epoch(f"{mode}/loss", loss)
