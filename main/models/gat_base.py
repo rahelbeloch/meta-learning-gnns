@@ -158,7 +158,7 @@ class GatBase(GraphTrainer):
             self.validation_model.load_state_dict(self.model.state_dict())
 
             # Validation requires to finetune a model, hence we need to enable gradients
-            # torch.set_grad_enabled(True)
+            torch.set_grad_enabled(True)
 
             # Copy model for finetune on the support part and optimizer
             self.validation_model.train()
@@ -201,7 +201,7 @@ class GatBase(GraphTrainer):
 
             # Main constraint: Use same optimizer as in training, global ADAM validation
 
-            # torch.set_grad_enabled(False)
+            torch.set_grad_enabled(False)
 
         elif dataloader_idx == 1:
             # Evaluate on meta test set
