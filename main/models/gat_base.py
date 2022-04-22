@@ -122,7 +122,7 @@ class GatBase(GraphTrainer):
         self.manual_backward(loss)
         train_opt.step()
 
-        lr_scheduler_step_epochs = 5
+        lr_scheduler_step_epochs = 1
 
         # self.manual_backward(loss)
         # n = 10
