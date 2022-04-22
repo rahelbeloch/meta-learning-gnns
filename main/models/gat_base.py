@@ -176,7 +176,8 @@ class GatBase(GraphTrainer):
                 # shapes should be: pred (batch_size), targets: (batch_size)
                 mode_dict[mode].update(predictions, support_targets)
 
-            loss = func.binary_cross_entropy_with_logits(logits, support_targets.float())
+            # loss = func.binary_cross_entropy_with_logits(logits, support_targets.float())
+            loss = func.binary_cross_entropy_with_logits(logits, func.one_hot(support_targets).float())
 
             self.log_on_epoch(f"{mode}/loss", loss)
 
@@ -207,17 +208,17 @@ class GatBase(GraphTrainer):
             mode = 'val_query'
 
             # with extra validation model
-            # x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
-            # logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
+            x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
+            logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
 
-            # predictions = (logits.sigmoid() > 0.5).long()
-            #
-            # for mode_dict, _ in self.metrics.values():
-            #     # shapes should be: pred (batch_size), targets: (batch_size)
-            #     mode_dict[mode].update(predictions, query_targets)
+            predictions = (logits.sigmoid() > 0.5).long()
+
+            for mode_dict, _ in self.metrics.values():
+                # shapes should be: pred (batch_size), targets: (batch_size)
+                mode_dict[mode].update(predictions, query_targets)
 
             # with only 1 model
-            logits = self.forward(query_graphs, query_targets, mode)
+            # logits = self.forward(query_graphs, query_targets, mode)
 
             # loss = self.loss_module(logits, query_targets.float())
             loss = self.loss_module(logits, func.one_hot(query_targets).float())
