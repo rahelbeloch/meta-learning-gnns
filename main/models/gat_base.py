@@ -33,27 +33,30 @@ class GatBase(GraphTrainer):
         # Deep copy of the model: one for train, one for val --> update validation model with weights from train model
         # validation fine-tuning should happen on a copy of the model NOT on the model which is trained
         # --> Training should not be affected by validation
-        self.validation_model = GatNet(model_params)
+        # self.validation_model = GatNet(model_params)
 
         # flipping the weights
         pos_weight = 1 // model_params["class_weight"][0]
         # flipped_weights = torch.flip(fake_class_weight, dims=[0])
         self.loss_module = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
-        self.automatic_optimization = False
+        # self.automatic_optimization = False
 
     def configure_optimizers(self):
 
         train_optimizer, train_scheduler = self.get_optimizer()
-        val_optimizer, val_scheduler = self.get_optimizer(self.validation_model)
+        # val_optimizer, val_scheduler = self.get_optimizer(self.validation_model)
+        # optimizers = [train_optimizer, val_optimizer]
+        optimizers = [train_optimizer]
 
         schedulers = []
         if train_scheduler is not None:
             schedulers.append(train_scheduler)
-        if val_scheduler is not None:
-            schedulers.append(val_scheduler)
+        # if val_scheduler is not None:
+        #     schedulers.append(val_scheduler)
 
-        return [train_optimizer, val_optimizer], schedulers
+
+        return optimizers, schedulers
 
     def get_optimizer(self, model=None):
         opt_params = self.hparams.optimizer_hparams
@@ -99,8 +102,8 @@ class GatBase(GraphTrainer):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        train_opt, _ = self.optimizers()
-        train_opt.zero_grad()
+        # train_opt, _ = self.optimizers()
+        # train_opt.zero_grad()
 
         # collapse support and query set and train on whole
         support_graphs, query_graphs, support_targets, query_targets = batch
@@ -114,11 +117,11 @@ class GatBase(GraphTrainer):
 
         loss = self.loss_module(logits, targets.float())
 
-        self.manual_backward(loss)
-        train_opt.step()
+        # self.manual_backward(loss)
+        # train_opt.step()
 
-        train_scheduler, _ = self.lr_schedulers()
-        train_scheduler.step()
+        # train_scheduler, _ = self.lr_schedulers()
+        # train_scheduler.step()
 
         # only log this once in the end of an epoch (averaged over steps)
         self.log_on_epoch(f"train/loss", loss)
@@ -132,37 +135,37 @@ class GatBase(GraphTrainer):
         support_graphs, query_graphs, support_targets, query_targets = batch
 
         if dataloader_idx == 0:
-
-            # update the weights of the validation model with weights from trained model
-            self.validation_model.load_state_dict(self.model.state_dict())
-
-            # Validation requires to finetune a model, hence we need to enable gradients
-            torch.set_grad_enabled(True)
-
-            # Copy model for finetune on the support part and optimizer
-            self.validation_model.train()
-
-            _, val_optimizer = self.optimizers()
-            val_optimizer.zero_grad()
-
-            x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
-            logits = self.validation_model(x, edge_index, 'val_tune')[cl_mask].squeeze()
-
-            # TODO: log validation finetune metrics
-            # predictions = (logits.sigmoid() > 0.5).long()
-            # for mode_dict, _ in self.metrics.values():
-            #     # shapes should be: pred (batch_size), targets: (batch_size)
-            #     mode_dict[mode].update(predictions, targets)
-
-            loss = func.binary_cross_entropy_with_logits(logits, support_targets.float())
-
-            # Calculate gradients and perform finetune update
-            # self.manual_backward(loss)
-            loss.backward()
-            val_optimizer.step()
-
-            _, val_scheduler = self.lr_schedulers()
-            val_scheduler.step()
+            pass
+            # # update the weights of the validation model with weights from trained model
+            # self.validation_model.load_state_dict(self.model.state_dict())
+            #
+            # # Validation requires to finetune a model, hence we need to enable gradients
+            # torch.set_grad_enabled(True)
+            #
+            # # Copy model for finetune on the support part and optimizer
+            # self.validation_model.train()
+            #
+            # _, val_optimizer = self.optimizers()
+            # val_optimizer.zero_grad()
+            #
+            # x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
+            # logits = self.validation_model(x, edge_index, 'val_tune')[cl_mask].squeeze()
+            #
+            # # TODO: log validation finetune metrics
+            # # predictions = (logits.sigmoid() > 0.5).long()
+            # # for mode_dict, _ in self.metrics.values():
+            # #     # shapes should be: pred (batch_size), targets: (batch_size)
+            # #     mode_dict[mode].update(predictions, targets)
+            #
+            # loss = func.binary_cross_entropy_with_logits(logits, support_targets.float())
+            #
+            # # Calculate gradients and perform finetune update
+            # # self.manual_backward(loss)
+            # loss.backward()
+            # val_optimizer.step()
+            #
+            # _, val_scheduler = self.lr_schedulers()
+            # val_scheduler.step()
 
             # SGD does not keep any state --> Create an SGD optimizer again every time
             # I enter the validation epoch; global or local should not be a difference
@@ -171,7 +174,7 @@ class GatBase(GraphTrainer):
 
             # Main constraint: Use same optimizer as in training, global ADAM validation
 
-            torch.set_grad_enabled(False)
+            # torch.set_grad_enabled(False)
 
         elif dataloader_idx == 1:
             # Evaluate on meta test set
