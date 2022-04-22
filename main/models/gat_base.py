@@ -93,8 +93,8 @@ class GatBase(GraphTrainer):
         for mode_dict, _ in self.metrics.values():
             # shapes should be: pred (batch_size), targets: (batch_size)
             if mode == 'val':
-                print(predictions)
-                print(targets)
+                print(f"Preds: {predictions}")
+                print(f"Targets: {targets}")
             mode_dict[mode].update(predictions, targets)
 
         # logits are not yet put into a sigmoid layer, because the loss module does this combined
