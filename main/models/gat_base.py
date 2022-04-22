@@ -134,8 +134,8 @@ class GatBase(GraphTrainer):
         # step every N epochs
         if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % lr_scheduler_step_epochs == 0:
             train_scheduler, _ = self.lr_schedulers()
-            print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
-            print("Reducing LR")
+            # print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
+            # print("Reducing LR")
             train_scheduler.step()
 
         # only log this once in the end of an epoch (averaged over steps)
@@ -150,52 +150,56 @@ class GatBase(GraphTrainer):
         support_graphs, query_graphs, support_targets, query_targets = batch
 
         if dataloader_idx == 0:
-            pass
+            # pass
 
-            # mode = 'val_support'
-            #
-            # # update the weights of the validation model with weights from trained model
-            # self.validation_model.load_state_dict(self.model.state_dict())
-            #
-            # # Validation requires to finetune a model, hence we need to enable gradients
+            mode = 'val_support'
+
+            # update the weights of the validation model with weights from trained model
+            self.validation_model.load_state_dict(self.model.state_dict())
+
+            # Validation requires to finetune a model, hence we need to enable gradients
             # torch.set_grad_enabled(True)
-            #
-            # # Copy model for finetune on the support part and optimizer
-            # self.validation_model.train()
-            #
-            # _, val_optimizer = self.optimizers()
-            # val_optimizer.zero_grad()
-            #
-            # x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
-            # logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
-            #
-            # # TODO: log validation finetune metrics
-            # # predictions = (logits.sigmoid() > 0.5).long()
-            # predictions = torch.sigmoid(logits).argmax(dim=-1)
-            #
-            # for mode_dict, _ in self.metrics.values():
-            #     # shapes should be: pred (batch_size), targets: (batch_size)
-            #     mode_dict[mode].update(predictions, support_targets)
-            #
-            # loss = func.binary_cross_entropy_with_logits(logits, support_targets.float())
-            #
-            # self.log_on_epoch(f"val/support_loss", loss)
-            #
-            # # Calculate gradients and perform finetune update
-            # self.manual_backward(loss)
-            # # loss.backward()
-            # val_optimizer.step()
-            #
-            # _, val_scheduler = self.lr_schedulers()
-            # val_scheduler.step()
-            #
-            # # SGD does not keep any state --> Create an SGD optimizer again every time
-            # # I enter the validation epoch; global or local should not be a difference
-            # # different for ADAM --> Keeps running weight parameter, that changes
-            # # per epoch, keeps momentum
-            #
-            # # Main constraint: Use same optimizer as in training, global ADAM validation
-            #
+
+            # Copy model for finetune on the support part and optimizer
+            self.validation_model.train()
+
+            _, val_optimizer = self.optimizers()
+
+            x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
+            logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
+
+            # TODO: log validation finetune metrics
+            # predictions = (logits.sigmoid() > 0.5).long()
+            predictions = torch.sigmoid(logits).argmax(dim=-1)
+
+            for mode_dict, _ in self.metrics.values():
+                # shapes should be: pred (batch_size), targets: (batch_size)
+                mode_dict[mode].update(predictions, support_targets)
+
+            loss = func.binary_cross_entropy_with_logits(logits, support_targets.float())
+
+            self.log_on_epoch(f"{mode}/loss", loss)
+
+            # Calculate gradients and perform finetune update
+            val_optimizer.zero_grad()
+            self.manual_backward(loss)
+            # loss.backward()
+            val_optimizer.step()
+
+            # step every N epochs
+            if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % 1 == 0:
+                _, val_scheduler = self.lr_schedulers()
+                # print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
+                # print("Reducing LR")
+                val_scheduler.step()
+
+            # SGD does not keep any state --> Create an SGD optimizer again every time
+            # I enter the validation epoch; global or local should not be a difference
+            # different for ADAM --> Keeps running weight parameter, that changes
+            # per epoch, keeps momentum
+
+            # Main constraint: Use same optimizer as in training, global ADAM validation
+
             # torch.set_grad_enabled(False)
 
         elif dataloader_idx == 1:
@@ -219,7 +223,7 @@ class GatBase(GraphTrainer):
             loss = self.loss_module(logits, func.one_hot(query_targets).float())
 
             # only log this once in the end of an epoch (averaged over steps)
-            self.log_on_epoch(f"val_query/loss", loss)
+            self.log_on_epoch(f"{mode}/loss", loss)
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default, logs it per epoch (weighted average over batches)
