@@ -45,15 +45,15 @@ class GatBase(GraphTrainer):
     def configure_optimizers(self):
 
         train_optimizer, train_scheduler = self.get_optimizer()
-        # val_optimizer, val_scheduler = self.get_optimizer(self.validation_model)
-        # optimizers = [train_optimizer, val_optimizer]
-        optimizers = [train_optimizer]
+        val_optimizer, val_scheduler = self.get_optimizer(self.validation_model)
+        optimizers = [train_optimizer, val_optimizer]
+        # optimizers = [train_optimizer]
 
         schedulers = []
         if train_scheduler is not None:
             schedulers.append(train_scheduler)
-        # if val_scheduler is not None:
-        #     schedulers.append(val_scheduler)
+        if val_scheduler is not None:
+            schedulers.append(val_scheduler)
 
         return optimizers, schedulers
 
@@ -104,7 +104,6 @@ class GatBase(GraphTrainer):
             torch.cuda.empty_cache()
 
         train_opt, _ = self.optimizers()
-        train_opt.zero_grad()
 
         # collapse support and query set and train on whole
         support_graphs, query_graphs, support_targets, query_targets = batch
@@ -119,6 +118,7 @@ class GatBase(GraphTrainer):
         loss = self.loss_module(logits, func.one_hot(targets).float())
         # loss = self.loss_module(logits, targets.float())
 
+        train_opt.zero_grad()
         self.manual_backward(loss)
         train_opt.step()
 
