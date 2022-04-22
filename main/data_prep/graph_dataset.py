@@ -6,7 +6,7 @@ import torch
 from scipy.sparse import load_npz
 from torch_geometric.data import Data
 from torch_geometric.data import Dataset as GeometricDataset
-from torch_geometric.utils import contains_isolated_nodes, remove_isolated_nodes
+from torch_geometric.utils import remove_isolated_nodes
 
 import data_prep.fake_news_tsv_processor
 import data_prep.twitter_tsv_processor
@@ -39,7 +39,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         self._analyse_node_degrees = analyse_node_degrees
 
         self.top_users = config['top_users']
-        self.class_ratio = None
+        self.class_ratios = None
         self.train_size, self.val_size, self.test_size = split_size
         self._data = None
         self._labels = None
@@ -173,16 +173,19 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
     def compute_class_ratio(self):
 
+        class_ratios = dict()
         for split in SPLITS:
             y = self.y_data[self.split_masks[f"{split}_mask"]]
-            self.class_ratio = torch.bincount(y) / y.shape[0]
+            class_ratio = torch.bincount(y) / y.shape[0]
+
+            class_ratios[split] = class_ratio
 
             print(f"Split: {split}")
-
-            for i in range(len(self.class_ratio)):
-                print(f"Ratio class '{self.label_names[i]}': {round(self.class_ratio[i].item(), 3)}")
-
+            for i in range(len(class_ratio)):
+                print(f"Ratio class '{self.label_names[i]}': {round(class_ratio[i].item(), 3)}")
             print()
+
+        self.class_ratios = class_ratios
 
     def fix_node_degree_distribution(self, node_degrees, probs, keep_threshold=0.97):
         """

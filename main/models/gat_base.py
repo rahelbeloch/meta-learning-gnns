@@ -36,9 +36,11 @@ class GatBase(GraphTrainer):
         self.validation_model = GatNet(model_params)
 
         # flipping the weights
-        # pos_weight = 1 // model_params["class_weight"][0]
-        self.pos_weight = torch.flip(model_params["class_weight"], dims=[0]).to(DEVICE)
-        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=self.pos_weight)
+        # train_class_weight = 1 // self.class_weights['train'][0]
+        train_class_weight = torch.flip(model_params["class_weights"]['train'], dims=[0]).to(DEVICE)
+        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=train_class_weight)
+
+        self.val_class_weight = torch.flip(model_params["class_weights"]['val'], dims=[0]).to(DEVICE)
 
         self.automatic_optimization = False
 
@@ -174,7 +176,7 @@ class GatBase(GraphTrainer):
 
             # loss = func.binary_cross_entropy_with_logits(logits, support_targets.float())
             loss = func.binary_cross_entropy_with_logits(logits, func.one_hot(query_targets).float(),
-                                                         pos_weight=self.pos_weight)
+                                                         pos_weight=self.val_class_weight)
 
             self.log_on_epoch(f"{mode}/loss", loss)
 
@@ -219,7 +221,7 @@ class GatBase(GraphTrainer):
 
             # loss = self.loss_module(logits, func.one_hot(query_targets).float())
             loss = func.binary_cross_entropy_with_logits(logits, func.one_hot(query_targets).float(),
-                                                         pos_weight=self.pos_weight)
+                                                         pos_weight=self.val_class_weight)
 
             # only log this once in the end of an epoch (averaged over steps)
             self.log_on_epoch(f"{mode}/loss", loss)
