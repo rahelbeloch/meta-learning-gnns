@@ -41,7 +41,7 @@ class GraphTrainer(pl.LightningModule):
 
     def log(self, metric, value, on_step=True, on_epoch=False, **kwargs):
         b_size = self.hparams['batch_size']
-        super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=b_size)
+        super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=b_size, add_dataloader_idx=False)
 
     def validation_epoch_end(self, outputs) -> None:
         super().validation_epoch_end(outputs)

@@ -89,13 +89,14 @@ class GatBase(GraphTrainer):
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
         # predictions = (logits.sigmoid() > 0.5).long()
-        predictions = logits.sigmoid().argmax(dim=-1)
+        # predictions = logits.sigmoid().argmax(dim=-1)
+        predictions = torch.sigmoid(logits).argmax(dim=-1)
 
         for mode_dict, _ in self.metrics.values():
             # shapes should be: pred (batch_size), targets: (batch_size)
-            if mode == 'val':
-                print(f"Preds: {predictions}")
-                print(f"Targets: {targets}")
+            # if mode == 'val':
+            #     print(f"Preds: {predictions}")
+            #     print(f"Targets: {targets}")
             mode_dict[mode].update(predictions, targets)
 
         # logits are not yet put into a sigmoid layer, because the loss module does this combined
