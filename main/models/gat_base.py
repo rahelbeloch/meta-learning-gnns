@@ -122,8 +122,19 @@ class GatBase(GraphTrainer):
         self.manual_backward(loss)
         train_opt.step()
 
-        train_scheduler, _ = self.lr_schedulers()
-        train_scheduler.step()
+        lr_scheduler_step_epochs = 5
+
+        # self.manual_backward(loss)
+        # n = 10
+        # accumulate gradients of N batches
+        # if (batch_idx + 1) % n == 0:
+        #     train_opt.step()
+        #     train_opt.zero_grad()
+
+        # step every N epochs
+        if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % lr_scheduler_step_epochs == 0:
+            train_scheduler, _ = self.lr_schedulers()
+            train_scheduler.step()
 
         # only log this once in the end of an epoch (averaged over steps)
         self.log_on_epoch(f"train/loss", loss)
