@@ -37,7 +37,7 @@ class GatBase(GraphTrainer):
 
         # flipping the weights
         # pos_weight = 1 // model_params["class_weight"][0]
-        self.pos_weight = torch.flip(model_params["class_weight"], dims=[0])
+        self.pos_weight = torch.flip(model_params["class_weight"], dims=[0]).to(DEVICE)
         self.loss_module = nn.BCEWithLogitsLoss(pos_weight=self.pos_weight)
 
         self.automatic_optimization = False
@@ -124,6 +124,7 @@ class GatBase(GraphTrainer):
 
         lr_scheduler_step_epochs = 1
 
+        # TODO: Accumulate gradients?
         # self.manual_backward(loss)
         # n = 10
         # accumulate gradients of N batches
@@ -134,8 +135,6 @@ class GatBase(GraphTrainer):
         # step every N epochs
         if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % lr_scheduler_step_epochs == 0:
             train_scheduler, _ = self.lr_schedulers()
-            # print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
-            # print("Reducing LR")
             train_scheduler.step()
 
         # only log this once in the end of an epoch (averaged over steps)
@@ -228,53 +227,10 @@ class GatBase(GraphTrainer):
             self.log_on_epoch(f"{mode}/loss", loss)
 
     def test_step(self, batch, batch_idx1, batch_idx2):
-        # By default, logs it per epoch (weighted average over batches)
+        """
+        By default, logs it per epoch (weighted average over batches). Only validates on the query set of each batch to
+        keep comparability with the meta learners.
+        """
 
-        # only validate on the query set to keep comparability with metamodels
-        support_graphs, query_graphs, support_targets, query_targets = batch
-        sub_graphs = query_graphs
-        targets = query_targets
-
+        _, sub_graphs, _, targets = batch
         self.forward(sub_graphs, targets, mode='test')
-
-# def load_pretrained_encoder(checkpoint_path):
-#     """
-#     Load a pretrained encoder state dict and remove 'model.' from the keys in the state dict, so that solely
-#     the encoder can be loaded.
-#
-#     Args:
-#         checkpoint_path (str) - Path to a checkpoint for the DocumentClassifier.
-#     Returns:
-#         encoder_state_dict (dict) - Containing all keys for weights of encoder.
-#     """
-#     checkpoint = torch.load(checkpoint_path)
-#     encoder_state_dict = {}
-#     for layer, param in checkpoint["state_dict"].items():
-#         if layer.startswith("model"):
-#             new_layer = layer[layer.index(".") + 1:]
-#             encoder_state_dict[new_layer] = param
-#
-#     return encoder_state_dict
-
-
-# # noinspection PyProtectedMember
-# class CosineWarmupScheduler(optim.lr_scheduler._LRScheduler):
-#     """
-#     Learning rate scheduler, combining warm-up with a cosine-shaped learning rate decay.
-#     """
-#
-#     def __init__(self, optimizer, warmup, max_iters):
-#         self.warmup = warmup
-#         self.max_num_iters = max_iters
-#         super().__init__(optimizer)
-#
-#     def get_lr(self):
-#         lr_factor = self.get_lr_factor()
-#         return [base_lr * lr_factor for base_lr in self.base_lrs]
-#
-#     def get_lr_factor(self):
-#         current_step = self.last_epoch
-#         lr_factor = 0.5 * (1 + np.cos(np.pi * current_step / self.max_num_iters))
-#         if current_step < self.warmup:
-#             lr_factor *= current_step * 1.0 / self.warmup
-#         return lr_factor
