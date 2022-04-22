@@ -37,8 +37,8 @@ class GatBase(GraphTrainer):
 
         # flipping the weights
         # pos_weight = 1 // model_params["class_weight"][0]
-        pos_weight = torch.flip(model_params["class_weight"], dims=[0])
-        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        self.pos_weight = torch.flip(model_params["class_weight"], dims=[0])
+        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=self.pos_weight)
 
         self.automatic_optimization = False
 
@@ -220,8 +220,9 @@ class GatBase(GraphTrainer):
             # with only 1 model
             # logits = self.forward(query_graphs, query_targets, mode)
 
-            loss = self.loss_module(logits, func.one_hot(query_targets).float())
-            # loss = func.binary_cross_entropy_with_logits(logits, func.one_hot(query_targets).float())
+            # loss = self.loss_module(logits, func.one_hot(query_targets).float())
+            loss = func.binary_cross_entropy_with_logits(logits, func.one_hot(query_targets).float(),
+                                                         pos_weight=self.pos_weight)
 
             # only log this once in the end of an epoch (averaged over steps)
             self.log_on_epoch(f"{mode}/loss", loss)
