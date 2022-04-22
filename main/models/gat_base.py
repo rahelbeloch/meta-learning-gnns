@@ -46,8 +46,10 @@ class GatBase(GraphTrainer):
 
     def configure_optimizers(self):
 
-        train_optimizer, train_scheduler = self.get_optimizer()
-        val_optimizer, val_scheduler = self.get_optimizer(self.validation_model)
+        opt_params = self.hparams.optimizer_hparams
+        train_optimizer, train_scheduler = self.get_optimizer(opt_params['lr'], opt_params['lr_decay_epochs'])
+        val_optimizer, val_scheduler = self.get_optimizer(opt_params['lr_val'], opt_params['lr_decay_epochs_val'],
+                                                          self.validation_model)
         optimizers = [train_optimizer, val_optimizer]
 
         schedulers = []
@@ -58,23 +60,21 @@ class GatBase(GraphTrainer):
 
         return optimizers, schedulers
 
-    def get_optimizer(self, model=None):
+    def get_optimizer(self, lr, step_size, model=None):
         opt_params = self.hparams.optimizer_hparams
 
         model = self.model if model is None else model
 
         if opt_params['optimizer'] == 'Adam':
-            optimizer = AdamW(model.parameters(), lr=opt_params['lr'],
-                              weight_decay=opt_params['weight_decay'])
+            optimizer = AdamW(model.parameters(), lr=lr, weight_decay=opt_params['weight_decay'])
         elif opt_params['optimizer'] == 'SGD':
-            optimizer = SGD(model.parameters(), lr=opt_params['lr'], momentum=opt_params['momentum'],
+            optimizer = SGD(model.parameters(), lr=lr, momentum=opt_params['momentum'],
                             weight_decay=opt_params['weight_decay'])
         else:
             raise ValueError("No optimizer name provided!")
         scheduler = None
         if opt_params['scheduler'] == 'step':
-            scheduler = StepLR(optimizer, step_size=opt_params['lr_decay_epochs'],
-                               gamma=opt_params['lr_decay_factor'])
+            scheduler = StepLR(optimizer, step_size=step_size, gamma=opt_params['lr_decay_factor'])
         elif opt_params['scheduler'] == 'multi_step':
             scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 30, 40, 55],
                                     gamma=opt_params['lr_decay_factor'])
@@ -122,7 +122,7 @@ class GatBase(GraphTrainer):
         self.manual_backward(loss)
         train_opt.step()
 
-        lr_scheduler_step_epochs = 1
+        lr_scheduler_step_epochs = self.hparams.optimizer_hparams['lr_decay_epochs']
 
         # TODO: Accumulate gradients?
         # self.manual_backward(loss)
@@ -133,8 +133,8 @@ class GatBase(GraphTrainer):
         #     train_opt.zero_grad()
 
         # step every N epochs
-        if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % lr_scheduler_step_epochs == 0:
-            train_scheduler, _ = self.lr_schedulers()
+        train_scheduler, _ = self.lr_schedulers()
+        if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % train_scheduler.step_size == 0:
             train_scheduler.step()
 
         # only log this once in the end of an epoch (averaged over steps)
@@ -184,12 +184,11 @@ class GatBase(GraphTrainer):
             # Calculate gradients and perform finetune update
             val_optimizer.zero_grad()
             self.manual_backward(loss)
-            # loss.backward()
             val_optimizer.step()
 
             # step every N epochs
-            if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % 1 == 0:
-                _, val_scheduler = self.lr_schedulers()
+            _, val_scheduler = self.lr_schedulers()
+            if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % val_scheduler.step_size == 0:
                 # print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
                 # print("Reducing LR")
                 val_scheduler.step()
@@ -229,8 +228,6 @@ class GatBase(GraphTrainer):
 
             # only log this once in the end of an epoch (averaged over steps)
             self.log_on_epoch(f"{mode}/loss", loss)
-
-        return mode
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         """

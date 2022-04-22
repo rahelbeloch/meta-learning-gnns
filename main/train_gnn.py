@@ -6,10 +6,10 @@ from pathlib import Path
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as cb
 import torch
-import wandb
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
 
+import wandb
 from data_prep.config import TSV_DIR, COMPLETE_DIR
 from data_prep.data_utils import get_data, SUPPORTED_DATASETS
 from models.gat_base import GatBase
@@ -25,11 +25,11 @@ if torch.cuda.is_available():
 
 
 def train(balance_data, progress_bar, model_name, seed, epochs, patience, patience_metric, h_size, top_users,
-          top_users_excluded, k_shot, lr, lr_cl, lr_inner, lr_output, hidden_dim, feat_reduce_dim,
+          top_users_excluded, k_shot, lr, lr_val, lr_cl, lr_inner, lr_output, hidden_dim, feat_reduce_dim,
           proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size, feature_type, vocab_size,
           n_inner_updates, num_workers, gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup, max_iters,
-          gat_heads, gat_batch_size, lr_decay_epochs, lr_decay_factor, scheduler, weight_decay, momentum, optimizer,
-          suffix):
+          gat_heads, gat_batch_size, lr_decay_epochs, lr_decay_epochs_val, lr_decay_factor, scheduler, weight_decay,
+          momentum, optimizer, suffix):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     eval_split_size = (0.0, 0.25, 0.75) if data_eval != data_train else None
@@ -92,7 +92,7 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
     }
 
     if model_name == 'gat':
-        optimizer_hparams.update(lr_cl=lr_cl)
+        optimizer_hparams.update(lr_val=lr_val, lr_decay_epochs_val=lr_decay_epochs_val)
 
         model = GatBase(model_params, optimizer_hparams, train_graph.label_names, train_loader.b_size)
     elif model_name == 'prototypical':
@@ -355,6 +355,8 @@ if __name__ == "__main__":
 
     # OPTIMIZER
     parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
+    parser.add_argument('--lr-val', dest='lr_val', type=float, default=0.0001, help="Learning rate.")
+
     parser.add_argument('--lr-cl', dest='lr_cl', type=float, default=0.001,
                         help="Classifier learning rate for baseline.")
     parser.add_argument("--warmup", dest='warmup', type=int, default=500,
@@ -362,7 +364,11 @@ if __name__ == "__main__":
     parser.add_argument("--max-iters", dest='max_iters', type=int, default=-1,
                         help='Number of iterations until the learning rate decay after warmup should last. '
                              'If not given then it is computed from the given epochs.')
-    parser.add_argument('--lr_decay_epochs', type=float, default=5,
+
+    parser.add_argument('--lr_decay_epochs', type=float, default=1,
+                        help='No. of epochs after which learning rate should be decreased')
+
+    parser.add_argument('--lr_decay_epochs_val', type=float, default=2,
                         help='No. of epochs after which learning rate should be decreased')
 
     parser.add_argument('--lr_decay_factor', type=float, default=0.8,
@@ -453,6 +459,7 @@ if __name__ == "__main__":
         top_users_excluded=params["top_users_excluded"],
         k_shot=params["k_shot"],
         lr=params["lr"],
+        lr_val=params["lr_val"],
         lr_cl=params["lr_cl"],
         lr_inner=params["lr_inner"],
         lr_output=params["lr_output"],
@@ -477,6 +484,7 @@ if __name__ == "__main__":
         gat_heads=params['gat_heads'],
         gat_batch_size=params['gat_batch_size'],
         lr_decay_epochs=params['lr_decay_epochs'],
+        lr_decay_epochs_val=params['lr_decay_epochs_val'],
         lr_decay_factor=params['lr_decay_factor'],
         scheduler=params['scheduler'],
         weight_decay=params['weight_decay'],
