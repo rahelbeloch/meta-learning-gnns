@@ -36,8 +36,8 @@ class GatBase(GraphTrainer):
         # self.validation_model = GatNet(model_params)
 
         # flipping the weights
-        pos_weight = 1 // model_params["class_weight"][0]
-        # flipped_weights = torch.flip(fake_class_weight, dims=[0])
+        # pos_weight = 1 // model_params["class_weight"][0]
+        pos_weight = torch.flip(model_params["class_weight"], dims=[0])
         self.loss_module = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
         # self.automatic_optimization = False
@@ -88,7 +88,8 @@ class GatBase(GraphTrainer):
         logits = self.model(x, edge_index, mode)[cl_mask].squeeze()
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
-        predictions = (logits.sigmoid() > 0.5).long()
+        # predictions = (logits.sigmoid() > 0.5).long()
+        predictions = logits.sigmoid().argmax(dim=-1)
 
         for mode_dict, _ in self.metrics.values():
             # shapes should be: pred (batch_size), targets: (batch_size)
@@ -118,11 +119,12 @@ class GatBase(GraphTrainer):
         # logits should be batch size x 1, not batch size x 2!
         # x 2 --> multiple label classification (only if labels are exclusive, can be only one and not multiple)
 
-        loss = self.loss_module(logits, targets.float())
+        loss = self.loss_module(logits, func.one_hot(targets).float())
+        # loss = self.loss_module(logits, targets.float())
 
         # self.manual_backward(loss)
         # train_opt.step()
-
+        # logits.sigmoid().argmax(dim=-1)
         # train_scheduler, _ = self.lr_schedulers()
         # train_scheduler.step()
 
@@ -196,7 +198,8 @@ class GatBase(GraphTrainer):
             # with only 1 model
             logits = self.forward(query_graphs, query_targets, mode)
 
-            loss = self.loss_module(logits, query_targets.float())
+            # loss = self.loss_module(logits, query_targets.float())
+            loss = self.loss_module(logits, func.one_hot(query_targets).float())
 
             # only log this once in the end of an epoch (averaged over steps)
             self.log_on_epoch(f"val/loss", loss)
