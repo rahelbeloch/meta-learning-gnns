@@ -153,6 +153,7 @@ class GatBase(GraphTrainer):
 
         if dataloader_idx == 0:
             # pass
+            # print(f"Validation finetune: {batch_idx+1}")
 
             mode = 'val_support'
 
@@ -167,7 +168,6 @@ class GatBase(GraphTrainer):
             x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
             logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
 
-            # TODO: log validation finetune metrics
             # predictions = (logits.sigmoid() > 0.5).long()
             predictions = torch.sigmoid(logits).argmax(dim=-1)
 
@@ -204,6 +204,8 @@ class GatBase(GraphTrainer):
             torch.set_grad_enabled(False)
 
         elif dataloader_idx == 1:
+            # print(f"Validation query test: {batch_idx + 1}")
+
             # Evaluate on meta test set
             mode = 'val_query'
 
@@ -227,6 +229,8 @@ class GatBase(GraphTrainer):
 
             # only log this once in the end of an epoch (averaged over steps)
             self.log_on_epoch(f"{mode}/loss", loss)
+
+        return mode
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         """

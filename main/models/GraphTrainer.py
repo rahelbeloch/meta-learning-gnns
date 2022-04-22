@@ -62,12 +62,6 @@ class GraphTrainer(pl.LightningModule):
         f1_1, f1_2 = self.metrics['f1_target'][0][mode].compute()
         f1_macro = self.metrics['f1_macro'][0][mode].compute()
 
-        # if mode in self.loss:
-        #     loss_list = self.loss[mode]
-        #     epoch_loss = sum(loss_list) / len(loss_list)
-        #     self.log_on_epoch(f'{mode}/loss_epoch', epoch_loss)
-        #     self.loss[mode] = []
-
         if verbose:
             label_names = self.hparams["label_names"]
 
