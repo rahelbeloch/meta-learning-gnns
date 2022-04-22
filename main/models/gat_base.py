@@ -181,7 +181,8 @@ class GatBase(GraphTrainer):
             mode = 'val'
 
             x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
-            logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
+            # logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
+            logits = self.model(x, edge_index, mode)[cl_mask].squeeze()
 
             loss = self.loss_module(logits, query_targets.float())
 
