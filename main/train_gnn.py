@@ -240,10 +240,10 @@ def initialize_trainer(model_name, epochs, patience, patience_metric, progress_b
 
     early_stop_callback = cls(
         monitor=metric,
-        min_delta=0.00,
         patience=patience,
         verbose=False,
-        mode=mode
+        mode=mode,
+        check_on_train_epoch_end=False
     )
 
     mc_callback = cb.ModelCheckpoint(save_weights_only=True, mode=mode, monitor=metric)

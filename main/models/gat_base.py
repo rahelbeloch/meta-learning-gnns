@@ -1,3 +1,4 @@
+import torch.nn.functional
 import torch.nn.functional as func
 from torch import nn
 from torch.optim import AdamW, SGD
@@ -28,48 +29,63 @@ class GatBase(GraphTrainer):
         self.save_hyperparameters()
 
         self.model = GatNet(model_params)
-        # self.model = GraphNet(model_params)
+
+        # Deep copy of the model: one for train, one for val --> update validation model with weights from train model
+        # validation fine-tuning should happen on a copy of the model NOT on the model which is trained
+        # --> Training should not be affected by validation
+        self.validation_model = GatNet(model_params)
 
         # flipping the weights
-        flipped_weights = torch.flip(model_params["class_weight"], dims=[0])
-        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=flipped_weights)
+        pos_weight = 1 // model_params["class_weight"][0]
+        # flipped_weights = torch.flip(fake_class_weight, dims=[0])
+        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
-        # self.loss_module = nn.BCEWithLogitsLoss()
+        self.automatic_optimization = False
 
     def configure_optimizers(self):
+
+        train_optimizer, train_scheduler = self.get_optimizer()
+        val_optimizer, val_scheduler = self.get_optimizer(self.validation_model)
+
+        schedulers = []
+        if train_scheduler is not None:
+            schedulers.append(train_scheduler)
+        if val_scheduler is not None:
+            schedulers.append(val_scheduler)
+
+        return [train_optimizer, val_optimizer], schedulers
+
+    def get_optimizer(self, model=None):
         opt_params = self.hparams.optimizer_hparams
 
+        model = self.model if model is None else model
+
         if opt_params['optimizer'] == 'Adam':
-            optimizer = AdamW(self.model.parameters(), lr=opt_params['lr'],
+            optimizer = AdamW(model.parameters(), lr=opt_params['lr'],
                               weight_decay=opt_params['weight_decay'])
-        # elif opt_params['optimizer'] == 'RAdam':
-        #     self.optimizer = RiemannianAdam(self.model.parameters(), lr=config['lr'],
-        #                                     weight_decay=config['weight_decay'])
         elif opt_params['optimizer'] == 'SGD':
-            optimizer = SGD(self.model.parameters(), lr=opt_params['lr'], momentum=opt_params['momentum'],
+            optimizer = SGD(model.parameters(), lr=opt_params['lr'], momentum=opt_params['momentum'],
                             weight_decay=opt_params['weight_decay'])
         else:
             raise ValueError("No optimizer name provided!")
-
         scheduler = None
         if opt_params['scheduler'] == 'step':
-            scheduler = StepLR(optimizer, step_size=opt_params['lr_decay_epochs'], gamma=opt_params['lr_decay_factor'])
+            scheduler = StepLR(optimizer, step_size=opt_params['lr_decay_epochs'],
+                               gamma=opt_params['lr_decay_factor'])
         elif opt_params['scheduler'] == 'multi_step':
             scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 30, 40, 55],
                                     gamma=opt_params['lr_decay_factor'])
-
-        return [optimizer], [] if scheduler is None else [scheduler]
+        return optimizer, scheduler
 
     def forward(self, sub_graphs, targets, mode=None):
 
         # make a batch out of all sub graphs and push the batch through the model
         x, edge_index, cl_mask = get_subgraph_batch(sub_graphs)
 
-        logits = self.model(x, edge_index, mode)
-        logits = logits[cl_mask]
+        logits = self.model(x, edge_index, mode)[cl_mask].squeeze()
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
-        predictions = torch.sigmoid(logits).argmax(dim=-1)
+        predictions = (logits.sigmoid() > 0.5).long()
 
         for mode_dict, _ in self.metrics.values():
             # shapes should be: pred (batch_size), targets: (batch_size)
@@ -79,8 +95,12 @@ class GatBase(GraphTrainer):
         return logits
 
     def training_step(self, batch, batch_idx):
+
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+
+        train_opt, _ = self.optimizers()
+        train_opt.zero_grad()
 
         # collapse support and query set and train on whole
         support_graphs, query_graphs, support_targets, query_targets = batch
@@ -89,11 +109,16 @@ class GatBase(GraphTrainer):
 
         logits = self.forward(sub_graphs, targets, mode='train')
 
-        # batch_balance = torch.bincount(targets) / targets.shape[0]
-        # print(f"\nBatch balance: {batch_balance}")
-        # self.loss_module.pos_weight = torch.flip(batch_balance, dims=[0])
+        # logits should be batch size x 1, not batch size x 2!
+        # x 2 --> multiple label classification (only if labels are exclusive, can be only one and not multiple)
 
-        loss = self.loss_module(logits, func.one_hot(targets).float())
+        loss = self.loss_module(logits, targets.float())
+
+        self.manual_backward(loss)
+        train_opt.step()
+
+        train_scheduler, _ = self.lr_schedulers()
+        train_scheduler.step()
 
         # only log this once in the end of an epoch (averaged over steps)
         self.log_on_epoch(f"train/loss", loss)
@@ -107,32 +132,61 @@ class GatBase(GraphTrainer):
         support_graphs, query_graphs, support_targets, query_targets = batch
 
         if dataloader_idx == 0:
-            # finetune on the support part
+
+            # update the weights of the validation model with weights from trained model
+            self.validation_model.load_state_dict(self.model.state_dict())
 
             # Validation requires to finetune a model, hence we need to enable gradients
             torch.set_grad_enabled(True)
-            self.model.train()
-            self.train()
 
-            # fine tune on support set & evaluate on test set
-            logits = self.forward(support_graphs, support_targets, mode='val_tune')
-            loss = self.loss_module(logits, func.one_hot(support_targets).float())
+            # Copy model for finetune on the support part and optimizer
+            self.validation_model.train()
+
+            _, val_optimizer = self.optimizers()
+            val_optimizer.zero_grad()
+
+            x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
+            logits = self.validation_model(x, edge_index, 'val_tune')[cl_mask].squeeze()
+
+            # TODO: log validation finetune metrics
+            # predictions = (logits.sigmoid() > 0.5).long()
+            # for mode_dict, _ in self.metrics.values():
+            #     # shapes should be: pred (batch_size), targets: (batch_size)
+            #     mode_dict[mode].update(predictions, targets)
+
+            loss = func.binary_cross_entropy_with_logits(logits, support_targets.float())
 
             # Calculate gradients and perform finetune update
+            # self.manual_backward(loss)
             loss.backward()
+            val_optimizer.step()
+
+            _, val_scheduler = self.lr_schedulers()
+            val_scheduler.step()
+
+            # SGD does not keep any state --> Create an SGD optimizer again every time
+            # I enter the validation epoch; global or local should not be a difference
+            # different for ADAM --> Keeps running weight parameter, that changes
+            # per epoch, keeps momentum
+
+            # Main constraint: Use same optimizer as in training, global ADAM validation
 
             torch.set_grad_enabled(False)
 
         elif dataloader_idx == 1:
             # Evaluate on meta test set
+            mode = 'val'
 
-            logits = self.forward(query_graphs, query_targets, mode='val')
+            x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
+            logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
 
-            # batch_balance = torch.bincount(query_targets) / query_targets.shape[0]
-            # print(f"\nBatch balance: {batch_balance}")
-            # self.loss_module.pos_weight = torch.flip(batch_balance, dims=[0])
+            loss = self.loss_module(logits, query_targets.float())
 
-            loss = self.loss_module(logits, func.one_hot(query_targets).float())
+            predictions = (logits.sigmoid() > 0.5).long()
+
+            for mode_dict, _ in self.metrics.values():
+                # shapes should be: pred (batch_size), targets: (batch_size)
+                mode_dict[mode].update(predictions, query_targets)
 
             # only log this once in the end of an epoch (averaged over steps)
             self.log_on_epoch(f"val/loss", loss)

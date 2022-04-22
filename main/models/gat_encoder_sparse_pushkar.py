@@ -15,7 +15,11 @@ class GatNet(torch.nn.Module):
         self.n_heads = model_params["n_heads"]
 
         self.in_dim = model_params["input_dim"]
-        self.out_dim = model_params["output_dim"]
+
+        # with cross entropy, we just use one output dimension
+        # self.output_dim = model_params["output_dim"]
+        self.output_dim = 1
+
         self.hid_dim = model_params["hid_dim"]
         self.feat_reduce_dim = model_params["feat_reduce_dim"]
 
@@ -38,13 +42,13 @@ class GatNet(torch.nn.Module):
         for i, attention in enumerate(self.attentions):
             self.add_module("attention_{}".format(i), attention)
 
-        self.classifier = self.get_classifier(self.out_dim)
+        self.classifier = self.get_classifier()
 
-    def reset_classifier_dimensions(self, num_classes):
-        # adapting the classifier dimensions
-        self.classifier = self.get_classifier(num_classes)
+    # def reset_classifier_dimensions(self, num_classes):
+    #     # adapting the classifier dimensions
+    #     self.classifier = self.get_classifier()
 
-    def get_classifier(self, num_classes):
+    def get_classifier(self):
         # Phillips implementation
         # return nn.Sequential(
         #     nn.Dropout(self.lin_dropout),
@@ -58,7 +62,7 @@ class GatNet(torch.nn.Module):
         #                      nn.Linear(self.feat_reduce_dim, num_classes))
 
         # Pushkar implementation
-        return SparseGATLayer(self.hid_dim * self.n_heads, num_classes, self.feat_reduce_dim, dropout=self.gat_dropout,
+        return SparseGATLayer(self.hid_dim * self.n_heads, self.output_dim, self.feat_reduce_dim, dropout=self.gat_dropout,
                               attn_drop=self.attn_dropout, concat=False)
 
     def forward(self, x, edge_index, mode):
