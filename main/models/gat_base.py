@@ -55,7 +55,6 @@ class GatBase(GraphTrainer):
         # if val_scheduler is not None:
         #     schedulers.append(val_scheduler)
 
-
         return optimizers, schedulers
 
     def get_optimizer(self, model=None):
@@ -94,9 +93,6 @@ class GatBase(GraphTrainer):
 
         for mode_dict, _ in self.metrics.values():
             # shapes should be: pred (batch_size), targets: (batch_size)
-            # if mode == 'val':
-            #     print(f"Preds: {predictions}")
-            #     print(f"Targets: {targets}")
             mode_dict[mode].update(predictions, targets)
 
         # logits are not yet put into a sigmoid layer, because the loss module does this combined
@@ -125,7 +121,7 @@ class GatBase(GraphTrainer):
 
         # self.manual_backward(loss)
         # train_opt.step()
-        # logits.sigmoid().argmax(dim=-1)
+
         # train_scheduler, _ = self.lr_schedulers()
         # train_scheduler.step()
 
@@ -142,6 +138,9 @@ class GatBase(GraphTrainer):
 
         if dataloader_idx == 0:
             pass
+
+            # mode = 'val_support'
+            #
             # # update the weights of the validation model with weights from trained model
             # self.validation_model.load_state_dict(self.model.state_dict())
             #
@@ -155,36 +154,40 @@ class GatBase(GraphTrainer):
             # val_optimizer.zero_grad()
             #
             # x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
-            # logits = self.validation_model(x, edge_index, 'val_tune')[cl_mask].squeeze()
+            # logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
             #
             # # TODO: log validation finetune metrics
             # # predictions = (logits.sigmoid() > 0.5).long()
-            # # for mode_dict, _ in self.metrics.values():
-            # #     # shapes should be: pred (batch_size), targets: (batch_size)
-            # #     mode_dict[mode].update(predictions, targets)
+            # predictions = torch.sigmoid(logits).argmax(dim=-1)
+            #
+            # for mode_dict, _ in self.metrics.values():
+            #     # shapes should be: pred (batch_size), targets: (batch_size)
+            #     mode_dict[mode].update(predictions, support_targets)
             #
             # loss = func.binary_cross_entropy_with_logits(logits, support_targets.float())
             #
+            # self.log_on_epoch(f"val/support_loss", loss)
+            #
             # # Calculate gradients and perform finetune update
-            # # self.manual_backward(loss)
-            # loss.backward()
+            # self.manual_backward(loss)
+            # # loss.backward()
             # val_optimizer.step()
             #
             # _, val_scheduler = self.lr_schedulers()
             # val_scheduler.step()
-
-            # SGD does not keep any state --> Create an SGD optimizer again every time
-            # I enter the validation epoch; global or local should not be a difference
-            # different for ADAM --> Keeps running weight parameter, that changes
-            # per epoch, keeps momentum
-
-            # Main constraint: Use same optimizer as in training, global ADAM validation
-
+            #
+            # # SGD does not keep any state --> Create an SGD optimizer again every time
+            # # I enter the validation epoch; global or local should not be a difference
+            # # different for ADAM --> Keeps running weight parameter, that changes
+            # # per epoch, keeps momentum
+            #
+            # # Main constraint: Use same optimizer as in training, global ADAM validation
+            #
             # torch.set_grad_enabled(False)
 
         elif dataloader_idx == 1:
             # Evaluate on meta test set
-            mode = 'val'
+            mode = 'val_query'
 
             # with extra validation model
             # x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
@@ -203,7 +206,7 @@ class GatBase(GraphTrainer):
             loss = self.loss_module(logits, func.one_hot(query_targets).float())
 
             # only log this once in the end of an epoch (averaged over steps)
-            self.log_on_epoch(f"val/loss", loss)
+            self.log_on_epoch(f"val/query_loss", loss)
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         # By default, logs it per epoch (weighted average over batches)

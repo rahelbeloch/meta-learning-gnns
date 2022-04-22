@@ -24,7 +24,7 @@ class GraphTrainer(pl.LightningModule):
 
         splits = SPLITS
         if 'GatBase' in str(type(self)):
-            splits += ['val_tune']
+            splits += ['val_support', 'val_query']
 
         # Metrics from torchmetrics
         for s in splits:
