@@ -92,6 +92,9 @@ class GatBase(GraphTrainer):
 
         for mode_dict, _ in self.metrics.values():
             # shapes should be: pred (batch_size), targets: (batch_size)
+            if mode == 'val':
+                print(predictions)
+                print(targets)
             mode_dict[mode].update(predictions, targets)
 
         # logits are not yet put into a sigmoid layer, because the loss module does this combined
@@ -184,16 +187,16 @@ class GatBase(GraphTrainer):
             # x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
             # logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
 
+            # predictions = (logits.sigmoid() > 0.5).long()
+            #
+            # for mode_dict, _ in self.metrics.values():
+            #     # shapes should be: pred (batch_size), targets: (batch_size)
+            #     mode_dict[mode].update(predictions, query_targets)
+
             # with only 1 model
-            logits = self.forward(query_graphs, query_targets, 'val')
+            logits = self.forward(query_graphs, query_targets, mode)
 
             loss = self.loss_module(logits, query_targets.float())
-
-            predictions = (logits.sigmoid() > 0.5).long()
-
-            for mode_dict, _ in self.metrics.values():
-                # shapes should be: pred (batch_size), targets: (batch_size)
-                mode_dict[mode].update(predictions, query_targets)
 
             # only log this once in the end of an epoch (averaged over steps)
             self.log_on_epoch(f"val/loss", loss)
