@@ -40,7 +40,7 @@ class GatBase(GraphTrainer):
         pos_weight = torch.flip(model_params["class_weight"], dims=[0])
         self.loss_module = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
-        # self.automatic_optimization = False
+        self.automatic_optimization = False
 
     def configure_optimizers(self):
 
@@ -103,8 +103,8 @@ class GatBase(GraphTrainer):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        # train_opt, _ = self.optimizers()
-        # train_opt.zero_grad()
+        train_opt, _ = self.optimizers()
+        train_opt.zero_grad()
 
         # collapse support and query set and train on whole
         support_graphs, query_graphs, support_targets, query_targets = batch
@@ -119,11 +119,11 @@ class GatBase(GraphTrainer):
         loss = self.loss_module(logits, func.one_hot(targets).float())
         # loss = self.loss_module(logits, targets.float())
 
-        # self.manual_backward(loss)
-        # train_opt.step()
+        self.manual_backward(loss)
+        train_opt.step()
 
-        # train_scheduler, _ = self.lr_schedulers()
-        # train_scheduler.step()
+        train_scheduler, _ = self.lr_schedulers()
+        train_scheduler.step()
 
         # only log this once in the end of an epoch (averaged over steps)
         self.log_on_epoch(f"train/loss", loss)
