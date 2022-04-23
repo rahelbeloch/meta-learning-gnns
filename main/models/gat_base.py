@@ -136,8 +136,9 @@ class GatBase(GraphTrainer):
         if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % train_scheduler.step_size == 0:
             print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
             print("Reducing Train LR")
-            print(f"Reduce factor: {train_scheduler.gamma}")
+            print(f"LR before: {train_scheduler.get_last_lr()}")
             train_scheduler.step()
+            print(f"LR after: {train_scheduler.get_last_lr()}")
 
         # only log this once in the end of an epoch (averaged over steps)
         self.log_on_epoch(f"train/loss", loss)
