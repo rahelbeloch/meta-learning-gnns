@@ -134,11 +134,11 @@ class GatBase(GraphTrainer):
         train_scheduler, _ = self.lr_schedulers()
         # print(f"Train SD, step size: {train_scheduler.step_size}")
         if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % train_scheduler.step_size == 0:
-            print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
-            print("Reducing Train LR")
-            print(f"LR before: {train_scheduler.get_last_lr()}")
+            # print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
+            # print("Reducing Train LR")
+            # print(f"LR before: {train_scheduler.get_last_lr()}")
             train_scheduler.step()
-            print(f"LR after: {train_scheduler.get_last_lr()}")
+            # print(f"LR after: {train_scheduler.get_last_lr()}")
 
         # only log this once in the end of an epoch (averaged over steps)
         self.log_on_epoch(f"train/loss", loss)
@@ -195,7 +195,15 @@ class GatBase(GraphTrainer):
             # if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % val_scheduler.step_size == 0:
             #     print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
             #     print("Reducing Val LR")
-            val_scheduler.step()
+            # val_scheduler.step()
+
+            print(f"Val batch_idx: {batch_idx}")
+            if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % val_scheduler.step_size == 0:
+                print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
+                print("Reducing Val LR")
+                print(f"Val LR before: {val_scheduler.get_last_lr()}")
+                val_scheduler.step()
+                print(f"Val LR after: {val_scheduler.get_last_lr()}")
 
             # SGD does not keep any state --> Create an SGD optimizer again every time
             # I enter the validation epoch; global or local should not be a difference
