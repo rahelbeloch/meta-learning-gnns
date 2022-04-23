@@ -132,8 +132,10 @@ class GatBase(GraphTrainer):
 
         # step every N epochs
         train_scheduler, _ = self.lr_schedulers()
-        print(f"Train SD, step size: {train_scheduler.step_size}")
+        # print(f"Train SD, step size: {train_scheduler.step_size}")
         if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % train_scheduler.step_size == 0:
+            print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
+            print("Reducing Train LR")
             train_scheduler.step()
 
         # only log this once in the end of an epoch (averaged over steps)
@@ -187,10 +189,10 @@ class GatBase(GraphTrainer):
 
             # step every N epochs
             _, val_scheduler = self.lr_schedulers()
-            print(f"Val SD, step size: {val_scheduler.step_size}")
+            # print(f"Val SD, step size: {val_scheduler.step_size}")
             if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % val_scheduler.step_size == 0:
-                # print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
-                # print("Reducing LR")
+                print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
+                print("Reducing Val LR")
                 val_scheduler.step()
 
             # SGD does not keep any state --> Create an SGD optimizer again every time
