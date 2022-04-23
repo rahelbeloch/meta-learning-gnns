@@ -16,7 +16,7 @@ class GatBase(GraphTrainer):
     """
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, optimizer_hparams, label_names, batch_size):
+    def __init__(self, model_params, optimizer_hparams, label_names, batch_size, val_batches):
         """
         Args:
             model_params - Hyperparameters for the whole model, as dictionary.
@@ -198,7 +198,7 @@ class GatBase(GraphTrainer):
             # val_scheduler.step()
 
             print(f"Val batch_idx: {batch_idx}")
-            if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % val_scheduler.step_size == 0:
+            if self.hparams['val_batches'] == (batch_idx + 1):
                 print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
                 print("Reducing Val LR")
                 print(f"Val LR before: {val_scheduler.get_last_lr()}")
