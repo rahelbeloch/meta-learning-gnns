@@ -190,10 +190,10 @@ class GatBase(GraphTrainer):
             # step every N epochs
             _, val_scheduler = self.lr_schedulers()
             # print(f"Val SD, step size: {val_scheduler.step_size}")
-            if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % val_scheduler.step_size == 0:
-                print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
-                print("Reducing Val LR")
-                val_scheduler.step()
+            # if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % val_scheduler.step_size == 0:
+            #     print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
+            #     print("Reducing Val LR")
+            val_scheduler.step()
 
             # SGD does not keep any state --> Create an SGD optimizer again every time
             # I enter the validation epoch; global or local should not be a difference
