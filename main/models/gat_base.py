@@ -122,8 +122,6 @@ class GatBase(GraphTrainer):
         self.manual_backward(loss)
         train_opt.step()
 
-        lr_scheduler_step_epochs = self.hparams.optimizer_hparams['lr_decay_epochs']
-
         # TODO: Accumulate gradients?
         # self.manual_backward(loss)
         # n = 10
@@ -134,6 +132,7 @@ class GatBase(GraphTrainer):
 
         # step every N epochs
         train_scheduler, _ = self.lr_schedulers()
+        print(f"Train SD, step size: {train_scheduler.step_size}")
         if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % train_scheduler.step_size == 0:
             train_scheduler.step()
 
@@ -188,6 +187,7 @@ class GatBase(GraphTrainer):
 
             # step every N epochs
             _, val_scheduler = self.lr_schedulers()
+            print(f"Val SD, step size: {val_scheduler.step_size}")
             if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % val_scheduler.step_size == 0:
                 # print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
                 # print("Reducing LR")
