@@ -30,30 +30,14 @@ class GatBase(GraphTrainer):
 
         self.model = GatNet(model_params)
 
-        # Deep copy of the model: one for train, one for val --> update validation model with weights from train model
-        # validation fine-tuning should happen on a copy of the model NOT on the model which is trained
-        # --> Training should not be affected by validation
-        self.validation_model = GatNet(model_params)
-
         # flipping the weights
         pos_weight = 1 // model_params["class_weight"][0]
         # flipped_weights = torch.flip(fake_class_weight, dims=[0])
         self.loss_module = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
-        self.automatic_optimization = False
-
     def configure_optimizers(self):
-
         train_optimizer, train_scheduler = self.get_optimizer()
-        val_optimizer, val_scheduler = self.get_optimizer(self.validation_model)
-
-        schedulers = []
-        if train_scheduler is not None:
-            schedulers.append(train_scheduler)
-        if val_scheduler is not None:
-            schedulers.append(val_scheduler)
-
-        return [train_optimizer, val_optimizer], schedulers
+        return [train_optimizer], [train_scheduler]
 
     def get_optimizer(self, model=None):
         opt_params = self.hparams.optimizer_hparams
@@ -61,13 +45,13 @@ class GatBase(GraphTrainer):
         model = self.model if model is None else model
 
         if opt_params['optimizer'] == 'Adam':
-            optimizer = AdamW(model.parameters(), lr=opt_params['lr'],
-                              weight_decay=opt_params['weight_decay'])
+            optimizer = AdamW(model.parameters(), lr=opt_params['lr'], weight_decay=opt_params['weight_decay'])
         elif opt_params['optimizer'] == 'SGD':
             optimizer = SGD(model.parameters(), lr=opt_params['lr'], momentum=opt_params['momentum'],
                             weight_decay=opt_params['weight_decay'])
         else:
             raise ValueError("No optimizer name provided!")
+
         scheduler = None
         if opt_params['scheduler'] == 'step':
             scheduler = StepLR(optimizer, step_size=opt_params['lr_decay_epochs'],
@@ -75,6 +59,7 @@ class GatBase(GraphTrainer):
         elif opt_params['scheduler'] == 'multi_step':
             scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 30, 40, 55],
                                     gamma=opt_params['lr_decay_factor'])
+
         return optimizer, scheduler
 
     def forward(self, sub_graphs, targets, mode=None):
@@ -85,7 +70,7 @@ class GatBase(GraphTrainer):
         logits = self.model(x, edge_index, mode)[cl_mask].squeeze()
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
-        predictions = (logits.sigmoid() > 0.5).long()
+        predictions = torch.sigmoid(logits).argmax(dim=-1)
 
         for mode_dict, _ in self.metrics.values():
             # shapes should be: pred (batch_size), targets: (batch_size)
@@ -99,9 +84,6 @@ class GatBase(GraphTrainer):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        train_opt, _ = self.optimizers()
-        train_opt.zero_grad()
-
         # collapse support and query set and train on whole
         support_graphs, query_graphs, support_targets, query_targets = batch
         sub_graphs = support_graphs + query_graphs
@@ -112,13 +94,7 @@ class GatBase(GraphTrainer):
         # logits should be batch size x 1, not batch size x 2!
         # x 2 --> multiple label classification (only if labels are exclusive, can be only one and not multiple)
 
-        loss = self.loss_module(logits, targets.float())
-
-        self.manual_backward(loss)
-        train_opt.step()
-
-        train_scheduler, _ = self.lr_schedulers()
-        train_scheduler.step()
+        loss = self.loss_module(logits, func.one_hot(targets).float())
 
         # only log this once in the end of an epoch (averaged over steps)
         self.log_on_epoch(f"train/loss", loss)
