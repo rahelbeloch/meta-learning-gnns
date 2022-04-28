@@ -115,12 +115,12 @@ class GatBase(GraphTrainer):
             # Evaluate on meta test set
 
             # only val query
-            # sub_graphs = query_graphs
-            # targets = query_targets
+            sub_graphs = query_graphs
+            targets = query_targets
 
             # whole val set
-            sub_graphs = support_graphs + query_graphs
-            targets = torch.cat([support_targets, query_targets])
+            # sub_graphs = support_graphs + query_graphs
+            # targets = torch.cat([support_targets, query_targets])
 
             logits = self.forward(sub_graphs, targets, mode='val')
 
