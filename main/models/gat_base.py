@@ -120,7 +120,7 @@ class GatBase(GraphTrainer):
             logits = self.forward(sub_graphs, targets, mode='val')
 
             # TODO: loss has still weights of training balanced set
-            loss = self.loss_module(logits, func.one_hot(query_targets).float())
+            loss = self.loss_module(logits, func.one_hot(targets).float())
 
             # only log this once in the end of an epoch (averaged over steps)
             self.log_on_epoch(f"val/loss", loss)
