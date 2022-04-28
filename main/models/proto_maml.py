@@ -7,8 +7,8 @@ from torch import optim
 from torchmetrics import F1
 from tqdm.auto import tqdm
 
-from models.GraphTrainer import GraphTrainer
 from models.gat_encoder_sparse_pushkar import GatNet
+from models.graph_trainer import GraphTrainer
 from models.proto_net import ProtoNet
 from models.train_utils import *
 from samplers.batch_sampler import split_list
@@ -45,8 +45,7 @@ class ProtoMAML(GraphTrainer):
         x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
 
         # Determine prototype initialization
-        support_feats = self.model(x, edge_index, mode).squeeze()
-        support_feats = support_feats[cl_mask]
+        support_feats = self.model(x, edge_index, mode).squeeze()[cl_mask]
 
         prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
@@ -162,8 +161,7 @@ def run_model(local_model, output_weight, output_bias, graphs, targets, mode, lo
     """
 
     x, edge_index, cl_mask = get_subgraph_batch(graphs)
-    logits = local_model(x, edge_index, mode).squeeze()
-    logits = logits[cl_mask]
+    logits = local_model(x, edge_index, mode).squeeze()[cl_mask]
 
     logits = func.linear(logits, output_weight, output_bias)
 

@@ -264,7 +264,7 @@ class DataPreprocessor(GraphIO):
             x_lengths.append(len(tokens))
 
             # moved to after splits
-            # if self.oversample_fake and self.labels[label] == 'fake':
+            # if self.balance_train_split and self.labels[label] == 'fake':
             #     # add this document a second time to the dataset
             #     x_data.append(tokens)
             #     y_data.append(label)
@@ -367,41 +367,29 @@ class DataPreprocessor(GraphIO):
                 # split rest data into validation and train splits
                 train_split, val_split = split_data(splits, self.val_size, rest_split)
 
+            if val_split is not None and self.balance_val_split:
+                val_split = get_balanced(val_split)
+
             assert len(set(val_split[2])) == len(val_split[2]), \
                 "Validation split contains duplicate doc names!"
             print_label_distribution(val_split[1], 'val')
+
             split_dict['val'] = val_split
         else:
 
             # TODO: oversample if flag is enabled
-            # if self.oversample_fake and self.labels[label] == 'fake':
+            # if self.balance_train_split and self.labels[label] == 'fake':
             # # add this document a second time to the dataset
             #     x_data.append(tokens)
             #     y_data.append(label)
             #     doc_names.append(doc_key + '-1')
             #     x_lengths.append(len(tokens))
-
-            counted = np.bincount(data)
+            # counted = np.bincount(data)
 
             train_split = data
 
-        if train_split is not None and self.oversample_fake:
-            fake_indices = np.argwhere(train_split[1] == 0).squeeze()
-            texts = train_split[0][fake_indices]
-            labels = train_split[1][fake_indices]
-            doc_names = train_split[2][fake_indices]
-
-            new_doc_names = []
-            for i, name in enumerate(doc_names):
-                new_doc_names.append(name + '-1')
-            new_doc_names = np.array(new_doc_names)
-
-            # append texts, labels and doc names
-            new_train_split = (np.concatenate((train_split[0], texts)),
-                               np.concatenate((train_split[1], labels)),
-                               np.concatenate((train_split[2], new_doc_names)))
-
-            train_split = new_train_split
+        if train_split is not None and self.balance_train_split:
+            train_split = get_balanced(train_split)
 
         if train_split is not None:
             assert len(set(train_split[2])) == len(train_split[2]), \
@@ -534,3 +522,23 @@ class DataPreprocessor(GraphIO):
         print("User splits stored in : ", user_splits_file)
         temp_dict = {'train_users': list(train_users), 'val_users': list(val_users), 'test_users': list(test_users)}
         save_json_file(temp_dict, user_splits_file)
+
+
+def get_balanced(split):
+    fake_indices = np.argwhere(split[1] == 0).squeeze()
+
+    texts = split[0][fake_indices]
+    labels = split[1][fake_indices]
+    doc_names = split[2][fake_indices]
+
+    new_doc_names = []
+    for i, name in enumerate(doc_names):
+        new_doc_names.append(name + '-1')
+    new_doc_names = np.array(new_doc_names)
+
+    # append texts, labels and doc names
+    new_split = (np.concatenate((split[0], texts)),
+                 np.concatenate((split[1], labels)),
+                 np.concatenate((split[2], new_doc_names)))
+
+    return new_split

@@ -44,7 +44,10 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
             "Data for training and evaluation is equal and one of the split sizes is 0!"
 
     data_config = {'top_users': top_k, 'top_users_excluded': top_users_excluded, 'feature_type': feature_type,
-                   'vocab_size': vocab_size, 'balance_data': balance_data}
+                   'vocab_size': vocab_size, 'balance_data': balance_data
+                   }
+    # TODO: only temporary for testing
+    # ,'balance_val': True}
 
     # creating a train and val loader from the train dataset
     train_config = {**data_config, **{'data_set': data_train, 'train_size': train_split_size[0],
@@ -139,7 +142,8 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
     elif model_name == 'prototypical' or (model_name == 'gat' and mode != 'train'):
         batch_sampler = FewShotSampler(targets, max_n_query, mode, n_way=n_classes, k_shot=k_shot)
     elif model_name == 'gmeta':
-        batch_sampler = FewShotMamlSampler(targets, max_n_query, mode, n_way=n_classes, k_shot=k_shot)
+        batch_size = batch_size if mode == 'train' else 2
+        batch_sampler = FewShotMamlSampler(targets, max_n_query, mode, n_classes, k_shot, batch_size)
     else:
         raise ValueError(f"Model with name '{model_name}' is not supported.")
 
