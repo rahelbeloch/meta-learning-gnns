@@ -368,6 +368,7 @@ class DataPreprocessor(GraphIO):
                 train_split, val_split = split_data(splits, self.val_size, rest_split)
 
             if val_split is not None and self.balance_val_split:
+                print("Balancing val split")
                 val_split = get_balanced(val_split)
 
             assert len(set(val_split[2])) == len(val_split[2]), \
@@ -389,6 +390,7 @@ class DataPreprocessor(GraphIO):
             train_split = data
 
         if train_split is not None and self.balance_train_split:
+            print("Balancing train split")
             train_split = get_balanced(train_split)
 
         if train_split is not None:
