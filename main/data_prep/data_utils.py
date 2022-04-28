@@ -45,9 +45,9 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
 
     data_config = {'top_users': top_k, 'top_users_excluded': top_users_excluded, 'feature_type': feature_type,
                    'vocab_size': vocab_size, 'balance_data': balance_data
-                   }
-    # TODO: only temporary for testing
-    # ,'balance_val': True}
+                   # }
+                   # TODO: only temporary for testing
+        , 'balance_val': True}
 
     # creating a train and val loader from the train dataset
     train_config = {**data_config, **{'data_set': data_train, 'train_size': train_split_size[0],
