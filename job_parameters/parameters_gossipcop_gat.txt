@@ -17,7 +17,7 @@
 
 
 Interactive node on Lisa
---model gat --seed 9999 --lr 5e-3 --hidden-dim 16 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --no-progress-bar --wb-mode online --gat-batch-size 498 --balance-data --n-workers 2 --suffix more_heads --gat-heads 8
+--model gat --seed 9999 --lr 5e-3 --hidden-dim 16 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --no-progress-bar --wb-mode online --batch-size 498 --balance-data --n-workers 2 --gat-heads 8
 
 Pycharm
 --model gat --seed 9999 --lr 5e-3 --hidden-dim 16 --epochs 2 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --gat-batch-size 498 --balance-data --n-workers 2 --gat-heads 8
