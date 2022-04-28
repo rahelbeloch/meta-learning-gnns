@@ -214,8 +214,8 @@ if __name__ == '__main__':
     #
     # if args['valid_users']:
     #     preprocessor.filter_valid_users()
-    #
-    # preprocessor.filter_documents(min_len=min_len)
+
+    preprocessor.filter_documents(min_len=min_len)
 
     data = preprocessor.preprocess_documents(num_train_nodes=num_train_nodes)
 
