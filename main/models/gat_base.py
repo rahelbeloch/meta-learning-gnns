@@ -31,8 +31,8 @@ class GatBase(GraphTrainer):
         self.model = GatNet(model_params)
 
         # flipping the weights
-        pos_weight = 1 // model_params["class_weight"][0]
-        # flipped_weights = torch.flip(fake_class_weight, dims=[0])
+        # pos_weight = 1 // model_params["class_weight"][0]
+        pos_weight = torch.flip(model_params["class_weight"], dims=[0])
         self.loss_module = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
     def configure_optimizers(self):
