@@ -57,7 +57,11 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
     n_query_train = get_max_n_query(graph_data_train)
     print(f"\nUsing max query samples for episode creation: {n_query_train}\n")
 
-    train_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, 'train', n_query_train,
+    # TODO: only for testing
+    # train_mode = 'val'
+    train_mode = 'train'
+
+    train_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, train_mode, n_query_train,
                               batch_size)
     train_val_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, 'val', n_query_train,
                                   batch_size)
