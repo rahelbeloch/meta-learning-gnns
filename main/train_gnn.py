@@ -108,7 +108,7 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         raise ValueError(f'Model name {model_name} unknown!')
 
     print('\nInitializing trainer ..........\n')
-
+    
     wandb_config = dict(
         seed=seed,
         max_epochs=epochs,
