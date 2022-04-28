@@ -94,7 +94,8 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
     if model_name == 'gat':
         optimizer_hparams.update(lr_val=lr_val, lr_decay_epochs_val=lr_decay_epochs_val)
 
-        model = GatBase(model_params, optimizer_hparams, train_graph.label_names, train_loader.b_size, len(train_val_loader))
+        model = GatBase(model_params, optimizer_hparams, train_graph.label_names, train_loader.b_size,
+                        val_batches=len(train_val_loader))
     elif model_name == 'prototypical':
         model_params.update(proto_dim=proto_dim)
 
