@@ -114,7 +114,10 @@ class GatBase(GraphTrainer):
         if dataloader_idx == 1:
             # Evaluate on meta test set
 
-            logits = self.forward(query_graphs, query_targets, mode='val')
+            sub_graphs = support_graphs + query_graphs
+            targets = torch.cat([support_targets, query_targets])
+
+            logits = self.forward(sub_graphs, targets, mode='val')
 
             # TODO: loss has still weights of training balanced set
             loss = self.loss_module(logits, func.one_hot(query_targets).float())
