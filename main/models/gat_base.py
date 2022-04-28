@@ -32,6 +32,7 @@ class GatBase(GraphTrainer):
 
         # flipping the weights
         # pos_weight = 1 // model_params["class_weight"][0]
+
         pos_weight = torch.flip(model_params["class_weight"], dims=[0])
         self.loss_module = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
@@ -98,6 +99,22 @@ class GatBase(GraphTrainer):
         # logits should be batch size x 1, not batch size x 2!
         # x 2 --> multiple label classification (only if labels are exclusive, can be only one and not multiple)
 
+        # Loss function is not weighted differently
+
+        # 1. valdiation, not balanced --> loss weighting, see what and if it changes; (no loss weighting during training)
+            # - keep using full validation set: 1 with balanced, 1 with unbalanced
+
+        # BCE loss
+        # BCE with logits loss
+
+        # BCE with Sigmoid and 1 output of the model
+
+        # 1. Multi label loss fixing
+        # 2. Loss weighting
+        # 3. Sanity Check with train and val on the same split
+
+        # 2. Train and val/test
+
         loss = self.loss_module(logits, func.one_hot(targets).float())
 
         # only log this once in the end of an epoch (averaged over steps)
@@ -114,13 +131,17 @@ class GatBase(GraphTrainer):
         if dataloader_idx == 1:
             # Evaluate on meta test set
 
+            # testing on a query set that is oversampled should not be happening --> use original distribution
+            # training is using a weighted loss --> validation set should use weighted loss as well
+
+
             # only val query
-            # sub_graphs = query_graphs
-            # targets = query_targets
+            sub_graphs = query_graphs
+            targets = query_targets
 
             # whole val set
-            sub_graphs = support_graphs + query_graphs
-            targets = torch.cat([support_targets, query_targets])
+            # sub_graphs = support_graphs + query_graphs
+            # targets = torch.cat([support_targets, query_targets])
 
             logits = self.forward(sub_graphs, targets, mode='val')
 
