@@ -128,7 +128,8 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         top_users_excluded=top_users_excluded,
         num_workers=num_workers,
         vocab_size=vocab_size,
-        balance_data=balance_data
+        balance_data=balance_data,
+        suffix=suffix
     )
 
     trainer = initialize_trainer(model_name, epochs, patience, patience_metric, progress_bar, wb_mode, wandb_config,
