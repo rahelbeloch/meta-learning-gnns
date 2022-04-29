@@ -31,7 +31,7 @@ class GatBase(GraphTrainer):
 
         # flipping the weights
         pos_weight = 1 // model_params["class_weight"][1]
-        # pos_weight = torch.flip(model_params["class_weight"], dims=[1])
+        print(f"Using positive weight: {pos_weight}")
         self.loss_module = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
     def configure_optimizers(self):
@@ -69,15 +69,10 @@ class GatBase(GraphTrainer):
         logits = self.model(x, edge_index, mode)[cl_mask].squeeze()
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
-        # predictions = torch.sigmoid(logits).argmax(dim=-1)
         predictions = (logits.sigmoid() > 0.5).float()
 
         for mode_dict, _ in self.metrics.values():
             # shapes should be: pred (batch_size), targets: (batch_size)
-            # print(f"Preds shape: {predictions.shape}")
-            # print(f"Preds: {str(predictions)}")
-            # print(f"Targets shape: {targets.shape}")
-            # print(f"Targets: {str(targets)}")
             mode_dict[mode].update(predictions, targets)
 
         # logits are not yet put into a sigmoid layer, because the loss module does this combined
@@ -105,16 +100,12 @@ class GatBase(GraphTrainer):
 
         # BCE loss
         # BCE with logits loss
-
         # BCE with Sigmoid and 1 output of the model
 
         # 1. Multi label loss fixing
         # 2. Loss weighting
         # 3. Sanity Check with train and val on the same split
 
-        # 2. Train and val/test
-
-        # loss = self.loss_module(logits, func.one_hot(targets).float())
         loss = self.loss_module(logits, targets.float())
 
         # only log this once in the end of an epoch (averaged over steps)
@@ -160,45 +151,3 @@ class GatBase(GraphTrainer):
         targets = query_targets
 
         self.forward(sub_graphs, targets, mode='test')
-
-# def load_pretrained_encoder(checkpoint_path):
-#     """
-#     Load a pretrained encoder state dict and remove 'model.' from the keys in the state dict, so that solely
-#     the encoder can be loaded.
-#
-#     Args:
-#         checkpoint_path (str) - Path to a checkpoint for the DocumentClassifier.
-#     Returns:
-#         encoder_state_dict (dict) - Containing all keys for weights of encoder.
-#     """
-#     checkpoint = torch.load(checkpoint_path)
-#     encoder_state_dict = {}
-#     for layer, param in checkpoint["state_dict"].items():
-#         if layer.startswith("model"):
-#             new_layer = layer[layer.index(".") + 1:]
-#             encoder_state_dict[new_layer] = param
-#
-#     return encoder_state_dict
-
-
-# # noinspection PyProtectedMember
-# class CosineWarmupScheduler(optim.lr_scheduler._LRScheduler):
-#     """
-#     Learning rate scheduler, combining warm-up with a cosine-shaped learning rate decay.
-#     """
-#
-#     def __init__(self, optimizer, warmup, max_iters):
-#         self.warmup = warmup
-#         self.max_num_iters = max_iters
-#         super().__init__(optimizer)
-#
-#     def get_lr(self):
-#         lr_factor = self.get_lr_factor()
-#         return [base_lr * lr_factor for base_lr in self.base_lrs]
-#
-#     def get_lr_factor(self):
-#         current_step = self.last_epoch
-#         lr_factor = 0.5 * (1 + np.cos(np.pi * current_step / self.max_num_iters))
-#         if current_step < self.warmup:
-#             lr_factor *= current_step * 1.0 / self.warmup
-#         return lr_factor

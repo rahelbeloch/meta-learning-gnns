@@ -1,0 +1,50 @@
+--model gat --seed 3333 --lr 1e-4 --hidden-dim 512 --epochs 100 --balance-data --gat-batch-size 498 --n-workers 3 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
+--model gat --seed 3333 --lr 1e-4 --hidden-dim 512 --epochs 100 --gat-batch-size 344 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --n-workers 2
+
+
+
+--model gat --seed 9999 --lr 1e-3 --hidden-dim 64 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-3 --hidden-dim 64 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 1e-4 --hidden-dim 64 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-4 --hidden-dim 64 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 1e-3 --hidden-dim 64 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-3 --hidden-dim 64 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 1e-4 --hidden-dim 64 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-4 --hidden-dim 64 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+
+--model gat --seed 9999 --lr 1e-3 --hidden-dim 128 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-3 --hidden-dim 128 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 1e-4 --hidden-dim 128 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-4 --hidden-dim 128 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 1e-3 --hidden-dim 128 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-3 --hidden-dim 128 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 1e-4 --hidden-dim 128 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-4 --hidden-dim 128 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+
+--model gat --seed 9999 --lr 1e-3 --hidden-dim 256 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-3 --hidden-dim 256 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 1e-4 --hidden-dim 256 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-4 --hidden-dim 256 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 1e-3 --hidden-dim 256 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-3 --hidden-dim 256 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 1e-4 --hidden-dim 256 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-4 --hidden-dim 256 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+
+--model gat --seed 9999 --lr 1e-3 --hidden-dim 512 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-3 --hidden-dim 512 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 1e-4 --hidden-dim 512 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-4 --hidden-dim 512 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 1e-3 --hidden-dim 512 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-3 --hidden-dim 512 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 1e-4 --hidden-dim 512 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-4 --hidden-dim 512 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 2 --balance-data --no-progress-bar --wb-mode online
+
+--model gat --seed 9999 --lr 1e-3 --hidden-dim 16 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 8 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-3 --hidden-dim 16 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 8 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 1e-4 --hidden-dim 16 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 8 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-4 --hidden-dim 16 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer SGD --batch-size 498 --epochs 200 --gat-heads 8 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 1e-3 --hidden-dim 16 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 8 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-3 --hidden-dim 16 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 8 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 1e-4 --hidden-dim 16 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 8 --balance-data --no-progress-bar --wb-mode online
+--model gat --seed 9999 --lr 5e-4 --hidden-dim 16 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --batch-size 498 --epochs 200 --gat-heads 8 --balance-data --no-progress-bar --wb-mode online
+

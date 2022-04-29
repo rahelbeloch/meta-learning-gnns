@@ -169,8 +169,8 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
     test_accuracy, val_accuracy, val_f1_fake, val_f1_real, val_f1_macro = 0.0, 0.0, 0.0, 0.0, 0.0
 
     if model_name == 'gat':
-        test_f1_fake, test_f1_real, test_f1_macro, val_f1_fake, val_f1_real, val_f1_macro, test_elapsed \
-            = evaluate(trainer, model, test_loader, test_val_loader)
+        test_f1_fake, test_f1_macro, val_f1_fake, val_f1_macro, test_elapsed = evaluate(trainer, model, test_loader,
+                                                                                        test_val_loader)
 
     elif model_name == 'prototypical':
         (test_f1_fake, _), (test_f1_real, _), (test_f1_macro, _), test_elapsed, _ \
@@ -265,16 +265,6 @@ def initialize_trainer(model_name, epochs, patience, patience_metric, progress_b
     return trainer
 
 
-# class LossEarlyStopping(EarlyStopping):
-#     def on_validation_end(self, trainer, pl_module):
-#         # override this to disable early stopping at the end of val loop
-#         pass
-#
-#     def on_train_end(self, trainer, _):
-#         # instead, do it at the end of training loop
-#         self._run_early_stopping_check(trainer)
-
-
 def evaluate(trainer, model, test_dataloader, val_dataloader):
     """
     Tests a model on test and validation set.
@@ -296,17 +286,15 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
     val_results = results[1]
 
     test_f1_fake = test_results['test/f1_fake']
-    test_f1_real = test_results['test/f1_real'] if 'test/f1_real' in test_results else None
     test_f1_macro = test_results['test/f1_macro']
 
     val_f1_fake = val_results['test/f1_fake']
-    val_f1_real = val_results['test/f1_real'] if 'test/f1_real' in val_results else None
     val_f1_macro = test_results['test/f1_macro']
 
     test_end = time.time()
     test_elapsed = test_end - test_start
 
-    return test_f1_fake, test_f1_real, test_f1_macro, val_f1_fake, val_f1_real, val_f1_macro, test_elapsed
+    return test_f1_fake, test_f1_macro, val_f1_fake, val_f1_macro, test_elapsed
 
 
 def round_format(metric):

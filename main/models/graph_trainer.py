@@ -19,7 +19,8 @@ class GraphTrainer(pl.LightningModule):
             'f1_target': ({}, 'none')
         }
 
-        n_classes = 1  # we have a binary problem
+        # we have a binary problem
+        n_classes = 1
 
         splits = SPLITS
         if 'GatBase' in str(type(self)):
@@ -32,8 +33,6 @@ class GraphTrainer(pl.LightningModule):
                 if metric is None:
                     raise ValueError(f"Metric with key '{name}' not supported.")
                 split_dict[s] = metric(num_classes=n_classes, average=avg).to(self._device)
-
-        # self.loss = {'train': [], 'val': []}
 
     def log_on_epoch(self, metric, value):
         self.log(metric, value, on_step=False, on_epoch=True)
@@ -62,7 +61,6 @@ class GraphTrainer(pl.LightningModule):
             label_names = self.hparams["label_names"]
 
             # we are at the end of an epoch, so log now on step
-            # self.log_on_epoch(f'{mode}/f1_{label_names[0]}', f1_1)
             self.log_on_epoch(f'{mode}/f1_{label_names[1]}', f1_fake)
             self.log_on_epoch(f'{mode}/f1_macro', f1_macro)
 
