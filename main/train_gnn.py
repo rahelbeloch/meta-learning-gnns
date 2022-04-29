@@ -184,26 +184,22 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
 
     wandb.log({
         "test/f1_fake": test_f1_fake,
-        "test/f1_real": test_f1_real,
         "test/f1_macro": test_f1_macro,
         "test_val/f1_fake": val_f1_fake,
-        "test_val/f1_real": val_f1_real,
         "test_val/f1_macro": val_f1_macro
     })
 
     print(f'\nRequired time for testing: {int(test_elapsed / 60)} minutes.\n')
     print(f'Test Results:\n '
           f'test f1 fake: {round(test_f1_fake, 3)} ({test_f1_fake})\n '
-          f'test f1 real: {round(test_f1_real, 3)} ({test_f1_real})\n '
           f'test f1 macro: {round(test_f1_macro, 3)} ({test_f1_macro})\n '
           f'validation f1 fake: {round(val_f1_fake, 3)} ({val_f1_fake})\n '
-          f'validation f1 real: {round(val_f1_real, 3)} ({val_f1_real})\n '
           f'validation f1 macro: {round(val_f1_macro, 3)} ({val_f1_macro})\n '
           f'\nepochs: {trainer.current_epoch + 1}\n')
 
     print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}\n{round_format(test_f1_fake)}\n'
-          f'{round_format(test_f1_real)}\n{round_format(test_f1_macro)}\n{round_format(test_accuracy)}\n'
-          f'{round_format(val_f1_fake)}\n{round_format(val_f1_real)}\n{round_format(val_f1_macro)}\n'
+          f'{round_format(test_f1_macro)}\n{round_format(test_accuracy)}\n'
+          f'{round_format(val_f1_fake)}\n{round_format(val_f1_macro)}\n'
           f'{round_format(val_accuracy)}\n')
 
 
