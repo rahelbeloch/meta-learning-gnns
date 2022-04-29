@@ -81,17 +81,14 @@ class ProtoNet(GraphTrainer):
 
         # features shape: [N, proto_dim], targets shape: [N]
 
-        # Determine which classes we have
-        classes, _ = torch.unique(targets).sort()
-        prototypes = []
-        for c in classes:
-            # get all node features for this class and average them
-            # noinspection PyTypeChecker
-            p = features[torch.where(targets == c)[0]].mean(dim=0)
-            prototypes.append(p)
-        prototypes = torch.stack(prototypes, dim=0)
-        # Return the 'classes' tensor to know which prototype belongs to which class
-        return prototypes, classes
+        # Only calculate the prototypes for the target/positive class because we do binary classification
+
+        # get all node features for this class and average them
+        # noinspection PyTypeChecker
+        target_class = 1
+        prototype = features[torch.where(targets == target_class)[0]].mean(dim=0)
+
+        return prototype, torch.tensor([target_class])
 
     @staticmethod
     def classify_features(prototypes, classes, feats, targets):

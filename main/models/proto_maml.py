@@ -57,15 +57,15 @@ class ProtoMAML(GraphTrainer):
 
         # Create output layer weights with prototype-based initialization
         init_weight = 2 * prototypes
-        init_bias = -torch.norm(prototypes, dim=1) ** 2
+        init_bias = -torch.norm(prototypes, dim=0) ** 2
         output_weight = init_weight.detach().requires_grad_()
         output_bias = init_bias.detach().requires_grad_()
 
         # Optimize inner loop model on support set
         for _ in range(self.n_inner_updates):
             # Determine loss on the support set
-            loss, predictions = run_model(local_model, output_weight, output_bias, support_graphs, support_targets,
-                                          mode, self.loss_module)
+            loss, logits = run_model(local_model, output_weight, output_bias, support_graphs, support_targets, mode,
+                                     self.loss_module)
 
             # Calculate gradients and perform inner loop update
             loss.backward()
@@ -86,11 +86,6 @@ class ProtoMAML(GraphTrainer):
 
         return local_model, output_weight, output_bias, classes
 
-    # @staticmethod
-    # def get_labels(classes, targets):
-    #     # noinspection PyUnresolvedReferences
-    #     return (classes[None, :] == targets[:, None]).long().argmax(dim=-1)
-
     def outer_loop(self, batch, mode="train"):
         losses = []
 
@@ -108,18 +103,17 @@ class ProtoMAML(GraphTrainer):
                                                                                    mode)
 
             # Determine loss of query set
-            loss, predictions = run_model(local_model, output_weight, output_bias, query_graphs, query_targets, mode,
-                                          self.loss_module)
+            loss, logits = run_model(local_model, output_weight, output_bias, query_graphs, query_targets, mode,
+                                     self.loss_module)
 
-            pred = predictions.argmax(dim=-1)
+            query_predictions = (logits.sigmoid() > 0.5).float()
             for mode_dict, _ in self.metrics.values():
-                mode_dict[mode].update(pred, query_targets)
+                mode_dict[mode].update(query_predictions, query_targets)
 
             # Calculate gradients for query set loss
             if mode == "train":
                 loss.backward()
 
-                # print("Model parameters.")
                 count = 0
                 for i, (p_global, p_local) in enumerate(zip(self.model.parameters(), local_model.parameters())):
                     if p_global.grad is None or p_local.grad is None:
@@ -128,8 +122,6 @@ class ProtoMAML(GraphTrainer):
                     else:
                         # First-order approx. -> add gradients of fine-tuned and base model
                         p_global.grad += p_local.grad
-
-                # print(f"Grads None: {count}")
 
             losses.append(loss.detach())
 
@@ -164,11 +156,6 @@ def run_model(local_model, output_weight, output_bias, graphs, targets, mode, lo
     logits = local_model(x, edge_index, mode).squeeze()[cl_mask]
 
     logits = func.linear(logits, output_weight, output_bias)
-
-    # if we only have one class anyway, no one-hot required
-    targets = func.one_hot(targets) if logits.shape[1] == 2 else targets.unsqueeze(dim=1)
-
-    # loss = func.cross_entropy(predictions, targets)
     loss = loss_module(logits, targets.float()) if loss_module is not None else None
 
     return loss, logits
@@ -214,9 +201,9 @@ def test_protomaml(model, test_loader, num_classes=1):
                 graphs = support_graphs + query_graphs
                 targets = torch.cat([support_targets, query_targets]).to(DEVICE)
 
-                _, predictions = run_model(local_model, output_weight, output_bias, graphs, targets, mode)
+                _, logits = run_model(local_model, output_weight, output_bias, graphs, targets, mode)
 
-                pred = predictions.argmax(dim=-1)
+                pred = (logits.sigmoid() > 0.5).float()
                 f1_target.update(pred, targets)
                 f1_macro.update(pred, targets)
 

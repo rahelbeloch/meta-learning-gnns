@@ -50,3 +50,6 @@ Can't run because of GPU size
 --model gmeta --seed 1212 --output-lr 5e-3 --inner-lr 5e-4 --hidden-dim 16 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --gat-heads 8 --n-updates 10 --batch-size 128
 --model gmeta --seed 1212 --output-lr 1e-3 --inner-lr 5e-4 --hidden-dim 16 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --gat-heads 8 --n-updates 10 --batch-size 128
 --model gmeta --seed 1212 --output-lr 1e-3 --inner-lr 5e-4 --hidden-dim 16 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --gat-heads 8 --n-updates 10 --batch-size 128
+
+
+--model gmeta --seed 3333 --output-lr 1e-2 --inner-lr 1e-3 --hidden-dim 16 --k-shot 20 --epochs 2 --gat-dropout 0.4 --attn-dropout 0.4 --wb-mode offline --gat-heads 8 --n-updates 5 --batch-size 32 --n-workers 0
