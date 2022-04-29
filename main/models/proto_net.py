@@ -23,7 +23,7 @@ class ProtoNet(GraphTrainer):
             proto_dim - Dimensionality of prototype feature space
             lr - Learning rate of Adam optimizer
         """
-        super().__init__(model_params['output_dim'])
+        super().__init__()
         self.save_hyperparameters()
 
         # the output dimension for the prototypical network is not num classes, but the prototypes dimension!

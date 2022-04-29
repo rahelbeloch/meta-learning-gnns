@@ -25,7 +25,7 @@ class ProtoMAML(GraphTrainer):
             lr_output - Learning rate for the output layer in the inner loop
             n_inner_updates - Number of inner loop updates to perform
         """
-        super().__init__(n_classes=model_params['output_dim'])
+        super().__init__()
         self.save_hyperparameters()
 
         self.n_inner_updates = model_params['n_inner_updates']

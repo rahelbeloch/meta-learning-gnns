@@ -5,12 +5,9 @@ import torchmetrics as tm
 from data_prep.graph_preprocessor import SPLITS
 
 
-# from models.gat_base import GatBase
-
-
 class GraphTrainer(pl.LightningModule):
 
-    def __init__(self, n_classes):
+    def __init__(self):
         super().__init__()
 
         type(self)
@@ -21,6 +18,8 @@ class GraphTrainer(pl.LightningModule):
             'f1_macro': ({}, 'macro'),
             'f1_target': ({}, 'none')
         }
+
+        n_classes = 1  # we have a binary problem
 
         splits = SPLITS
         if 'GatBase' in str(type(self)):
@@ -56,21 +55,15 @@ class GraphTrainer(pl.LightningModule):
         self.compute_and_log_metrics('test')
 
     def compute_and_log_metrics(self, mode, verbose=True):
-        f1_1, f1_2 = self.metrics['f1_target'][0][mode].compute()
+        f1_fake = self.metrics['f1_target'][0][mode].compute()
         f1_macro = self.metrics['f1_macro'][0][mode].compute()
-
-        # if mode in self.loss:
-        #     loss_list = self.loss[mode]
-        #     epoch_loss = sum(loss_list) / len(loss_list)
-        #     self.log_on_epoch(f'{mode}/loss_epoch', epoch_loss)
-        #     self.loss[mode] = []
 
         if verbose:
             label_names = self.hparams["label_names"]
 
             # we are at the end of an epoch, so log now on step
-            self.log_on_epoch(f'{mode}/f1_{label_names[0]}', f1_1)
-            self.log_on_epoch(f'{mode}/f1_{label_names[1]}', f1_2)
+            # self.log_on_epoch(f'{mode}/f1_{label_names[0]}', f1_1)
+            self.log_on_epoch(f'{mode}/f1_{label_names[1]}', f1_fake)
             self.log_on_epoch(f'{mode}/f1_macro', f1_macro)
 
         self.metrics['f1_target'][0][mode].reset()

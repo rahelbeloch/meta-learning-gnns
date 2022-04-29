@@ -296,11 +296,11 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
     val_results = results[1]
 
     test_f1_fake = test_results['test/f1_fake']
-    test_f1_real = test_results['test/f1_real']
+    test_f1_real = test_results['test/f1_real'] if 'test/f1_real' in test_results else None
     test_f1_macro = test_results['test/f1_macro']
 
     val_f1_fake = val_results['test/f1_fake']
-    val_f1_real = val_results['test/f1_real']
+    val_f1_real = val_results['test/f1_real'] if 'test/f1_real' in val_results else None
     val_f1_macro = test_results['test/f1_macro']
 
     test_end = time.time()

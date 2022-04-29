@@ -1,11 +1,10 @@
 import torch.nn.functional
-import torch.nn.functional as func
 from torch import nn
 from torch.optim import AdamW, SGD
 from torch.optim.lr_scheduler import StepLR, MultiStepLR
 
-from models.graph_trainer import GraphTrainer
 from models.gat_encoder_sparse_pushkar import GatNet
+from models.graph_trainer import GraphTrainer
 from models.train_utils import *
 
 
@@ -23,7 +22,7 @@ class GatBase(GraphTrainer):
             optimizer_hparams - Hyperparameters for the optimizer, as dictionary. This includes learning rate,
             weight decay, etc.
         """
-        super().__init__(model_params["output_dim"])
+        super().__init__()
 
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace + saves config in wandb
         self.save_hyperparameters()
@@ -31,9 +30,8 @@ class GatBase(GraphTrainer):
         self.model = GatNet(model_params)
 
         # flipping the weights
-        # pos_weight = 1 // model_params["class_weight"][0]
-
-        pos_weight = torch.flip(model_params["class_weight"], dims=[0])
+        pos_weight = 1 // model_params["class_weight"][1]
+        # pos_weight = torch.flip(model_params["class_weight"], dims=[1])
         self.loss_module = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
     def configure_optimizers(self):
@@ -71,14 +69,15 @@ class GatBase(GraphTrainer):
         logits = self.model(x, edge_index, mode)[cl_mask].squeeze()
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
-        predictions = torch.sigmoid(logits).argmax(dim=-1)
+        # predictions = torch.sigmoid(logits).argmax(dim=-1)
+        predictions = (logits.sigmoid() > 0.5).float()
 
         for mode_dict, _ in self.metrics.values():
             # shapes should be: pred (batch_size), targets: (batch_size)
             # print(f"Preds shape: {predictions.shape}")
-            # print(f"Preds type: {type(predictions)}")
+            # print(f"Preds: {str(predictions)}")
             # print(f"Targets shape: {targets.shape}")
-            # print(f"Targets type: {type(targets)}")
+            # print(f"Targets: {str(targets)}")
             mode_dict[mode].update(predictions, targets)
 
         # logits are not yet put into a sigmoid layer, because the loss module does this combined
@@ -102,7 +101,7 @@ class GatBase(GraphTrainer):
         # Loss function is not weighted differently
 
         # 1. valdiation, not balanced --> loss weighting, see what and if it changes; (no loss weighting during training)
-            # - keep using full validation set: 1 with balanced, 1 with unbalanced
+        # - keep using full validation set: 1 with balanced, 1 with unbalanced
 
         # BCE loss
         # BCE with logits loss
@@ -115,7 +114,8 @@ class GatBase(GraphTrainer):
 
         # 2. Train and val/test
 
-        loss = self.loss_module(logits, func.one_hot(targets).float())
+        # loss = self.loss_module(logits, func.one_hot(targets).float())
+        loss = self.loss_module(logits, targets.float())
 
         # only log this once in the end of an epoch (averaged over steps)
         self.log_on_epoch(f"train/loss", loss)
@@ -134,7 +134,6 @@ class GatBase(GraphTrainer):
             # testing on a query set that is oversampled should not be happening --> use original distribution
             # training is using a weighted loss --> validation set should use weighted loss as well
 
-
             # only val query
             sub_graphs = query_graphs
             targets = query_targets
@@ -146,7 +145,8 @@ class GatBase(GraphTrainer):
             logits = self.forward(sub_graphs, targets, mode='val')
 
             # TODO: loss has still weights of training balanced set
-            loss = self.loss_module(logits, func.one_hot(targets).float())
+            # loss = self.loss_module(logits, func.one_hot(targets).float())
+            loss = self.loss_module(logits, targets.float())
 
             # only log this once in the end of an epoch (averaged over steps)
             self.log_on_epoch(f"val/loss", loss)

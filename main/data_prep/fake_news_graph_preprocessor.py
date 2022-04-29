@@ -161,7 +161,7 @@ if __name__ == '__main__':
     parser.add_argument('--balance-data', dest='balance_data', type=bool, default=True,
                         help='If validation split imbalance should balanced out or not.')
 
-    parser.add_argument('--balance-val', dest='balance_val', type=bool, default=True,
+    parser.add_argument('--balance-val', dest='balance_val', type=bool, default=False,
                         help='If validation split imbalance should balanced out or not.')
 
     args, unparsed = parser.parse_known_args()

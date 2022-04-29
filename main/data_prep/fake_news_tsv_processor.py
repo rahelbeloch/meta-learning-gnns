@@ -9,7 +9,7 @@ from data_prep.data_preprocess_utils import load_json_file, sanitize_text, save_
 from data_prep.data_preprocessor import DataPreprocessor
 from data_prep.graph_io import FEATURE_TYPES
 
-LABELS = {0: 'fake', 1: 'real'}
+LABELS = {0: 'real', 1: 'fake'}
 
 
 class TSVPreprocessor(DataPreprocessor):
@@ -202,7 +202,7 @@ if __name__ == '__main__':
     parser.add_argument('--balance-data', dest='balance_data', type=bool, default=True,
                         help='If dataset imbalance should balanced out or not.')
 
-    parser.add_argument('--balance-val', dest='balance_val', type=bool, default=True,
+    parser.add_argument('--balance-val', dest='balance_val', type=bool, default=False,
                         help='If validation split imbalance should balanced out or not.')
 
     args, unparsed = parser.parse_known_args()
@@ -210,10 +210,10 @@ if __name__ == '__main__':
 
     preprocessor = TSVPreprocessor(args, args['data_dir'], args['data_tsv_dir'], args['data_complete_dir'])
 
-    # preprocessor.aggregate_user_contexts()
+    preprocessor.aggregate_user_contexts()
 
-    # if args['valid_users']:
-    #     preprocessor.filter_valid_users()
+    if args['valid_users']:
+        preprocessor.filter_valid_users()
 
     preprocessor.filter_documents(min_len=min_len)
 
