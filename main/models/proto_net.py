@@ -8,8 +8,8 @@ from torch import optim
 from torch.nn import functional as func
 from tqdm.auto import tqdm
 
-from models.graph_trainer import GraphTrainer
 from models.gat_encoder_sparse_pushkar import GatNet
+from models.graph_trainer import GraphTrainer
 from models.train_utils import *
 from samplers.graph_sampler import KHopSamplerSimple
 
@@ -254,7 +254,7 @@ def test_proto_net(model, dataset, num_classes, data_feats=None, k_shot=4):
     for c in range(num_classes):
         start_indices_per_class[c] = torch.where(node_targets == c)[0][0].item()
 
-    accuracies, f1_fake, f1_real, f1_macros = [], [], [], []
+    accuracies, f1_fake, f1_macros = [], [], []
     for k_idx in tqdm(range(0, node_features.shape[0], k_shot), "Evaluating prototype classification", leave=False):
         # Select support set (k examples per class) and calculate prototypes
         k_node_feats, k_targets = get_as_set(k_idx, k_shot, node_features, node_targets, start_indices_per_class)
@@ -279,13 +279,9 @@ def test_proto_net(model, dataset, num_classes, data_feats=None, k_shot=4):
         f1_target_values = batch_f1_target.compute()
 
         # F1 values can be nan, if e.g. proto_classes contains only one of the 2 classes
-        f1_fake_value = f1_target_values[0].item()
+        f1_fake_value = f1_target_values.item()
         if not np.isnan(f1_fake_value):
             f1_fake.append(f1_fake_value)
-
-        f1_real_value = f1_target_values[1].item()
-        if not np.isnan(f1_real_value):
-            f1_real.append(f1_real_value)
 
         batch_f1_macro_value = batch_f1_macro.compute().item()
         if not np.isnan(batch_f1_macro_value):
@@ -297,8 +293,8 @@ def test_proto_net(model, dataset, num_classes, data_feats=None, k_shot=4):
     test_end = time.time()
     test_elapsed = test_end - test_start
 
-    return (mean(f1_fake), stdev(f1_fake)), (mean(f1_real), stdev(f1_real)), \
-           (mean(f1_macros), stdev(f1_macros)), test_elapsed, (node_features, node_targets)
+    return (mean(f1_fake), stdev(f1_fake)), (mean(f1_macros), stdev(f1_macros)), test_elapsed, \
+           (node_features, node_targets)
 
 
 def get_as_set(idx, k_shot, all_node_features, all_node_targets, start_indices_per_class):

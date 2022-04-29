@@ -174,7 +174,7 @@ def run_model(local_model, output_weight, output_bias, graphs, targets, mode, lo
     return loss, logits
 
 
-def test_protomaml(model, test_loader, num_classes):
+def test_protomaml(model, test_loader, num_classes=1):
     mode = 'test'
     model = model.to(DEVICE)
     model.eval()
@@ -197,7 +197,7 @@ def test_protomaml(model, test_loader, num_classes):
         # Finetune new model on support set
         local_model, output_weight, output_bias, classes = model.adapt_few_shot(support_graphs, support_targets, mode)
 
-        f1 = F1(num_classes=num_classes, average='none').to(DEVICE)
+        f1_target = F1(num_classes=num_classes, average='none').to(DEVICE)
         f1_macro = F1(num_classes=num_classes, average='macro').to(DEVICE)
 
         with torch.no_grad():  # No gradients for query set needed
@@ -217,16 +217,13 @@ def test_protomaml(model, test_loader, num_classes):
                 _, predictions = run_model(local_model, output_weight, output_bias, graphs, targets, mode)
 
                 pred = predictions.argmax(dim=-1)
-                f1.update(pred, targets)
+                f1_target.update(pred, targets)
                 f1_macro.update(pred, targets)
 
             f1_macros.append(f1_macro.compute().item())
-            f1_1, f1_2 = f1.compute()
-            f1_reals.append(f1_2.item())
-            f1_fakes.append(f1_1.item())
+            f1_fakes.append(f1_target.compute().item())
 
     test_end = time.time()
     test_elapsed = test_end - test_start
 
-    return (mean(f1_fakes), stdev(f1_fakes)), (mean(f1_reals), stdev(f1_reals)), \
-           (mean(f1_macros), stdev(f1_macros)), test_elapsed
+    return (mean(f1_fakes), stdev(f1_fakes)), (mean(f1_macros), stdev(f1_macros)), test_elapsed
