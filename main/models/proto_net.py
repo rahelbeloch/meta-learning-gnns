@@ -112,8 +112,8 @@ class ProtoNet(GraphTrainer):
 
         # TODO: was log_softmax, now no softmax/sigmoid because this is handled by the loss function
         # predictions = func.log_softmax(-dist, dim=1)      # for CE loss
-        predictions = torch.sigmoid(-dist)  # for BCE loss
-        # predictions = -dist                               # for BCE with logits loss
+        # predictions = torch.sigmoid(-dist)  # for BCE loss
+        predictions = -dist                               # for BCE with logits loss
 
         # noinspection PyUnresolvedReferences
         labels = (classes[None, :] == targets[:, None]).to(torch.int32)
