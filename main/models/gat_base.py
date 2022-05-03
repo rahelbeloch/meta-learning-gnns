@@ -34,6 +34,7 @@ class GatBase(GraphTrainer):
         print(f"Using positive weight: {pos_weight}")
         self.loss_module = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
+        # have a validation loss without pos weight of training set
         self.validation_loss = nn.BCEWithLogitsLoss()
 
     def configure_optimizers(self):
@@ -137,9 +138,7 @@ class GatBase(GraphTrainer):
 
             logits = self.forward(sub_graphs, targets, mode='val')
 
-            # TODO: loss has still weights of training balanced set
-            # loss = self.loss_module(logits, func.one_hot(targets).float())
-            loss = self.loss_module(logits, targets.float())
+            loss = self.validation_loss(logits, targets.float())
 
             # only log this once in the end of an epoch (averaged over steps)
             self.log_on_epoch(f"val/loss", loss)
