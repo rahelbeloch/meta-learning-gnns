@@ -153,9 +153,17 @@ def run_model(local_model, output_weight, output_bias, graphs, targets, mode, lo
     """
 
     x, edge_index, cl_mask = get_subgraph_batch(graphs)
-    logits = local_model(x, edge_index, mode).squeeze()[cl_mask]
+    logits = local_model(x, edge_index, mode)[cl_mask]
+
+    # multi class
     # output_weight: 2 x 2, output_bias: 1 x 2, logits: 40 x 2
+
+    # binary class
+    # output_weight: 1 x 1, output_bias: 1 x 1, logits: 40 x 1
+
     logits = func.linear(logits, output_weight, output_bias)
+
+    targets = targets.view(-1, 1) if not len(targets.shape) == 2 else targets
     loss = loss_module(logits, targets.float()) if loss_module is not None else None
 
     return loss, logits

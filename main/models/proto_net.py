@@ -86,9 +86,15 @@ class ProtoNet(GraphTrainer):
         # get all node features for this class and average them
         # noinspection PyTypeChecker
         target_class = 1
+
         prototype = features[torch.where(targets == target_class)[0]].mean(dim=0)
-        # prototype should be 2 x 1
-        return prototype, torch.tensor([target_class])
+        classes = torch.tensor(target_class)
+
+        # prototype should be 1 x 1 for binary classification
+        prototype = prototype.view(-1, 1) if len(prototype.shape) != 2 else prototype
+        classes = classes.view(-1, 1) if len(classes.shape) != 2 else classes
+
+        return prototype, classes
 
     @staticmethod
     def classify_features(prototypes, classes, feats, targets):
