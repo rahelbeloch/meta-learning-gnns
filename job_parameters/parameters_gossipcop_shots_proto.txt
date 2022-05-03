@@ -62,3 +62,5 @@
 --model prototypical --seed 2222 --lr 5e-3 --hidden-dim 512 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --suffix balance --balance-data
 --model prototypical --seed 2222 --lr 1e-3 --hidden-dim 256 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --suffix balance --balance-data
 --model prototypical --seed 2222 --lr 5e-3 --hidden-dim 256 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --suffix balance --balance-data
+
+--model prototypical --seed 2222 --lr 5e-3 --hidden-dim 256 --k-shot 40 --epochs 5 --gat-dropout 0.4 --attn-dropout 0.4 --wb-mode offline --n-workers 0

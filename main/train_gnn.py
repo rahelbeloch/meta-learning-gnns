@@ -104,7 +104,8 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         model_params.update(n_inner_updates=n_inner_updates)
         optimizer_hparams.update(lr_output=lr_output, lr_inner=lr_inner)
 
-        model = ProtoMAML(model_params, optimizer_hparams, train_graph.label_names, train_loader.b_size)
+        model = ProtoMAML(model_params, optimizer_hparams, train_graph.label_names,
+                          train_loader.b_sampler.task_batch_size)
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 
@@ -128,7 +129,8 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         top_users_excluded=top_users_excluded,
         num_workers=num_workers,
         vocab_size=vocab_size,
-        balance_data=balance_data
+        balance_data=balance_data,
+        suffix=suffix
     )
 
     trainer = initialize_trainer(model_name, epochs, patience, patience_metric, progress_bar, wb_mode, wandb_config,
@@ -169,40 +171,34 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
     test_accuracy, val_accuracy, val_f1_fake, val_f1_real, val_f1_macro = 0.0, 0.0, 0.0, 0.0, 0.0
 
     if model_name == 'gat':
-        test_f1_fake, test_f1_real, test_f1_macro, val_f1_fake, val_f1_real, val_f1_macro, test_elapsed \
-            = evaluate(trainer, model, test_loader, test_val_loader)
+        test_f1_fake, test_f1_macro, val_f1_fake, val_f1_macro, test_elapsed = evaluate(trainer, model, test_loader,
+                                                                                        test_val_loader)
 
     elif model_name == 'prototypical':
-        (test_f1_fake, _), (test_f1_real, _), (test_f1_macro, _), test_elapsed, _ \
-            = test_proto_net(model, eval_graph, len(eval_graph.labels), data_feats=None, k_shot=k_shot)
+        (test_f1_fake, _), (test_f1_macro, _), test_elapsed, _ = test_proto_net(model, eval_graph, k_shot=k_shot)
     elif model_name == 'gmeta':
-        (test_f1_fake, _), (test_f1_real, _), (test_f1_macro, _), test_elapsed = test_protomaml(model, test_loader,
-                                                                                                len(train_graph.labels))
+        (test_f1_fake, _), (test_f1_macro, _), test_elapsed = test_protomaml(model, test_loader)
     else:
         raise ValueError(f"Model type {model_name} not supported!")
 
     wandb.log({
         "test/f1_fake": test_f1_fake,
-        "test/f1_real": test_f1_real,
         "test/f1_macro": test_f1_macro,
         "test_val/f1_fake": val_f1_fake,
-        "test_val/f1_real": val_f1_real,
         "test_val/f1_macro": val_f1_macro
     })
 
     print(f'\nRequired time for testing: {int(test_elapsed / 60)} minutes.\n')
     print(f'Test Results:\n '
           f'test f1 fake: {round(test_f1_fake, 3)} ({test_f1_fake})\n '
-          f'test f1 real: {round(test_f1_real, 3)} ({test_f1_real})\n '
           f'test f1 macro: {round(test_f1_macro, 3)} ({test_f1_macro})\n '
           f'validation f1 fake: {round(val_f1_fake, 3)} ({val_f1_fake})\n '
-          f'validation f1 real: {round(val_f1_real, 3)} ({val_f1_real})\n '
           f'validation f1 macro: {round(val_f1_macro, 3)} ({val_f1_macro})\n '
           f'\nepochs: {trainer.current_epoch + 1}\n')
 
     print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}\n{round_format(test_f1_fake)}\n'
-          f'{round_format(test_f1_real)}\n{round_format(test_f1_macro)}\n{round_format(test_accuracy)}\n'
-          f'{round_format(val_f1_fake)}\n{round_format(val_f1_real)}\n{round_format(val_f1_macro)}\n'
+          f'{round_format(test_f1_macro)}\n{round_format(test_accuracy)}\n'
+          f'{round_format(val_f1_fake)}\n{round_format(val_f1_macro)}\n'
           f'{round_format(val_accuracy)}\n')
 
 
@@ -265,16 +261,6 @@ def initialize_trainer(model_name, epochs, patience, patience_metric, progress_b
     return trainer
 
 
-# class LossEarlyStopping(EarlyStopping):
-#     def on_validation_end(self, trainer, pl_module):
-#         # override this to disable early stopping at the end of val loop
-#         pass
-#
-#     def on_train_end(self, trainer, _):
-#         # instead, do it at the end of training loop
-#         self._run_early_stopping_check(trainer)
-
-
 def evaluate(trainer, model, test_dataloader, val_dataloader):
     """
     Tests a model on test and validation set.
@@ -296,17 +282,15 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
     val_results = results[1]
 
     test_f1_fake = test_results['test/f1_fake']
-    test_f1_real = test_results['test/f1_real']
     test_f1_macro = test_results['test/f1_macro']
 
     val_f1_fake = val_results['test/f1_fake']
-    val_f1_real = val_results['test/f1_real']
     val_f1_macro = test_results['test/f1_macro']
 
     test_end = time.time()
     test_elapsed = test_end - test_start
 
-    return test_f1_fake, test_f1_real, test_f1_macro, val_f1_fake, val_f1_real, val_f1_macro, test_elapsed
+    return test_f1_fake, test_f1_macro, val_f1_fake, val_f1_macro, test_elapsed
 
 
 def round_format(metric):
@@ -416,8 +400,7 @@ if __name__ == "__main__":
     parser.add_argument('--feature-type', dest='feature_type', type=str, default='one-hot',
                         help="Type of features used.")
     parser.add_argument('--vocab-size', dest='vocab_size', type=int, default=10000, help="Size of the vocabulary.")
-    parser.add_argument('--batch-size', dest='batch_size', type=int, default=344,
-                        help="Size of batches for the GAT baseline.")
+    parser.add_argument('--batch-size', dest='batch_size', type=int, default=344, help="Size of batches.")
     parser.add_argument('--data-dir', dest='data_dir', default='data',
                         help='Select the dataset you want to use.')
 

@@ -1,11 +1,10 @@
 import torch.nn.functional
-import torch.nn.functional as func
 from torch import nn
 from torch.optim import AdamW, SGD
 from torch.optim.lr_scheduler import StepLR, MultiStepLR
 
-from models.GraphTrainer import GraphTrainer
 from models.gat_encoder_sparse_pushkar import GatNet
+from models.graph_trainer import GraphTrainer
 from models.train_utils import *
 
 
@@ -23,28 +22,24 @@ class GatBase(GraphTrainer):
             optimizer_hparams - Hyperparameters for the optimizer, as dictionary. This includes learning rate,
             weight decay, etc.
         """
-        super().__init__(model_params["output_dim"], validation_sets=['val_support', 'val_query'])
+        super().__init__(validation_sets=['val_support', 'val_query'])
 
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace + saves config in wandb
         self.save_hyperparameters()
 
         self.model = GatNet(model_params)
 
-        # Deep copy of the model: one for train, one for val --> update validation model with weights from train model
-        # validation fine-tuning should happen on a copy of the model NOT on the model which is trained
-        # --> Training should not be affected by validation
-        self.validation_model = GatNet(model_params)
-
         # flipping the weights
-        # train_class_weight = 1 // self.class_weights['train'][0]
-        train_class_weight = torch.flip(model_params["class_weights"]['train'], dims=[0]).to(DEVICE)
-        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=train_class_weight)
+        pos_weight = 1 // model_params["class_weight"][1]
+        print(f"Using positive weight: {pos_weight}")
+        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
-        self.val_class_weight = torch.flip(model_params["class_weights"]['val'], dims=[0]).to(DEVICE)
-
-        self.automatic_optimization = False
+        # have a validation loss without pos weight of training set
+        self.validation_loss = nn.BCEWithLogitsLoss()
 
     def configure_optimizers(self):
+        # train_optimizer, train_scheduler = self.get_optimizer()
+        # return [train_optimizer], [train_scheduler]
 
         opt_params = self.hparams.optimizer_hparams
         train_optimizer, train_scheduler = self.get_optimizer(opt_params['lr'], opt_params['lr_decay_epochs'])
@@ -72,12 +67,14 @@ class GatBase(GraphTrainer):
                             weight_decay=opt_params['weight_decay'])
         else:
             raise ValueError("No optimizer name provided!")
+
         scheduler = None
         if opt_params['scheduler'] == 'step':
             scheduler = StepLR(optimizer, step_size=step_size, gamma=opt_params['lr_decay_factor'])
         elif opt_params['scheduler'] == 'multi_step':
             scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 30, 40, 55],
                                     gamma=opt_params['lr_decay_factor'])
+
         return optimizer, scheduler
 
     def forward(self, sub_graphs, targets, mode=None):
@@ -88,9 +85,7 @@ class GatBase(GraphTrainer):
         logits = self.model(x, edge_index, mode)[cl_mask].squeeze()
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
-        # predictions = (logits.sigmoid() > 0.5).long()
-        # predictions = logits.sigmoid().argmax(dim=-1)
-        predictions = torch.sigmoid(logits).argmax(dim=-1)
+        predictions = (logits.sigmoid() > 0.5).float()
 
         for mode_dict, _ in self.metrics.values():
             mode_dict[mode].update(predictions, targets)
@@ -115,8 +110,20 @@ class GatBase(GraphTrainer):
         # logits should be batch size x 1, not batch size x 2!
         # x 2 --> multiple label classification (only if labels are exclusive, can be only one and not multiple)
 
-        loss = self.loss_module(logits, func.one_hot(targets).float())
-        # loss = self.loss_module(logits, targets.float())
+        # Loss function is not weighted differently
+
+        # 1. valdiation, not balanced --> loss weighting, see what and if it changes; (no loss weighting during training)
+        # - keep using full validation set: 1 with balanced, 1 with unbalanced
+
+        # BCE loss
+        # BCE with logits loss
+        # BCE with Sigmoid and 1 output of the model
+
+        # 1. Multi label loss fixing
+        # 2. Loss weighting
+        # 3. Sanity Check with train and val on the same split
+
+        loss = self.loss_module(logits, targets.float())
 
         train_opt.zero_grad()
         self.manual_backward(loss)
@@ -220,26 +227,52 @@ class GatBase(GraphTrainer):
             # Evaluate on meta test set
             mode = 'val_query'
 
+            # testing on a query set that is oversampled should not be happening --> use original distribution
+            # training is using a weighted loss --> validation set should use weighted loss as well
             # with extra validation model
             x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
             logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
 
-            # predictions = (logits.sigmoid() > 0.5).long()
-            predictions = torch.sigmoid(logits).argmax(dim=-1)
-
-            for mode_dict, _ in self.metrics.values():
-                mode_dict[mode].update(predictions, query_targets)
-
             # with only 1 model
             # logits = self.forward(query_graphs, query_targets, mode)
 
-            # loss = self.loss_module(logits, func.one_hot(query_targets).float())
-            loss = func.binary_cross_entropy_with_logits(logits, func.one_hot(query_targets).float(),
-                                                         pos_weight=self.val_class_weight)
-            # loss = self.loss_module(logits, func.one_hot(query_targets).float())
+            loss = self.validation_loss(logits, targets.float())
+
+            predictions = (logits.sigmoid() > 0.5).long()
+            for mode_dict, _ in self.metrics.values():
+                mode_dict[mode].update(predictions, query_targets)
 
             # only log this once in the end of an epoch (averaged over steps)
             self.log_on_epoch(f"{mode}/loss", loss)
+
+            # if dataloader_idx == 1:
+            #     # Evaluate on meta test set
+            #
+            #     # testing on a query set that is oversampled should not be happening --> use original distribution
+            #     # training is using a weighted loss --> validation set should use weighted loss as well
+            #
+            #     # only val query
+            #     sub_graphs = query_graphs
+            #     targets = query_targets
+            #
+            #     # whole val set
+            #     # sub_graphs = support_graphs + query_graphs
+            #     # targets = torch.cat([support_targets, query_targets])
+            #
+            #     logits = self.forward(sub_graphs, targets, mode='val')
+            #
+            #     loss = self.validation_loss(logits, targets.float())
+            #
+            #     # with only 1 model
+            #     # logits = self.forward(query_graphs, query_targets, mode)
+            #
+            #     # loss = self.loss_module(logits, func.one_hot(query_targets).float())
+            #     loss = func.binary_cross_entropy_with_logits(logits, func.one_hot(query_targets).float(),
+            #                                                  pos_weight=self.val_class_weight)
+            #     # loss = self.loss_module(logits, func.one_hot(query_targets).float())
+            #
+            #     # only log this once in the end of an epoch (averaged over steps)
+            #     self.log_on_epoch(f"{mode}/loss", loss)
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         """

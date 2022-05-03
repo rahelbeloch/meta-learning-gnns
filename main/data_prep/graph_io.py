@@ -22,7 +22,10 @@ class GraphIO:
 
     def __init__(self, config, data_dir, tsv_dir=TSV_DIR, complete_dir=COMPLETE_DIR, enforce_raw=True):
         self.dataset = config['data_set']
-        self.oversample_fake = config['balance_data'] if 'balance_data' in config else False
+
+        self.balance_train_split = config['balance_data'] if 'balance_data' in config else False
+        self.balance_val_split = config['balance_val'] if 'balance_val' in config else False
+
         self.top_users = config['top_users']
         self.top_users_excluded = config['top_users_excluded'] / 100
 
@@ -36,8 +39,11 @@ class GraphIO:
         self.data_tsv_dir = self.create_dir(data_path / tsv_dir / self.dataset).parent
         self.data_complete_dir = self.create_dir(data_path / complete_dir / self.dataset).parent
 
-        self.data_dir_name = Path(f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}'
-                                  f'_fakeOversample{str(self.oversample_fake)}')
+        data_dir_name = f'topk{self.top_users}_topexcl{int(self.top_users_excluded * 100)}_fakeOversample{str(self.balance_train_split)}'
+        if self.balance_val_split:
+            data_dir_name += f"balanceVal{str(self.balance_val_split)}"
+
+        self.data_dir_name = Path(data_dir_name)
 
         self.create_dir(data_path / tsv_dir / self.dataset / self.data_dir_name)
         self.create_dir(data_path / complete_dir / self.dataset / self.data_dir_name)

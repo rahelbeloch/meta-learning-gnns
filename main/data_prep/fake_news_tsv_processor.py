@@ -9,7 +9,7 @@ from data_prep.data_preprocess_utils import load_json_file, sanitize_text, save_
 from data_prep.data_preprocessor import DataPreprocessor
 from data_prep.graph_io import FEATURE_TYPES
 
-LABELS = {0: 'fake', 1: 'real'}
+LABELS = {0: 'real', 1: 'fake'}
 
 
 class TSVPreprocessor(DataPreprocessor):
@@ -199,8 +199,11 @@ if __name__ == '__main__':
 
     parser.add_argument('--test-size', dest='test_size', type=float, default=0.2, help='Size of train split.')
 
-    parser.add_argument('--balance-data', dest='balance_data', type=bool, default=False,
+    parser.add_argument('--balance-data', dest='balance_data', type=bool, default=True,
                         help='If dataset imbalance should balanced out or not.')
+
+    parser.add_argument('--balance-val', dest='balance_val', type=bool, default=False,
+                        help='If validation split imbalance should balanced out or not.')
 
     args, unparsed = parser.parse_known_args()
     args = args.__dict__

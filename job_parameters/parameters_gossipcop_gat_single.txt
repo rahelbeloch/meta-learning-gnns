@@ -1,2 +1,0 @@
---model gat --seed 3333 --lr 1e-4 --hidden-dim 512 --epochs 100 --balance-data --batch-size 498 --n-workers 3 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online
---model gat --seed 3333 --lr 1e-4 --hidden-dim 512 --epochs 100 --batch-size 344 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --n-workers 2
