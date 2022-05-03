@@ -5,7 +5,6 @@ import numpy as np
 import torch.nn
 import torchmetrics as tm
 from torch import optim
-from torch.nn import functional as func
 from tqdm.auto import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
@@ -32,11 +31,11 @@ class ProtoNet(GraphTrainer):
         self.num_classes = model_params["class_weight"].shape[0]
 
         # flipping the weights
-        flipped_weights = torch.flip(model_params["class_weight"], dims=[0])
-        self.loss_module = torch.nn.BCEWithLogitsLoss(pos_weight=flipped_weights)
+        # pos_weight = 1 // model_params["class_weight"][1]
+        # print(f"Using positive weight: {pos_weight}")
+        # self.loss_module = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
-        # TODO: BCE loss does not have pos_weight --> do this differently
-        # self.loss_module = torch.nn.BCELoss()
+        self.loss_module = torch.nn.BCEWithLogitsLoss()
 
         self.model = GatNet(model_params)
 
@@ -94,15 +93,14 @@ class ProtoNet(GraphTrainer):
         prototype = prototype.view(-1, 1) if len(prototype.shape) != 2 else prototype
         classes = classes.view(-1, 1) if len(classes.shape) != 2 else classes
 
-        return prototype, classes
+        return prototype, classes.to(DEVICE)
 
     @staticmethod
-    def classify_features(prototypes, classes, feats, targets):
+    def classify_features(prototypes, feats, targets):
         """
         Classify new examples with prototypes and return classification error.
 
         :param prototypes:
-        :param classes:
         :param feats:
         :param targets:
         :return:
@@ -110,15 +108,11 @@ class ProtoNet(GraphTrainer):
         # Squared euclidean distance
         dist = torch.pow(prototypes[None, :] - feats[:, None], 2).sum(dim=2)
 
-        # TODO: was log_softmax, now no softmax/sigmoid because this is handled by the loss function
         # predictions = func.log_softmax(-dist, dim=1)      # for CE loss
         # predictions = torch.sigmoid(-dist)  # for BCE loss
-        predictions = -dist                               # for BCE with logits loss
+        predictions = -dist  # for BCE with logits loss
 
-        # noinspection PyUnresolvedReferences
-        labels = (classes[None, :] == targets[:, None]).to(torch.int32)
-
-        return predictions, labels
+        return predictions, targets.view(-1, 1)
 
     def calculate_loss(self, batch, mode):
         """
@@ -135,8 +129,7 @@ class ProtoNet(GraphTrainer):
         support_graphs, query_graphs, support_targets, query_targets = batch
 
         x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
-        support_logits = self.model(x, edge_index, mode)
-        support_logits = support_logits[cl_mask]
+        support_logits = self.model(x, edge_index, mode)[cl_mask]
 
         assert support_logits.shape[0] == support_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
@@ -145,28 +138,24 @@ class ProtoNet(GraphTrainer):
         prototypes, classes = ProtoNet.calculate_prototypes(support_logits, support_targets)
 
         x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
-        query_logits = self.model(x, edge_index, mode)
-        query_logits = query_logits[cl_mask]
+        query_logits = self.model(x, edge_index, mode)[cl_mask]
 
         assert query_logits.shape[0] == query_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
 
-        predictions, targets = ProtoNet.classify_features(prototypes, classes, query_logits, query_targets)
+        predictions, targets = ProtoNet.classify_features(prototypes, query_logits, query_targets)
 
-        if predictions.shape[1] != self.num_classes:
-            # if predictions only have one class, we need to pad in order to use weight in loss function
-            n_pad = self.num_classes - predictions.shape[1]
-            predictions = func.pad(predictions, pad=(0, n_pad), value=0)
+        # if predictions.shape[1] != self.num_classes:
+        #     # if predictions only have one class, we need to pad in order to use weight in loss function
+        #     n_pad = self.num_classes - predictions.shape[1]
+        #     predictions = func.pad(predictions, pad=(0, n_pad), value=0)
 
-        if targets.shape[1] != self.num_classes:
-            # if targets only have one class, we need to pad in order to use weight in loss function
-            n_pad = self.num_classes - targets.shape[1]
-            targets = func.pad(targets, pad=(0, n_pad), value=0)
+        # if targets.shape[1] != self.num_classes:
+        #     # if targets only have one class, we need to pad in order to use weight in loss function
+        #     n_pad = self.num_classes - targets.shape[1]
+        #     targets = func.pad(targets, pad=(0, n_pad), value=0)
 
         # meta_loss = func.binary_cross_entropy_with_logits(logits, targets.float())
-
-        # for binary cross entropy / binary cross entropy with logits
-        targets = targets.float()
 
         # for cross entropy
         # targets = targets.long().argmax(dim=-1)
@@ -174,17 +163,13 @@ class ProtoNet(GraphTrainer):
         # targets have dimensions according to classes which are in the subgraph batch, i.e. if all sub graphs have the
         # same label, targets has 2nd dimension = 1
 
-        loss = self.loss_module(predictions, targets)
-
-        # only for binary cross entropy / binary cross entropy with logits
-        targets = targets.argmax(dim=-1)
+        loss = self.loss_module(predictions, targets.float())
 
         if mode == 'train' or mode == 'val':
             self.log_on_epoch(f"{mode}/loss", loss)
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
-        # pred = torch.sigmoid(logits).argmax(dim=-1)
-        pred = predictions.argmax(dim=-1)
+        pred = (predictions.sigmoid() > 0.5).float()
 
         for mode_dict, _ in self.metrics.values():
             # shapes should be: pred (batch_size), targets: (batch_size)
@@ -200,7 +185,7 @@ class ProtoNet(GraphTrainer):
 
 
 @torch.no_grad()
-def test_proto_net(model, dataset, num_classes, data_feats=None, k_shot=4):
+def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=1):
     """
     Use the trained ProtoNet & adapt to test classes. Pick k examples/sub graphs per class from which prototypes are
     determined. Test the metrics on all other sub graphs, i.e. use k sub graphs per class as support set and
@@ -263,26 +248,23 @@ def test_proto_net(model, dataset, num_classes, data_feats=None, k_shot=4):
         k_node_feats, k_targets = get_as_set(k_idx, k_shot, node_features, node_targets, start_indices_per_class)
         prototypes, proto_classes = model.calculate_prototypes(k_node_feats, k_targets)
 
-        batch_f1_target = tm.F1(num_classes=num_classes, average='none', multiclass=True)
-        batch_f1_macro = tm.F1(num_classes=num_classes, average='macro', multiclass=True)
+        batch_f1_target = tm.F1(num_classes=num_classes, average='none')
+        batch_f1_macro = tm.F1(num_classes=num_classes, average='macro')
 
         for e_idx in range(0, node_features.shape[0], k_shot):
             if k_idx == e_idx:  # Do not evaluate on the support set examples
                 continue
 
             e_node_feats, e_targets = get_as_set(e_idx, k_shot, node_features, node_targets, start_indices_per_class)
-            logits, targets = model.classify_features(prototypes, proto_classes, e_node_feats, e_targets)
+            logits, targets = model.classify_features(prototypes, e_node_feats, e_targets)
 
-            predictions = torch.sigmoid(logits).argmax(dim=-1)
-            targets = targets.argmax(dim=-1)
+            predictions = (logits.sigmoid() > 0.5).float()
 
             batch_f1_target.update(predictions, targets)
             batch_f1_macro.update(predictions, targets)
 
-        f1_target_values = batch_f1_target.compute()
-
         # F1 values can be nan, if e.g. proto_classes contains only one of the 2 classes
-        f1_fake_value = f1_target_values.item()
+        f1_fake_value = batch_f1_target.compute().item()
         if not np.isnan(f1_fake_value):
             f1_fake.append(f1_fake_value)
 

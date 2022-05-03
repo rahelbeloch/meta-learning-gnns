@@ -174,7 +174,7 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
                                                                                         test_val_loader)
 
     elif model_name == 'prototypical':
-        (test_f1_fake, _), (test_f1_macro, _), test_elapsed, _ = test_proto_net(model, eval_graph, 1, k_shot=k_shot)
+        (test_f1_fake, _), (test_f1_macro, _), test_elapsed, _ = test_proto_net(model, eval_graph, k_shot=k_shot)
     elif model_name == 'gmeta':
         (test_f1_fake, _), (test_f1_macro, _), test_elapsed = test_protomaml(model, test_loader)
     else:
