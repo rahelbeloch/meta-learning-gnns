@@ -87,7 +87,7 @@ class ProtoNet(GraphTrainer):
         # noinspection PyTypeChecker
         target_class = 1
         prototype = features[torch.where(targets == target_class)[0]].mean(dim=0)
-
+        # prototype should be 2 x 1
         return prototype, torch.tensor([target_class])
 
     @staticmethod

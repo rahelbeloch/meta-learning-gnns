@@ -154,7 +154,7 @@ def run_model(local_model, output_weight, output_bias, graphs, targets, mode, lo
 
     x, edge_index, cl_mask = get_subgraph_batch(graphs)
     logits = local_model(x, edge_index, mode).squeeze()[cl_mask]
-
+    # output_weight: 2 x 2, output_bias: 1 x 2, logits: 40 x 2
     logits = func.linear(logits, output_weight, output_bias)
     loss = loss_module(logits, targets.float()) if loss_module is not None else None
 

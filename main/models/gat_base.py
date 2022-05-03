@@ -34,6 +34,8 @@ class GatBase(GraphTrainer):
         print(f"Using positive weight: {pos_weight}")
         self.loss_module = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
+        self.validation_loss = nn.BCEWithLogitsLoss()
+
     def configure_optimizers(self):
         train_optimizer, train_scheduler = self.get_optimizer()
         return [train_optimizer], [train_scheduler]
