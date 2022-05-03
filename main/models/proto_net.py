@@ -28,7 +28,7 @@ class ProtoNet(GraphTrainer):
         # the output dimension for the prototypical network is not num classes, but the prototypes dimension!
         model_params['output_dim'] = model_params['proto_dim']
 
-        self.num_classes = model_params["class_weight"].shape[0]
+        # self.num_classes = model_params["class_weight"].shape[0]
 
         # flipping the weights
         # pos_weight = 1 // model_params["class_weight"][1]
@@ -89,13 +89,13 @@ class ProtoNet(GraphTrainer):
         target_class = 1
 
         prototype = features[torch.where(targets == target_class)[0]].mean(dim=0)
-        classes = torch.tensor(target_class)
+        # classes = torch.tensor(target_class)
 
         # prototype should be 1 x 1 for binary classification
         prototype = prototype.view(-1, 1) if len(prototype.shape) != 2 else prototype
-        classes = classes.view(-1, 1) if len(classes.shape) != 2 else classes
+        # classes = classes.view(-1, 1) if len(classes.shape) != 2 else classes
 
-        return prototype, classes.to(DEVICE)
+        return prototype #,classes.to(DEVICE)
 
     @staticmethod
     def classify_features(prototypes, feats, targets):
@@ -117,10 +117,7 @@ class ProtoNet(GraphTrainer):
         # for BCE with logits loss: don't use negative dist
         logits = dist
 
-        # for metrics
-        predictions = ((-dist).sigmoid() > 0.5).long()
-
-        return predictions, logits, labels.view(-1, 1)
+        return logits, targets.view(-1, 1)
 
     def calculate_loss(self, batch, mode):
         """
@@ -143,7 +140,7 @@ class ProtoNet(GraphTrainer):
             "Nr of features returned does not equal nr. of classification nodes!"
 
         # support logits: episode size x 2, support targets: episode size x 1
-        prototypes, classes = ProtoNet.calculate_prototypes(support_logits, support_targets)
+        prototypes = ProtoNet.calculate_prototypes(support_logits, support_targets)
 
         x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
         query_logits = self.model(x, edge_index, mode)[cl_mask]
@@ -151,8 +148,8 @@ class ProtoNet(GraphTrainer):
         assert query_logits.shape[0] == query_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
 
-        predictions, logits,targets = ProtoNet.classify_features(prototypes, query_logits, query_targets)
-        # predictions, logits and targets: batch size x 1
+        logits, targets = ProtoNet.classify_features(prototypes, query_logits, query_targets)
+        # logits and targets: batch size x 1
 
         # if predictions.shape[1] != self.num_classes:
         #     # if predictions only have one class, we need to pad in order to use weight in loss function
@@ -172,17 +169,17 @@ class ProtoNet(GraphTrainer):
         # targets have dimensions according to classes which are in the subgraph batch, i.e. if all sub graphs have the
         # same label, targets has 2nd dimension = 1
 
-        loss = self.loss_module(predictions, targets.float())
+        loss = self.loss_module(logits, targets.float())
 
         if mode == 'train' or mode == 'val':
             self.log_on_epoch(f"{mode}/loss", loss)
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
-        pred = (predictions.sigmoid() > 0.5).float()
+        pred = (logits.sigmoid() > 0.5).float()
 
         for mode_dict, _ in self.metrics.values():
             # shapes should be: pred (batch_size), targets: (batch_size)
-            mode_dict[mode].update(predictions, targets)
+            mode_dict[mode].update(pred, targets)
 
         return loss
 
@@ -255,7 +252,7 @@ def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=1):
     for k_idx in tqdm(range(0, node_features.shape[0], k_shot), "Evaluating prototype classification", leave=False):
         # Select support set (k examples per class) and calculate prototypes
         k_node_feats, k_targets = get_as_set(k_idx, k_shot, node_features, node_targets, start_indices_per_class)
-        prototypes, proto_classes = model.calculate_prototypes(k_node_feats, k_targets)
+        prototypes = model.calculate_prototypes(k_node_feats, k_targets)
 
         batch_f1_target = tm.F1(num_classes=num_classes, average='none')
         batch_f1_macro = tm.F1(num_classes=num_classes, average='macro')

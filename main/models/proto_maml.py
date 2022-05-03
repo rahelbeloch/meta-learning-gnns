@@ -47,7 +47,7 @@ class ProtoMAML(GraphTrainer):
         # Determine prototype initialization
         support_feats = self.model(x, edge_index, mode).squeeze()[cl_mask]
 
-        prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
+        prototypes = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
         # Copy model for inner-loop model and optimizer
         local_model = deepcopy(self.model)
@@ -84,7 +84,7 @@ class ProtoMAML(GraphTrainer):
         output_weight = (output_weight - init_weight).detach() + init_weight
         output_bias = (output_bias - init_bias).detach() + init_bias
 
-        return local_model, output_weight, output_bias, classes
+        return local_model, output_weight, output_bias
 
     def outer_loop(self, batch, mode="train"):
         losses = []
@@ -99,8 +99,7 @@ class ProtoMAML(GraphTrainer):
             support_targets, query_targets = split_list(targets)
 
             # Perform inner loop adaptation
-            local_model, output_weight, output_bias, classes = self.adapt_few_shot(support_graphs, support_targets,
-                                                                                   mode)
+            local_model, output_weight, output_bias = self.adapt_few_shot(support_graphs, support_targets,  mode)
 
             # Determine loss of query set
             loss, logits = run_model(local_model, output_weight, output_bias, query_graphs, query_targets, mode,
@@ -190,7 +189,7 @@ def test_protomaml(model, test_loader, num_classes=1):
         support_targets = support_targets.to(DEVICE)
 
         # Finetune new model on support set
-        local_model, output_weight, output_bias, classes = model.adapt_few_shot(support_graphs, support_targets, mode)
+        local_model, output_weight, output_bias = model.adapt_few_shot(support_graphs, support_targets, mode)
 
         f1_target = F1(num_classes=num_classes, average='none').to(DEVICE)
         f1_macro = F1(num_classes=num_classes, average='macro').to(DEVICE)
