@@ -183,7 +183,7 @@ def test_protomaml(model, test_loader, num_classes=1):
 
     f1_macros, f1_fakes, f1_reals = [], [], []
 
-    for support_batch_idx, batch in tqdm(enumerate(test_loader), "\nPerforming few-shot fine tuning in testing"):
+    for support_batch_idx, batch in tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing"):
         support_graphs, _, support_targets, _ = batch
 
         # graphs are automatically put to device in adapt few shot
