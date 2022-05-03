@@ -83,7 +83,7 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         'feat_reduce_dim': feat_reduce_dim,
         'input_dim': train_graph.size[1],
         'output_dim': len(train_graph.labels),
-        'class_weights': train_graph.class_ratios,
+        'class_weight': train_graph.class_ratios,
         'gat_dropout': gat_dropout,
         'lin_dropout': lin_dropout,
         'attn_dropout': attn_dropout,
