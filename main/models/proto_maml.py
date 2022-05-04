@@ -4,6 +4,8 @@ from statistics import mean, stdev
 
 import torch.nn.functional as func
 from torch import optim
+from torch.optim import AdamW, SGD
+from torch.optim.lr_scheduler import StepLR, MultiStepLR
 from torchmetrics import F1
 from tqdm.auto import tqdm
 
@@ -29,15 +31,36 @@ class ProtoMAML(GraphTrainer):
         self.save_hyperparameters()
 
         self.n_inner_updates = model_params['n_inner_updates']
+        self.lr_output = self.hparams.optimizer_hparams['lr_output']
 
         # no class weighting for the meta learner
         self.loss_module = torch.nn.BCEWithLogitsLoss()
 
         self.model = GatNet(model_params)
 
+        self.automatic_optimization = False
+
     def configure_optimizers(self):
-        optimizer = optim.AdamW(self.parameters(), lr=self.hparams.optimizer_hparams['lr'])
-        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[140, 180], gamma=0.1)
+        opt_params = self.hparams.optimizer_hparams
+
+        lr = opt_params['lr']
+        weight_decay = opt_params['weight_decay']
+
+        if opt_params['optimizer'] == 'Adam':
+            optimizer = AdamW(self.model.parameters(), lr=lr, weight_decay=weight_decay)
+        elif opt_params['optimizer'] == 'SGD':
+            optimizer = SGD(self.model.parameters(), lr=lr, momentum=opt_params['momentum'], weight_decay=weight_decay)
+        else:
+            raise ValueError("No optimizer name provided!")
+
+        scheduler = None
+        if opt_params['scheduler'] == 'step':
+            scheduler = StepLR(optimizer, step_size=opt_params['lr_decay_epochs'], gamma=opt_params['lr_decay_factor'])
+        elif opt_params['scheduler'] == 'multi_step':
+            scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 30, 40, 55],
+                                    gamma=opt_params['lr_decay_factor'])
+            # scheduler = MultiStepLR(optimizer, milestones=[140, 180], gamma=0.1)
+
         return [optimizer], [scheduler]
 
     def adapt_few_shot(self, support_graphs, support_targets, mode):
@@ -45,13 +68,13 @@ class ProtoMAML(GraphTrainer):
         x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
 
         # Determine prototype initialization
-        support_feats = self.model(x, edge_index, mode).squeeze()[cl_mask]
+        support_feats = self.model(x, edge_index, mode)[cl_mask]
 
         prototypes = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
         # Copy model for inner-loop model and optimizer
         local_model = deepcopy(self.model)
-        local_model.train()
+        local_model.train()  # local_model.classifier.out_features
         local_optim = optim.SGD(local_model.parameters(), lr=self.hparams.optimizer_hparams['lr_inner'])
         local_optim.zero_grad()
 
@@ -72,8 +95,8 @@ class ProtoMAML(GraphTrainer):
             local_optim.step()
 
             # Update output layer via SGD
-            output_weight.data -= self.hparams.optimizer_hparams['lr_output'] * output_weight.grad
-            output_bias.data -= self.hparams.optimizer_hparams['lr_output'] * output_bias.grad
+            output_weight.data -= self.lr_output * output_weight.grad
+            output_bias.data -= self.lr_output * output_bias.grad
 
             # Reset gradients
             local_optim.zero_grad()
@@ -86,7 +109,7 @@ class ProtoMAML(GraphTrainer):
 
         return local_model, output_weight, output_bias
 
-    def outer_loop(self, batch, mode="train"):
+    def outer_loop(self, batch, mode):
         losses = []
 
         self.model.zero_grad()
@@ -99,7 +122,7 @@ class ProtoMAML(GraphTrainer):
             support_targets, query_targets = split_list(targets)
 
             # Perform inner loop adaptation
-            local_model, output_weight, output_bias = self.adapt_few_shot(support_graphs, support_targets,  mode)
+            local_model, output_weight, output_bias = self.adapt_few_shot(support_graphs, support_targets, mode)
 
             # Determine loss of query set
             loss, logits = run_model(local_model, output_weight, output_bias, query_graphs, query_targets, mode,
@@ -111,16 +134,16 @@ class ProtoMAML(GraphTrainer):
 
             # Calculate gradients for query set loss
             if mode == "train":
-                loss.backward()
+                self.manual_backward(loss)
+                # loss.backward()
 
-                count = 0
                 for i, (p_global, p_local) in enumerate(zip(self.model.parameters(), local_model.parameters())):
-                    if p_global.grad is None or p_local.grad is None:
-                        # print(f"Grad none at position: {i}")
-                        count += 1
-                    else:
-                        # First-order approx. -> add gradients of fine-tuned and base model
-                        p_global.grad += p_local.grad
+                    if p_global.requires_grad is False:
+                        # Params with names attention_1.linear.weight, attention_2.linear.weight, ... do not require grad
+                        # print(f"Param at position {i} does not require grad.")
+                        continue
+                    # First-order approx. -> add gradients of fine-tuned and base model
+                    p_global.grad += p_local.grad
 
             losses.append(loss.detach())
 
@@ -154,13 +177,23 @@ def run_model(local_model, output_weight, output_bias, graphs, targets, mode, lo
     x, edge_index, cl_mask = get_subgraph_batch(graphs)
     logits = local_model(x, edge_index, mode)[cl_mask]
 
-    # multi class
+    # gat base multi class
     # output_weight: 2 x 2, output_bias: 1 x 2, logits: 40 x 2
-
-    # binary class
+    # with proto dims 64: logits: 40 x 64,
+    # gat base binary class
     # output_weight: 1 x 1, output_bias: 1 x 1, logits: 40 x 1
 
-    logits = func.linear(logits, output_weight, output_bias)
+    # Expected
+    # logits shape 20 x 64
+    # output_weight shape 1 x 64
+    # output_bias shape 1
+
+    # Actual without transpose
+    # logits shape 20 x 64
+    # output_weight shape 64 x 1
+    # output_bias shape 1
+
+    logits = func.linear(logits, output_weight.T, output_bias)
 
     targets = targets.view(-1, 1) if not len(targets.shape) == 2 else targets
     loss = loss_module(logits, targets.float()) if loss_module is not None else None

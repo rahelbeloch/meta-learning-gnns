@@ -36,7 +36,7 @@ from samplers.batch_sampler import FewShotSampler
 
 class FewShotMamlSampler(FewShotSampler):
 
-    def __init__(self, dataset_targets, max_n_query, mode, n_way, k_shot, batch_size=3):
+    def __init__(self, dataset_targets, max_n_query, mode, n_way, k_shot, batch_size=None):
         """
         Inputs:
             dataset_targets - PyTorch tensor of the labels of the data elements.
@@ -45,7 +45,10 @@ class FewShotMamlSampler(FewShotSampler):
             k_shot - Number of examples to sample per class in the batch.
         """
         super().__init__(dataset_targets, max_n_query, mode, n_way, k_shot)
-        self.task_batch_size = batch_size
+
+        # for training, we want to pass the whole data as 1 batch
+        self.task_batch_size = batch_size if batch_size is not None else self.num_batches
+
         self.local_batch_size = self.batch_size * 2  # to account for support and query
 
     def __iter__(self):

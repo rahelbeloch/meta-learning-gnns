@@ -146,7 +146,9 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
     elif model_name == 'prototypical' or (model_name == 'gat' and mode != 'train'):
         batch_sampler = FewShotSampler(targets, max_n_query, mode, n_classes, k_shot)
     elif model_name == 'gmeta':
-        batch_size = batch_size if mode == 'train' else 2
+        # batch_size = batch_size if mode == 'train' else 2
+        batch_size = None if mode == 'train' else 2
+
         batch_sampler = FewShotMamlSampler(targets, max_n_query, mode, n_classes, k_shot, batch_size)
     else:
         raise ValueError(f"Model with name '{model_name}' is not supported.")

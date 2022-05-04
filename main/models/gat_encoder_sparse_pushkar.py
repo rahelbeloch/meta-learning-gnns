@@ -16,8 +16,7 @@ class GatNet(torch.nn.Module):
 
         self.in_dim = model_params["input_dim"]
 
-        # with cross entropy, we just use one output dimension
-        self.output_dim = 1
+        self.output_dim = model_params["output_dim"]
 
         self.hid_dim = model_params["hid_dim"]
         self.feat_reduce_dim = model_params["feat_reduce_dim"]

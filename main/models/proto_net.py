@@ -25,11 +25,6 @@ class ProtoNet(GraphTrainer):
         super().__init__(validation_sets=['val'])
         self.save_hyperparameters()
 
-        # the output dimension for the prototypical network is not num classes, but the prototypes dimension!
-        model_params['output_dim'] = model_params['proto_dim']
-
-        # self.num_classes = model_params["class_weight"].shape[0]
-
         # flipping the weights
         # pos_weight = 1 // model_params["class_weight"][1]
         # print(f"Using positive weight: {pos_weight}")
@@ -94,7 +89,7 @@ class ProtoNet(GraphTrainer):
         # prototype should be 1 x 1 for binary classification
         prototype = prototype.view(-1, 1) if len(prototype.shape) != 2 else prototype
         # classes = classes.view(-1, 1) if len(classes.shape) != 2 else classes
-
+        # returns just one prototype, namely for the target class
         return prototype #,classes.to(DEVICE)
 
     @staticmethod

@@ -41,8 +41,6 @@ class GatBase(GraphTrainer):
         # --> Training should not be affected by validation
         self.validation_model = GatNet(model_params)
 
-        # self.val_class_weight = torch.flip(model_params["class_weights"]['val'], dims=[0]).to(DEVICE)
-
         self.automatic_optimization = False
 
     def configure_optimizers(self):
@@ -89,6 +87,9 @@ class GatBase(GraphTrainer):
         x, edge_index, cl_mask = get_subgraph_batch(sub_graphs)
 
         logits = self.model(x, edge_index, mode)[cl_mask].squeeze()
+
+        # for param in self.model.named_parameters():
+        #     print(f"Param with name {param[0]} requires grad: {param[1].requires_grad}")
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
         predictions = (logits.sigmoid() > 0.5).float()

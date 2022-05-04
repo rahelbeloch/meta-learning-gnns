@@ -328,7 +328,13 @@ class DataPreprocessor(GraphIO):
             duplicates_file = self.data_tsv_path('duplicates_info.json')
             save_json_file(duplicates, duplicates_file, converter=self.np_converter)
 
-        print(f"\nValid documents used: {len(data[0])}")
+        print(f"\nValid documents used: {len(data[0])}\n")
+
+        counts = np.bincount(data[1])
+        percentage = counts / counts.sum()
+
+        for i in range(counts.shape[0]):
+            print(f"Portion of label '{self.labels[i]}': {counts[i]} ({round(percentage[i], 2)})")
 
         return data
 

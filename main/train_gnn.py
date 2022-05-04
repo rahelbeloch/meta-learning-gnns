@@ -82,7 +82,6 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         'hid_dim': hidden_dim,
         'feat_reduce_dim': feat_reduce_dim,
         'input_dim': train_graph.size[1],
-        'output_dim': len(train_graph.labels),
         'class_weight': train_graph.class_ratios,
         'gat_dropout': gat_dropout,
         'lin_dropout': lin_dropout,
@@ -92,16 +91,19 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
     }
 
     if model_name == 'gat':
+        model_params.update(output_dim=1)   # with binary classification, we just use one output dimension
         optimizer_hparams.update(lr_val=lr_val, lr_decay_epochs_val=lr_decay_epochs_val)
 
         model = GatBase(model_params, optimizer_hparams, train_graph.label_names, train_loader.b_size,
                         val_batches=len(train_val_loader))
     elif model_name == 'prototypical':
-        model_params.update(proto_dim=proto_dim)
+        # output dimension for prototypical networks is not num classes, but the prototypes dimension!
+        model_params.update(output_dim=proto_dim)
 
         model = ProtoNet(model_params, optimizer_hparams, train_graph.label_names, train_loader.b_size)
     elif model_name == 'gmeta':
-        model_params.update(n_inner_updates=n_inner_updates)
+        # output dimension for prototypical networks is not num classes, but the prototypes dimension!
+        model_params.update(n_inner_updates=n_inner_updates, output_dim=proto_dim)
         optimizer_hparams.update(lr_output=lr_output, lr_inner=lr_inner)
 
         model = ProtoMAML(model_params, optimizer_hparams, train_graph.label_names,
