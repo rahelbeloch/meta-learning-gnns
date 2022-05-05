@@ -14,7 +14,6 @@ class FewShotSampler(Sampler):
         """
         Support sets should contain n_way * k_shot examples. So, e.g. 2 * 5 = 10 sub graphs.
         Query set is of same size ...
-
         Inputs:
             targets - Tensor containing all targets of the graph.
             n_way - Number of classes to sample per batch.
