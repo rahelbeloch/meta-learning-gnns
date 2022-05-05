@@ -29,11 +29,11 @@ if torch.cuda.is_available():
 
 
 def train(balance_data, progress_bar, model_name, seed, epochs, patience, patience_metric, h_size, top_users,
-          top_users_excluded, k_shot, lr, lr_val, lr_cl, lr_inner, lr_output, hidden_dim, feat_reduce_dim,
-          proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size, feature_type, vocab_size,
-          n_updates, n_updates_test, num_workers, gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup,
-          max_iters, gat_heads, batch_size, lr_decay_epochs, lr_decay_epochs_val, lr_decay_factor, scheduler,
-          weight_decay, momentum, optimizer, suffix):
+          top_users_excluded, k_shot, lr, lr_val, lr_inner, lr_output, hidden_dim, feat_reduce_dim,
+          proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size, feature_type, vocab_size, n_updates,
+          n_updates_test, num_workers, gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup, max_iters,
+          gat_heads, batch_size, lr_decay_epochs, lr_decay_epochs_val, lr_decay_factor, scheduler, weight_decay,
+          momentum, optimizer, suffix):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     eval_split_size = (0.0, 0.25, 0.75) if data_eval != data_train else None
@@ -57,8 +57,8 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
           f' data_train: {data_train} (splits: {str(train_split_size)})\n data_eval: {data_eval} '
           f'(splits: {str(eval_split_size)})\n hop_size: {h_size}\n '
           f'top_users: {top_users}K\n top_users_excluded: {top_users_excluded}%\n num_workers: {num_workers}\n '
-          f'vocab_size: {vocab_size}\n feature_type: {feature_type}\n\n lr: {lr}\n lr_cl: {lr_cl}\n '
-          f'lr_output: {lr_output}\n inner_lr: {lr_inner}\n n_updates: {n_updates}\n proto_dim: {proto_dim}\n')
+          f'vocab_size: {vocab_size}\n feature_type: {feature_type}\n\n lr: {lr}\n lr_val: {lr_val}\n '
+          f'lr_output: {lr_output}\n inner_lr: {lr_inner}\n n_updates: {n_inner_updates}\n proto_dim: {proto_dim}\n')
 
     # reproducible results
     pl.seed_everything(seed)
@@ -207,8 +207,8 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
           f'test f1 fake: {round(test_f1_fake, 3)} ({test_f1_fake})\n '
           f'validation f1 fake: {round(val_f1_fake, 3)} ({val_f1_fake})\n \nepochs: {trainer.current_epoch + 1}\n')
 
-    print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}\n{round_format(test_f1_fake)}'
-          f'\n{round_format(val_f1_fake)}\n')
+    print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}\n{round_format(test_f1_fake)}\n'
+          f'{round_format(val_f1_fake)}\n')
 
 
 def get_epoch_num(model_path):
@@ -317,9 +317,6 @@ if __name__ == "__main__":
     # OPTIMIZER
     parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
     parser.add_argument('--lr-val', dest='lr_val', type=float, default=0.0001, help="Learning rate.")
-
-    parser.add_argument('--lr-cl', dest='lr_cl', type=float, default=0.001,
-                        help="Classifier learning rate for baseline.")
     parser.add_argument("--warmup", dest='warmup', type=int, default=500,
                         help="Number of steps for which we do learning rate warmup.")
     parser.add_argument("--max-iters", dest='max_iters', type=int, default=-1,
@@ -327,6 +324,9 @@ if __name__ == "__main__":
                              'If not given then it is computed from the given epochs.')
 
     parser.add_argument('--lr_decay_epochs', type=float, default=1,
+                        help='No. of epochs after which learning rate should be decreased')
+
+    parser.add_argument('--lr_decay_epochs_val', type=float, default=2,
                         help='No. of epochs after which learning rate should be decreased')
 
     parser.add_argument('--lr_decay_epochs_val', type=float, default=2,
@@ -379,7 +379,7 @@ if __name__ == "__main__":
     parser.add_argument('--feature-type', dest='feature_type', type=str, default='one-hot',
                         help="Type of features used.")
     parser.add_argument('--vocab-size', dest='vocab_size', type=int, default=10000, help="Size of the vocabulary.")
-    parser.add_argument('--batch-size', dest='batch_size', type=int, default=344, help="Size of batches.")
+    parser.add_argument('--batch-size', dest='batch_size', type=int, default=None, help="Size of batches.")
     parser.add_argument('--data-dir', dest='data_dir', default='data',
                         help='Select the dataset you want to use.')
 
@@ -422,7 +422,6 @@ if __name__ == "__main__":
         k_shot=params["k_shot"],
         lr=params["lr"],
         lr_val=params["lr_val"],
-        lr_cl=params["lr_cl"],
         lr_inner=params["lr_inner"],
         lr_output=params["lr_output"],
         hidden_dim=params["hidden_dim"],

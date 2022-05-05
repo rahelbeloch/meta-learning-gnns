@@ -336,6 +336,12 @@ class DataPreprocessor(GraphIO):
         for i in range(counts.shape[0]):
             print(f"Portion of label '{self.labels[i]}': {counts[i]} ({round(percentage[i], 2)})")
 
+        counts = np.bincount(data[1])
+        percentage = counts / counts.sum()
+
+        for i in range(counts.shape[0]):
+            print(f"Portion of label '{self.labels[i]}': {counts[i]} ({round(percentage[i], 2)})")
+
         return data
 
     def create_document_splits(self, data, splits=1):

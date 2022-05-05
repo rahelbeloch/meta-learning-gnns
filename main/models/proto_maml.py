@@ -181,7 +181,7 @@ def test_protomaml(model, test_loader, num_classes=1):
     # Iterate through the full dataset in two manners:
     # First, to select the k-shot batch. Second, to evaluate the model on all other batches.
 
-    f1_macros, f1_fakes, f1_reals = [], [], []
+    f1_fakes = []
 
     for support_batch_idx, batch in tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing"):
         support_graphs, _, support_targets, _ = batch
@@ -193,7 +193,6 @@ def test_protomaml(model, test_loader, num_classes=1):
         local_model, output_weight, output_bias, classes = model.adapt_few_shot(support_graphs, support_targets, mode)
 
         f1_target = F1(num_classes=num_classes, average='none').to(DEVICE)
-        f1_macro = F1(num_classes=num_classes, average='macro').to(DEVICE)
 
         with torch.no_grad():  # No gradients for query set needed
             local_model.eval()
@@ -213,12 +212,10 @@ def test_protomaml(model, test_loader, num_classes=1):
 
                 pred = (logits.sigmoid() > 0.5).float()
                 f1_target.update(pred, targets)
-                f1_macro.update(pred, targets)
 
-            f1_macros.append(f1_macro.compute().item())
             f1_fakes.append(f1_target.compute().item())
 
     test_end = time.time()
     test_elapsed = test_end - test_start
 
-    return (mean(f1_fakes), stdev(f1_fakes)), (mean(f1_macros), stdev(f1_macros)), test_elapsed
+    return (mean(f1_fakes), stdev(f1_fakes)), test_elapsed

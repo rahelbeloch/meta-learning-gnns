@@ -116,23 +116,6 @@ def get_num_workers(sampler, num_workers):
     return 0
 
 
-# def get_graph_sampler(sampler_type, data):
-#     clusters = 5
-#     batch_size = 344
-#     shuffle = False
-#
-#     if sampler_type == 'cluster':
-#         cluster_data = ClusterData(data, num_parts=clusters, recursive=False)
-#         return ClusterLoader(cluster_data, batch_size=batch_size, shuffle=shuffle, num_workers=0)
-#     elif sampler_type == 'random_walk':
-#         return GraphSAINTRandomWalkSampler(data, batch_size=6000, walk_length=2, num_steps=5, sample_coverage=100,
-#                                            num_workers=0)
-#     elif sampler_type == 'node':
-#         return GraphSAINTNodeSampler(data, batch_size=6000, num_steps=5, sample_coverage=100, num_workers=0)
-#     elif sampler_type == 'edge':
-#         return GraphSAINTEdgeSampler(data, batch_size=6000, num_steps=5, sample_coverage=100, num_workers=0)
-
-
 def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_queries, batch_size):
     n_classes = len(graph_data.labels)
 
@@ -146,8 +129,7 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
     elif model_name == 'prototypical' or (model_name == 'gat' and mode != 'train'):
         batch_sampler = FewShotSampler(targets, max_n_query, mode, n_classes, k_shot)
     elif model_name in ['gmeta', 'proto-maml', 'maml']:
-        # batch_size = batch_size if mode == 'train' else 2
-        batch_size = batch_size if mode == 'train' else 2
+        batch_size = None if mode == 'train' else 2
 
         batch_sampler = FewShotMamlSampler(targets, max_n_query, mode, n_classes, k_shot, batch_size)
     else:
