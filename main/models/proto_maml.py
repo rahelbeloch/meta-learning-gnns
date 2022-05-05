@@ -7,25 +7,51 @@ from torch import optim
 from torchmetrics import F1
 from tqdm.auto import tqdm
 
-from models.meta_learner import MetaLearner
+from models.gat_encoder_sparse_pushkar import GatNet
+from models.graph_trainer import GraphTrainer
 from models.proto_net import ProtoNet
 from models.train_utils import *
 from samplers.batch_sampler import split_list
 
 
-# noinspection PyAbstractClass
-class ProtoMAML(MetaLearner):
+class ProtoMAML(GraphTrainer):
 
-    def adapt_few_shot(self, x, edge_index, cl_mask, support_targets, mode):
+    # noinspection PyUnusedLocal
+    def __init__(self, model_params, optimizer_hparams, label_names, batch_size):
+        """
+        Inputs
+            lr - Learning rate of the outer loop Adam optimizer
+            lr_inner - Learning rate of the inner loop SGD optimizer
+            lr_output - Learning rate for the output layer in the inner loop
+            n_inner_updates - Number of inner loop updates to perform
+        """
+        super().__init__(validation_sets=['val'])
+        self.save_hyperparameters()
+
+        self.n_inner_updates = model_params['n_inner_updates']
+
+        # no class weighting for the meta learner
+        self.loss_module = torch.nn.BCEWithLogitsLoss()
+
+        self.model = GatNet(model_params)
+
+    def configure_optimizers(self):
+        optimizer = optim.AdamW(self.parameters(), lr=self.hparams.optimizer_hparams['lr'])
+        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[140, 180], gamma=0.1)
+        return [optimizer], [scheduler]
+
+    def adapt_few_shot(self, support_graphs, support_targets, mode):
+
+        x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
 
         # Determine prototype initialization
-        support_feats = self.model(x, edge_index, mode)[cl_mask]
+        support_feats = self.model(x, edge_index, mode).squeeze()[cl_mask]
 
-        prototypes = ProtoNet.calculate_prototypes(support_feats, support_targets)
+        prototypes, classes = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
         # Copy model for inner-loop model and optimizer
         local_model = deepcopy(self.model)
-        local_model.train()  # local_model.classifier.out_features
+        local_model.train()
         local_optim = optim.SGD(local_model.parameters(), lr=self.hparams.optimizer_hparams['lr_inner'])
         local_optim.zero_grad()
 
@@ -38,16 +64,16 @@ class ProtoMAML(MetaLearner):
         # Optimize inner loop model on support set
         for _ in range(self.n_inner_updates):
             # Determine loss on the support set
-            loss, _ = run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask, support_targets, mode,
-                                self.loss_module)
+            loss, logits = run_model(local_model, output_weight, output_bias, support_graphs, support_targets, mode,
+                                     self.loss_module)
 
             # Calculate gradients and perform inner loop update
             loss.backward()
             local_optim.step()
 
             # Update output layer via SGD
-            output_weight.data -= self.lr_output * output_weight.grad
-            output_bias.data -= self.lr_output * output_bias.grad
+            output_weight.data -= self.hparams.optimizer_hparams['lr_output'] * output_weight.grad
+            output_bias.data -= self.hparams.optimizer_hparams['lr_output'] * output_bias.grad
 
             # Reset gradients
             local_optim.zero_grad()
@@ -58,9 +84,9 @@ class ProtoMAML(MetaLearner):
         output_weight = (output_weight - init_weight).detach() + init_weight
         output_bias = (output_bias - init_bias).detach() + init_bias
 
-        return local_model, output_weight, output_bias
+        return local_model, output_weight, output_bias, classes
 
-    def outer_loop(self, batch, mode):
+    def outer_loop(self, batch, mode="train"):
         losses = []
 
         self.model.zero_grad()
@@ -72,29 +98,30 @@ class ProtoMAML(MetaLearner):
             support_graphs, query_graphs = split_list(graphs)
             support_targets, query_targets = split_list(targets)
 
-            x_support, edge_index_support, cl_mask_support = get_subgraph_batch(support_graphs)
-            query_x, query_edge_index, query_cl_mask = get_subgraph_batch(query_graphs)
-
             # Perform inner loop adaptation
-            local_model, output_weight, output_bias = self.adapt_few_shot(x_support, edge_index_support,
-                                                                          cl_mask_support, support_targets, mode)
+            local_model, output_weight, output_bias, classes = self.adapt_few_shot(support_graphs, support_targets,
+                                                                                   mode)
 
             # Determine loss of query set
-            loss, query_predictions = run_model(local_model, output_weight, output_bias, query_x, query_edge_index,
-                                                query_cl_mask, query_targets, mode, self.loss_module)
+            loss, logits = run_model(local_model, output_weight, output_bias, query_graphs, query_targets, mode,
+                                     self.loss_module)
 
-            self.update_metrics(mode, query_predictions, query_targets)
+            query_predictions = (logits.sigmoid() > 0.5).float()
+            for mode_dict, _ in self.metrics.values():
+                mode_dict[mode].update(query_predictions, query_targets)
 
             # Calculate gradients for query set loss
             if mode == "train":
-                self.manual_backward(loss)
-                # loss.backward()
+                loss.backward()
 
+                count = 0
                 for i, (p_global, p_local) in enumerate(zip(self.model.parameters(), local_model.parameters())):
-                    if p_global.requires_grad is False:
-                        continue
-                    # First-order approx. -> add gradients of fine-tuned and base model
-                    p_global.grad += p_local.grad
+                    if p_global.grad is None or p_local.grad is None:
+                        # print(f"Grad none at position: {i}")
+                        count += 1
+                    else:
+                        # First-order approx. -> add gradients of fine-tuned and base model
+                        p_global.grad += p_local.grad
 
             losses.append(loss.detach())
 
@@ -107,36 +134,39 @@ class ProtoMAML(MetaLearner):
 
         self.log_on_epoch(f"{mode}/loss", sum(losses) / len(losses))
 
+    def training_step(self, batch, batch_idx):
+        self.outer_loop(batch, mode="train")
 
-def run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask, targets, mode, loss_module=None):
+        # Returning None means skipping the default training optimizer steps by PyTorch Lightning
+        return None
+
+    def validation_step(self, batch, batch_idx):
+        # Validation requires to finetune a model, hence we need to enable gradients
+        torch.set_grad_enabled(True)
+        self.outer_loop(batch, mode="val")
+        torch.set_grad_enabled(False)
+
+
+def run_model(local_model, output_weight, output_bias, graphs, targets, mode, loss_module=None):
     """
     Execute a model with given output layer weights and inputs.
     """
 
+    x, edge_index, cl_mask = get_subgraph_batch(graphs)
     logits = local_model(x, edge_index, mode)[cl_mask]
 
-    # gat base multi class
+    # multi class
     # output_weight: 2 x 2, output_bias: 1 x 2, logits: 40 x 2
-    # with proto dims 64: logits: 40 x 64,
-    # gat base binary class
+
+    # binary class
     # output_weight: 1 x 1, output_bias: 1 x 1, logits: 40 x 1
 
-    # Expected
-    # logits shape 20 x 64
-    # output_weight shape 1 x 64
-    # output_bias shape 1
-
-    # Actual without transpose
-    # logits shape 20 x 64
-    # output_weight shape 64 x 1
-    # output_bias shape 1
-
-    logits = func.linear(logits, output_weight.T, output_bias)
+    logits = func.linear(logits, output_weight, output_bias)
 
     targets = targets.view(-1, 1) if not len(targets.shape) == 2 else targets
     loss = loss_module(logits, targets.float()) if loss_module is not None else None
 
-    return loss, (logits.sigmoid() > 0.5).float()
+    return loss, logits
 
 
 def test_protomaml(model, test_loader, num_classes=1):
@@ -151,7 +181,7 @@ def test_protomaml(model, test_loader, num_classes=1):
     # Iterate through the full dataset in two manners:
     # First, to select the k-shot batch. Second, to evaluate the model on all other batches.
 
-    f1_fakes = []
+    f1_macros, f1_fakes, f1_reals = [], [], []
 
     for support_batch_idx, batch in tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing"):
         support_graphs, _, support_targets, _ = batch
@@ -159,13 +189,11 @@ def test_protomaml(model, test_loader, num_classes=1):
         # graphs are automatically put to device in adapt few shot
         support_targets = support_targets.to(DEVICE)
 
-        x_support, edge_index_support, cl_mask_support = get_subgraph_batch(support_graphs)
-
         # Finetune new model on support set
-        local_model, output_weight, output_bias = model.adapt_few_shot(x_support, edge_index_support, cl_mask_support,
-                                                                       support_targets, mode)
+        local_model, output_weight, output_bias, classes = model.adapt_few_shot(support_graphs, support_targets, mode)
 
         f1_target = F1(num_classes=num_classes, average='none').to(DEVICE)
+        f1_macro = F1(num_classes=num_classes, average='macro').to(DEVICE)
 
         with torch.no_grad():  # No gradients for query set needed
             local_model.eval()
@@ -181,15 +209,16 @@ def test_protomaml(model, test_loader, num_classes=1):
                 graphs = support_graphs + query_graphs
                 targets = torch.cat([support_targets, query_targets]).to(DEVICE)
 
-                x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
+                _, logits = run_model(local_model, output_weight, output_bias, graphs, targets, mode)
 
-                _, pred = run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask, targets, mode)
-
+                pred = (logits.sigmoid() > 0.5).float()
                 f1_target.update(pred, targets)
+                f1_macro.update(pred, targets)
 
+            f1_macros.append(f1_macro.compute().item())
             f1_fakes.append(f1_target.compute().item())
 
     test_end = time.time()
     test_elapsed = test_end - test_start
 
-    return (mean(f1_fakes), stdev(f1_fakes)), test_elapsed
+    return (mean(f1_fakes), stdev(f1_fakes)), (mean(f1_macros), stdev(f1_macros)), test_elapsed
