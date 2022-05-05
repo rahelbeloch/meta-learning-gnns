@@ -4,68 +4,19 @@ from statistics import mean, stdev
 
 import torch.nn.functional as func
 from torch import optim
-from torch.optim import AdamW, SGD
-from torch.optim.lr_scheduler import StepLR, MultiStepLR
 from torchmetrics import F1
 from tqdm.auto import tqdm
 
-from models.gat_encoder_sparse_pushkar import GatNet
-from models.graph_trainer import GraphTrainer
+from models.meta_learner import MetaLearner
 from models.proto_net import ProtoNet
 from models.train_utils import *
 from samplers.batch_sampler import split_list
 
 
-class ProtoMAML(GraphTrainer):
+# noinspection PyAbstractClass
+class ProtoMAML(MetaLearner):
 
-    # noinspection PyUnusedLocal
-    def __init__(self, model_params, optimizer_hparams, label_names, batch_size):
-        """
-        Inputs
-            lr - Learning rate of the outer loop Adam optimizer
-            lr_inner - Learning rate of the inner loop SGD optimizer
-            lr_output - Learning rate for the output layer in the inner loop
-            n_inner_updates - Number of inner loop updates to perform
-        """
-        super().__init__(validation_sets=['val'])
-        self.save_hyperparameters()
-
-        self.n_inner_updates = model_params['n_inner_updates']
-        self.lr_output = self.hparams.optimizer_hparams['lr_output']
-
-        # no class weighting for the meta learner
-        self.loss_module = torch.nn.BCEWithLogitsLoss()
-
-        self.model = GatNet(model_params)
-
-        self.automatic_optimization = False
-
-    def configure_optimizers(self):
-        opt_params = self.hparams.optimizer_hparams
-
-        lr = opt_params['lr']
-        weight_decay = opt_params['weight_decay']
-
-        if opt_params['optimizer'] == 'Adam':
-            optimizer = AdamW(self.model.parameters(), lr=lr, weight_decay=weight_decay)
-        elif opt_params['optimizer'] == 'SGD':
-            optimizer = SGD(self.model.parameters(), lr=lr, momentum=opt_params['momentum'], weight_decay=weight_decay)
-        else:
-            raise ValueError("No optimizer name provided!")
-
-        scheduler = None
-        if opt_params['scheduler'] == 'step':
-            scheduler = StepLR(optimizer, step_size=opt_params['lr_decay_epochs'], gamma=opt_params['lr_decay_factor'])
-        elif opt_params['scheduler'] == 'multi_step':
-            scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 30, 40, 55],
-                                    gamma=opt_params['lr_decay_factor'])
-            # scheduler = MultiStepLR(optimizer, milestones=[140, 180], gamma=0.1)
-
-        return [optimizer], [scheduler]
-
-    def adapt_few_shot(self, support_graphs, support_targets, mode):
-
-        x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
+    def adapt_few_shot(self, x, edge_index, cl_mask, support_targets, mode):
 
         # Determine prototype initialization
         support_feats = self.model(x, edge_index, mode)[cl_mask]
@@ -87,8 +38,8 @@ class ProtoMAML(GraphTrainer):
         # Optimize inner loop model on support set
         for _ in range(self.n_inner_updates):
             # Determine loss on the support set
-            loss, logits = run_model(local_model, output_weight, output_bias, support_graphs, support_targets, mode,
-                                     self.loss_module)
+            loss, _ = run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask, support_targets, mode,
+                                self.loss_module)
 
             # Calculate gradients and perform inner loop update
             loss.backward()
@@ -121,16 +72,18 @@ class ProtoMAML(GraphTrainer):
             support_graphs, query_graphs = split_list(graphs)
             support_targets, query_targets = split_list(targets)
 
+            x_support, edge_index_support, cl_mask_support = get_subgraph_batch(support_graphs)
+            query_x, query_edge_index, query_cl_mask = get_subgraph_batch(query_graphs)
+
             # Perform inner loop adaptation
-            local_model, output_weight, output_bias = self.adapt_few_shot(support_graphs, support_targets, mode)
+            local_model, output_weight, output_bias = self.adapt_few_shot(x_support, edge_index_support,
+                                                                          cl_mask_support, support_targets, mode)
 
             # Determine loss of query set
-            loss, logits = run_model(local_model, output_weight, output_bias, query_graphs, query_targets, mode,
-                                     self.loss_module)
+            loss, query_predictions = run_model(local_model, output_weight, output_bias, query_x, query_edge_index,
+                                                query_cl_mask, query_targets, mode, self.loss_module)
 
-            query_predictions = (logits.sigmoid() > 0.5).float()
-            for mode_dict, _ in self.metrics.values():
-                mode_dict[mode].update(query_predictions, query_targets)
+            self.update_metrics(mode, query_predictions, query_targets)
 
             # Calculate gradients for query set loss
             if mode == "train":
@@ -139,8 +92,6 @@ class ProtoMAML(GraphTrainer):
 
                 for i, (p_global, p_local) in enumerate(zip(self.model.parameters(), local_model.parameters())):
                     if p_global.requires_grad is False:
-                        # Params with names attention_1.linear.weight, attention_2.linear.weight, ... do not require grad
-                        # print(f"Param at position {i} does not require grad.")
                         continue
                     # First-order approx. -> add gradients of fine-tuned and base model
                     p_global.grad += p_local.grad
@@ -156,25 +107,12 @@ class ProtoMAML(GraphTrainer):
 
         self.log_on_epoch(f"{mode}/loss", sum(losses) / len(losses))
 
-    def training_step(self, batch, batch_idx):
-        self.outer_loop(batch, mode="train")
 
-        # Returning None means skipping the default training optimizer steps by PyTorch Lightning
-        return None
-
-    def validation_step(self, batch, batch_idx):
-        # Validation requires to finetune a model, hence we need to enable gradients
-        torch.set_grad_enabled(True)
-        self.outer_loop(batch, mode="val")
-        torch.set_grad_enabled(False)
-
-
-def run_model(local_model, output_weight, output_bias, graphs, targets, mode, loss_module=None):
+def run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask, targets, mode, loss_module=None):
     """
     Execute a model with given output layer weights and inputs.
     """
 
-    x, edge_index, cl_mask = get_subgraph_batch(graphs)
     logits = local_model(x, edge_index, mode)[cl_mask]
 
     # gat base multi class
@@ -198,7 +136,7 @@ def run_model(local_model, output_weight, output_bias, graphs, targets, mode, lo
     targets = targets.view(-1, 1) if not len(targets.shape) == 2 else targets
     loss = loss_module(logits, targets.float()) if loss_module is not None else None
 
-    return loss, logits
+    return loss, (logits.sigmoid() > 0.5).float()
 
 
 def test_protomaml(model, test_loader, num_classes=1):
@@ -213,7 +151,7 @@ def test_protomaml(model, test_loader, num_classes=1):
     # Iterate through the full dataset in two manners:
     # First, to select the k-shot batch. Second, to evaluate the model on all other batches.
 
-    f1_macros, f1_fakes, f1_reals = [], [], []
+    f1_fakes = []
 
     for support_batch_idx, batch in tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing"):
         support_graphs, _, support_targets, _ = batch
@@ -221,11 +159,13 @@ def test_protomaml(model, test_loader, num_classes=1):
         # graphs are automatically put to device in adapt few shot
         support_targets = support_targets.to(DEVICE)
 
+        x_support, edge_index_support, cl_mask_support = get_subgraph_batch(support_graphs)
+
         # Finetune new model on support set
-        local_model, output_weight, output_bias = model.adapt_few_shot(support_graphs, support_targets, mode)
+        local_model, output_weight, output_bias = model.adapt_few_shot(x_support, edge_index_support, cl_mask_support,
+                                                                       support_targets, mode)
 
         f1_target = F1(num_classes=num_classes, average='none').to(DEVICE)
-        f1_macro = F1(num_classes=num_classes, average='macro').to(DEVICE)
 
         with torch.no_grad():  # No gradients for query set needed
             local_model.eval()
@@ -241,16 +181,15 @@ def test_protomaml(model, test_loader, num_classes=1):
                 graphs = support_graphs + query_graphs
                 targets = torch.cat([support_targets, query_targets]).to(DEVICE)
 
-                _, logits = run_model(local_model, output_weight, output_bias, graphs, targets, mode)
+                x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
 
-                pred = (logits.sigmoid() > 0.5).float()
+                _, pred = run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask, targets, mode)
+
                 f1_target.update(pred, targets)
-                f1_macro.update(pred, targets)
 
-            f1_macros.append(f1_macro.compute().item())
             f1_fakes.append(f1_target.compute().item())
 
     test_end = time.time()
     test_elapsed = test_end - test_start
 
-    return (mean(f1_fakes), stdev(f1_fakes)), (mean(f1_macros), stdev(f1_macros)), test_elapsed
+    return (mean(f1_fakes), stdev(f1_fakes)), test_elapsed

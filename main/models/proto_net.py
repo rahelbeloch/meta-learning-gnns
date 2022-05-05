@@ -4,66 +4,15 @@ from statistics import mean, stdev
 import numpy as np
 import torch.nn
 import torchmetrics as tm
-from torch import optim
 from tqdm.auto import tqdm
 
-from models.gat_encoder_sparse_pushkar import GatNet
-from models.graph_trainer import GraphTrainer
+from models.meta_learner import MetaLearner
 from models.train_utils import *
 from samplers.graph_sampler import KHopSamplerSimple
 
 
-class ProtoNet(GraphTrainer):
-
-    # noinspection PyUnusedLocal
-    def __init__(self, model_params, optimizer_hparams, label_names, batch_size):
-        """
-        Inputs
-            proto_dim - Dimensionality of prototype feature space
-            lr - Learning rate of Adam optimizer
-        """
-        super().__init__(validation_sets=['val'])
-        self.save_hyperparameters()
-
-        # flipping the weights
-        # pos_weight = 1 // model_params["class_weight"][1]
-        # print(f"Using positive weight: {pos_weight}")
-        # self.loss_module = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-
-        self.loss_module = torch.nn.BCEWithLogitsLoss()
-
-        self.model = GatNet(model_params)
-
-    def configure_optimizers(self):
-        optimizer = optim.AdamW(self.parameters(), lr=self.hparams.optimizer_hparams['lr'])
-        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[140, 180],
-                                                   gamma=self.hparams.optimizer_hparams['lr_decay_factor'])
-
-        return [optimizer], [scheduler]
-
-    # def configure_optimizers(self):
-    #     opt_params = self.hparams.optimizer_hparams
-    #
-    #     if opt_params['optimizer'] == 'Adam':
-    #         optimizer = AdamW(self.model.parameters(), lr=opt_params['lr'],
-    #                           weight_decay=opt_params['weight_decay'])
-    #     # elif opt_params['optimizer'] == 'RAdam':
-    #     #     self.optimizer = RiemannianAdam(self.model.parameters(), lr=config['lr'],
-    #     #                                     weight_decay=config['weight_decay'])
-    #     elif opt_params['optimizer'] == 'SGD':
-    #         optimizer = SGD(self.model.parameters(), lr=opt_params['lr'], momentum=opt_params['momentum'],
-    #                         weight_decay=opt_params['weight_decay'])
-    #     else:
-    #         raise ValueError("No optimizer name provided!")
-    #
-    #     scheduler = None
-    #     if opt_params['scheduler'] == 'step':
-    #         scheduler = StepLR(optimizer, step_size=opt_params['lr_decay_epochs'], gamma=opt_params['lr_decay_factor'])
-    #     elif opt_params['scheduler'] == 'multi_step':
-    #         scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 30, 40, 55],
-    #                                 gamma=opt_params['lr_decay_factor'])
-    #
-    #     return [optimizer], [] if scheduler is None else [scheduler]
+# noinspection PyAbstractClass
+class ProtoNet(MetaLearner):
 
     @staticmethod
     def calculate_prototypes(features, targets):
@@ -80,17 +29,13 @@ class ProtoNet(GraphTrainer):
         # Only calculate the prototypes for the target/positive class because we do binary classification
 
         # get all node features for this class and average them
-        # noinspection PyTypeChecker
-        target_class = 1
-
-        prototype = features[torch.where(targets == target_class)[0]].mean(dim=0)
-        # classes = torch.tensor(target_class)
+        prototype = features[torch.where(targets == 1)[0]].mean(dim=0)
 
         # prototype should be 1 x 1 for binary classification
-        prototype = prototype.view(-1, 1) if len(prototype.shape) != 2 else prototype
-        # classes = classes.view(-1, 1) if len(classes.shape) != 2 else classes
+        prototype = prototype.unsqueeze(dim=0) if len(prototype.shape) != 2 else prototype
+
         # returns just one prototype, namely for the target class
-        return prototype #,classes.to(DEVICE)
+        return prototype
 
     @staticmethod
     def classify_features(prototypes, feats, targets):
@@ -172,9 +117,7 @@ class ProtoNet(GraphTrainer):
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
         pred = (logits.sigmoid() > 0.5).float()
 
-        for mode_dict, _ in self.metrics.values():
-            # shapes should be: pred (batch_size), targets: (batch_size)
-            mode_dict[mode].update(pred, targets)
+        self.update_metrics(mode, pred, targets)
 
         return loss
 
@@ -250,7 +193,6 @@ def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=1):
         prototypes = model.calculate_prototypes(k_node_feats, k_targets)
 
         batch_f1_target = tm.F1(num_classes=num_classes, average='none')
-        batch_f1_macro = tm.F1(num_classes=num_classes, average='macro')
 
         for e_idx in range(0, node_features.shape[0], k_shot):
             if k_idx == e_idx:  # Do not evaluate on the support set examples
@@ -262,25 +204,18 @@ def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=1):
             predictions = (logits.sigmoid() > 0.5).float()
 
             batch_f1_target.update(predictions, targets)
-            batch_f1_macro.update(predictions, targets)
 
         # F1 values can be nan, if e.g. proto_classes contains only one of the 2 classes
         f1_fake_value = batch_f1_target.compute().item()
         if not np.isnan(f1_fake_value):
             f1_fake.append(f1_fake_value)
 
-        batch_f1_macro_value = batch_f1_macro.compute().item()
-        if not np.isnan(batch_f1_macro_value):
-            f1_macros.append(batch_f1_macro_value)
-
         batch_f1_target.reset()
-        batch_f1_macro.reset()
 
     test_end = time.time()
     test_elapsed = test_end - test_start
 
-    return (mean(f1_fake), stdev(f1_fake)), (mean(f1_macros), stdev(f1_macros)), test_elapsed, \
-           (node_features, node_targets)
+    return (mean(f1_fake), stdev(f1_fake)), test_elapsed, (node_features, node_targets)
 
 
 def get_as_set(idx, k_shot, all_node_features, all_node_targets, start_indices_per_class):

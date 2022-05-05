@@ -12,12 +12,16 @@ from pytorch_lightning.loggers import WandbLogger
 import wandb
 from data_prep.config import TSV_DIR, COMPLETE_DIR
 from data_prep.data_utils import get_data, SUPPORTED_DATASETS
-from models.gat_base import GatBase
+from models.gat_base import GatBase, evaluate
+from models.gmeta import GMeta, test_gmeta
+from models.maml import Maml, test_maml
 from models.proto_maml import ProtoMAML, test_protomaml
 from models.proto_net import ProtoNet, test_proto_net
 from samplers.batch_sampler import SHOTS
 
-SUPPORTED_MODELS = ['gat', 'prototypical', 'gmeta']
+META_MODELS = ['maml', 'proto-maml', 'gmeta']
+SUPPORTED_MODELS = ['gat', 'prototypical'] + META_MODELS
+
 LOG_PATH = "../logs/"
 
 if torch.cuda.is_available():
@@ -27,9 +31,9 @@ if torch.cuda.is_available():
 def train(balance_data, progress_bar, model_name, seed, epochs, patience, patience_metric, h_size, top_users,
           top_users_excluded, k_shot, lr, lr_val, lr_cl, lr_inner, lr_output, hidden_dim, feat_reduce_dim,
           proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size, feature_type, vocab_size,
-          n_inner_updates, num_workers, gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup, max_iters,
-          gat_heads, batch_size, lr_decay_epochs, lr_decay_epochs_val, lr_decay_factor, scheduler, weight_decay,
-          momentum, optimizer, suffix):
+          n_updates, n_updates_test, num_workers, gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup,
+          max_iters, gat_heads, batch_size, lr_decay_epochs, lr_decay_epochs_val, lr_decay_factor, scheduler,
+          weight_decay, momentum, optimizer, suffix):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     eval_split_size = (0.0, 0.25, 0.75) if data_eval != data_train else None
@@ -54,7 +58,7 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
           f'(splits: {str(eval_split_size)})\n hop_size: {h_size}\n '
           f'top_users: {top_users}K\n top_users_excluded: {top_users_excluded}%\n num_workers: {num_workers}\n '
           f'vocab_size: {vocab_size}\n feature_type: {feature_type}\n\n lr: {lr}\n lr_cl: {lr_cl}\n '
-          f'lr_output: {lr_output}\n inner_lr: {lr_inner}\n n_updates: {n_inner_updates}\n proto_dim: {proto_dim}\n')
+          f'lr_output: {lr_output}\n inner_lr: {lr_inner}\n n_updates: {n_updates}\n proto_dim: {proto_dim}\n')
 
     # reproducible results
     pl.seed_everything(seed)
@@ -91,7 +95,7 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
     }
 
     if model_name == 'gat':
-        model_params.update(output_dim=1)   # with binary classification, we just use one output dimension
+        model_params.update(output_dim=1)  # with binary classification, we just use one output dimension
         optimizer_hparams.update(lr_val=lr_val, lr_decay_epochs_val=lr_decay_epochs_val)
 
         model = GatBase(model_params, optimizer_hparams, train_graph.label_names, train_loader.b_size,
@@ -101,13 +105,23 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         model_params.update(output_dim=proto_dim)
 
         model = ProtoNet(model_params, optimizer_hparams, train_graph.label_names, train_loader.b_size)
-    elif model_name == 'gmeta':
-        # output dimension for prototypical networks is not num classes, but the prototypes dimension!
-        model_params.update(n_inner_updates=n_inner_updates, output_dim=proto_dim)
-        optimizer_hparams.update(lr_output=lr_output, lr_inner=lr_inner)
 
-        model = ProtoMAML(model_params, optimizer_hparams, train_graph.label_names,
-                          train_loader.b_sampler.task_batch_size)
+    elif model_name in META_MODELS:
+        model_params.update(n_inner_updates=n_updates, n_inner_updates_test=n_updates_test)
+        optimizer_hparams.update(lr_output=lr_output, lr_inner=lr_inner)
+        batch_size = train_loader.b_sampler.task_batch_size
+
+        # output dimension for prototypical networks is not num classes, but the prototypes dimension!
+        output_dim = 1 if model_name == 'maml' else proto_dim
+
+        model_params.update(output_dim=output_dim)
+
+        if model_name == 'maml':
+            model = Maml(model_params, optimizer_hparams, train_graph.label_names, batch_size)
+        elif model_name == 'proto-maml':
+            model = ProtoMAML(model_params, optimizer_hparams, train_graph.label_names, batch_size)
+        elif model_name == 'gmeta':
+            model = GMeta(model_params, optimizer_hparams, train_graph.label_names, batch_size)
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 
@@ -139,7 +153,6 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
                                  suffix)
 
     if not evaluation:
-        # Training
 
         print('\nFitting model ..........\n')
         start = time.time()
@@ -159,7 +172,8 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
     else:
         model_path = checkpoint
 
-    # Evaluation
+    # Evaluate the final model
+
     model = model.load_from_checkpoint(model_path)
 
     # model was trained on another dataset --> reinitialize gat classifier
@@ -170,38 +184,31 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         # TODO: set also the target label for f1 score
         # f1_targets[1]
 
-    test_accuracy, val_accuracy, val_f1_fake, val_f1_real, val_f1_macro = 0.0, 0.0, 0.0, 0.0, 0.0
+    val_f1_fake = 0.0
 
     if model_name == 'gat':
-        test_f1_fake, test_f1_macro, val_f1_fake, val_f1_macro, test_elapsed = evaluate(trainer, model, test_loader,
-                                                                                        test_val_loader)
-
+        test_f1_fake, val_f1_fake, elapsed = evaluate(trainer, model, test_loader, test_val_loader)
     elif model_name == 'prototypical':
-        (test_f1_fake, _), (test_f1_macro, _), test_elapsed, _ = test_proto_net(model, eval_graph, k_shot=k_shot)
+        (test_f1_fake, _), elapsed, _ = test_proto_net(model, eval_graph, k_shot=k_shot)
+    elif model_name == 'proto-maml':
+        (test_f1_fake, _), elapsed = test_protomaml(model, test_loader)
+    elif model_name == 'maml':
+        (test_f1_fake, _), elapsed = test_maml(model, test_loader)
     elif model_name == 'gmeta':
-        (test_f1_fake, _), (test_f1_macro, _), test_elapsed = test_protomaml(model, test_loader)
+        (test_f1_fake, _), elapsed = test_gmeta(model, test_loader)
     else:
         raise ValueError(f"Model type {model_name} not supported!")
 
-    wandb.log({
-        "test/f1_fake": test_f1_fake,
-        "test/f1_macro": test_f1_macro,
-        "test_val/f1_fake": val_f1_fake,
-        "test_val/f1_macro": val_f1_macro
-    })
+    wandb.log({"test/f1_fake": test_f1_fake, "test_val/f1_fake": val_f1_fake})
 
-    print(f'\nRequired time for testing: {int(test_elapsed / 60)} minutes.\n')
+    print(f'\nRequired time for testing: {int(elapsed / 60)} minutes.\n')
+
     print(f'Test Results:\n '
           f'test f1 fake: {round(test_f1_fake, 3)} ({test_f1_fake})\n '
-          f'test f1 macro: {round(test_f1_macro, 3)} ({test_f1_macro})\n '
-          f'validation f1 fake: {round(val_f1_fake, 3)} ({val_f1_fake})\n '
-          f'validation f1 macro: {round(val_f1_macro, 3)} ({val_f1_macro})\n '
-          f'\nepochs: {trainer.current_epoch + 1}\n')
+          f'validation f1 fake: {round(val_f1_fake, 3)} ({val_f1_fake})\n \nepochs: {trainer.current_epoch + 1}\n')
 
-    print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}\n{round_format(test_f1_fake)}\n'
-          f'{round_format(test_f1_macro)}\n{round_format(test_accuracy)}\n'
-          f'{round_format(val_f1_fake)}\n{round_format(val_f1_macro)}\n'
-          f'{round_format(val_accuracy)}\n')
+    print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}\n{round_format(test_f1_fake)}'
+          f'\n{round_format(val_f1_fake)}\n')
 
 
 def get_epoch_num(model_path):
@@ -261,38 +268,6 @@ def initialize_trainer(model_name, epochs, patience, patience_metric, progress_b
     trainer.logger._default_hp_metric = None
 
     return trainer
-
-
-def evaluate(trainer, model, test_dataloader, val_dataloader):
-    """
-    Tests a model on test and validation set.
-
-    Args:
-        trainer (pl.Trainer) - Lightning trainer to use.
-        model (pl.LightningModule) - The Lightning Module which should be used.
-        test_dataloader (DataLoader) - Data loader for the test split.
-        val_dataloader (DataLoader) - Data loader for the validation split.
-    """
-
-    print('\nTesting model on validation and test ..........\n')
-
-    test_start = time.time()
-
-    results = trainer.test(model, dataloaders=[test_dataloader, val_dataloader], verbose=False)
-
-    test_results = results[0]
-    val_results = results[1]
-
-    test_f1_fake = test_results['test/f1_fake']
-    test_f1_macro = test_results['test/f1_macro']
-
-    val_f1_fake = val_results['test/f1_fake']
-    val_f1_macro = test_results['test/f1_macro']
-
-    test_end = time.time()
-    test_elapsed = test_end - test_start
-
-    return test_f1_fake, test_f1_macro, val_f1_fake, val_f1_macro, test_elapsed
 
 
 def round_format(metric):
@@ -386,6 +361,8 @@ if __name__ == "__main__":
     parser.add_argument('--inner-lr', dest='lr_inner', type=float, default=0.1)
     parser.add_argument('--n-updates', dest='n_updates', type=int, default=5,
                         help="Inner gradient updates during meta learning.")
+    parser.add_argument('--n-updates-test', dest='n_updates_test', type=int, default=10,
+                        help="Inner gradient updates during meta testing.")
 
     # DATA CONFIGURATION
     parser.add_argument('--hop-size', dest='hop_size', type=int, default=2)
@@ -458,7 +435,8 @@ if __name__ == "__main__":
         train_split_size=(params["train_size"], params["val_size"], params["test_size"]),
         feature_type=params["feature_type"],
         vocab_size=params["vocab_size"],
-        n_inner_updates=params["n_updates"],
+        n_updates=params["n_updates"],
+        n_updates_test=params["n_updates_test"],
         num_workers=params["n_workers"],
         gat_dropout=params["gat_dropout"],
         lin_dropout=params["lin_dropout"],

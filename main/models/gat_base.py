@@ -1,12 +1,13 @@
+import time
+
 from torch import nn
-from torch.optim import AdamW, SGD
-from torch.optim.lr_scheduler import StepLR, MultiStepLR
 
 from models.gat_encoder_sparse_pushkar import GatNet
 from models.graph_trainer import GraphTrainer
 from models.train_utils import *
 
 
+# noinspection PyAbstractClass
 class GatBase(GraphTrainer):
     """
     PyTorch Lightning module containing all model setup: Picking the correct encoder, initializing the classifier,
@@ -59,32 +60,10 @@ class GatBase(GraphTrainer):
 
         return optimizers, schedulers
 
-    def get_optimizer(self, lr, step_size, model=None):
-        opt_params = self.hparams.optimizer_hparams
-
-        model = self.model if model is None else model
-
-        if opt_params['optimizer'] == 'Adam':
-            optimizer = AdamW(model.parameters(), lr=lr, weight_decay=opt_params['weight_decay'])
-        elif opt_params['optimizer'] == 'SGD':
-            optimizer = SGD(model.parameters(), lr=lr, momentum=opt_params['momentum'],
-                            weight_decay=opt_params['weight_decay'])
-        else:
-            raise ValueError("No optimizer name provided!")
-
-        scheduler = None
-        if opt_params['scheduler'] == 'step':
-            scheduler = StepLR(optimizer, step_size=step_size, gamma=opt_params['lr_decay_factor'])
-        elif opt_params['scheduler'] == 'multi_step':
-            scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 30, 40, 55],
-                                    gamma=opt_params['lr_decay_factor'])
-
-        return optimizer, scheduler
-
-    def forward(self, sub_graphs, targets, mode=None):
+    def forward(self, graphs, targets, mode=None):
 
         # make a batch out of all sub graphs and push the batch through the model
-        x, edge_index, cl_mask = get_subgraph_batch(sub_graphs)
+        x, edge_index, cl_mask = get_subgraph_batch(graphs)
 
         logits = self.model(x, edge_index, mode)[cl_mask].squeeze()
 
@@ -94,8 +73,8 @@ class GatBase(GraphTrainer):
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
         predictions = (logits.sigmoid() > 0.5).float()
 
-        for mode_dict, _ in self.metrics.values():
-            mode_dict[mode].update(predictions, targets)
+        self.update_metrics(mode, predictions, targets)
+
 
         # logits are not yet put into a sigmoid layer, because the loss module does this combined
         return logits
@@ -184,10 +163,8 @@ class GatBase(GraphTrainer):
             x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
             logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
 
-            predictions = (logits.sigmoid() > 0.5).float()
-
-            for mode_dict, _ in self.metrics.values():
-                mode_dict[mode].update(predictions, support_targets)
+            support_predictions = (logits.sigmoid() > 0.5).float()
+            self.update_metrics(mode, support_predictions, support_targets)
 
             loss = self.validation_loss(logits, support_targets.float())
             # loss = func.binary_cross_entropy_with_logits(logits, support_targets.float())
@@ -237,9 +214,8 @@ class GatBase(GraphTrainer):
             logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
             loss = self.validation_loss(logits, query_targets.float())
 
-            predictions = (logits.sigmoid() > 0.5).float()
-            for mode_dict, _ in self.metrics.values():
-                mode_dict[mode].update(predictions, query_targets)
+            query_predictions = (logits.sigmoid() > 0.5).float()
+            self.update_metrics(mode, query_predictions, query_targets)
 
             # only log this once in the end of an epoch (averaged over steps)
             self.log_on_epoch(f"{mode}/loss", loss)
@@ -281,3 +257,32 @@ class GatBase(GraphTrainer):
 
         _, sub_graphs, _, targets = batch
         self.forward(sub_graphs, targets, mode='test')
+
+
+def evaluate(trainer, model, test_dataloader, val_dataloader):
+    """
+    Tests a model on test and validation set.
+
+    Args:
+        trainer (pl.Trainer) - Lightning trainer to use.
+        model (pl.LightningModule) - The Lightning Module which should be used.
+        test_dataloader (DataLoader) - Data loader for the test split.
+        val_dataloader (DataLoader) - Data loader for the validation split.
+    """
+
+    print('\nTesting model on validation and test ..........\n')
+
+    test_start = time.time()
+
+    results = trainer.test(model, dataloaders=[test_dataloader, val_dataloader], verbose=False)
+
+    test_results = results[0]
+    val_results = results[1]
+
+    test_f1_fake = test_results['test/f1_fake']
+    val_f1_fake = val_results['test/f1_fake']
+
+    test_end = time.time()
+    elapsed = test_end - test_start
+
+    return test_f1_fake, val_f1_fake, elapsed

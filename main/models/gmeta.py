@@ -1,10 +1,15 @@
+import time
 from copy import deepcopy
+from statistics import mean, stdev
 
-import numpy as np
 import torch
-import torch.functional as func
+import torch.nn.functional as func
+from torch import optim
 from torch.optim import Adam
+from torchmetrics import F1
+from tqdm.auto import tqdm
 
+from data_prep.data_utils import DEVICE
 from models.gat_encoder_sparse_pushkar import GatNet
 from models.graph_trainer import GraphTrainer
 from models.proto_net import ProtoNet
@@ -13,253 +18,422 @@ from samplers.batch_sampler import split_list
 
 
 class GMeta(GraphTrainer):
-    def __init__(self, model_params):
+
+    # noinspection PyUnusedLocal
+    def __init__(self, model_params, optimizer_hparams, label_names, batch_size):
         super(GMeta, self).__init__(validation_sets=['val'])
+        self.save_hyperparameters()
 
-        self.inner_lr = self.hparams.optimizer_hparams['lr_inner']
-        self.outer_lr = self.hparams.optimizer_hparams['lr_output']
-
-        self.k_shot = model_params['k_shot']
+        self.lr_inner = self.hparams.optimizer_hparams['lr_inner']
 
         self.n_inner_updates = model_params['n_inner_updates']
-        # self.n_inner_updates_test = model_params['n_inner_updates_test']
+        self.n_inner_updates_test = model_params['n_inner_updates_test']
 
         self.model = GatNet(model_params)
+        # self.model = GMetaGat(model_params)
 
-        self.meta_optim = Adam(self.model.parameters(), lr=self.meta_lr)
+        self.automatic_optimization = False
 
-    # def forward(self, x_support, y_support, x_query, y_query, c_spt, c_qry, n_spt, n_qry, g_spt, g_qry, feat):
-    def forward(self, batch, mode):
-        losses_support = [0 for _ in range(self.update_step)]
-        losses_query = [0 for _ in range(self.update_step + 1)]
-        corrects = [0 for _ in range(self.update_step + 1)]
+    def training_step(self, batch, batch_idx):
+        # self.forward(batch, mode="train")
+        self.protomaml_forward(batch, mode="train")
+        # Returning None means skipping the default training optimizer steps by PyTorch Lightning
+        return None
 
-        for task_batch in batch:
+    def validation_step(self, batch, batch_idx):
+        # Validation requires to finetune a model, hence we need to enable gradients
+        torch.set_grad_enabled(True)
+        # self.finetune(batch, mode="val")
+        self.protomaml_forward(batch, mode="val")
+        torch.set_grad_enabled(False)
 
+    def configure_optimizers(self):
+        optimizer = Adam(self.model.parameters(), lr=self.hparams.optimizer_hparams['lr_output'])
+        return [optimizer], []
+
+    # def forward(self, batch, mode):
+    #     losses_support = [0 for _ in range(self.n_inner_updates)]
+    #     losses_query = [0 for _ in range(self.n_inner_updates + 1)]
+    #     f1_fakes = [F1(num_classes=1, average='none', multiclass=False).to(DEVICE) for _ in
+    #                 range(self.n_inner_updates + 1)]
+    #
+    #     # original state dict of the model for later update
+    #     # original_state_dict = self.model.state_dict()
+    #
+    #     nan_query_loss = 0
+    #
+    #     for task_batch in batch:
+    #
+    #         graphs, targets = task_batch
+    #         support_graphs, query_graphs = split_list(graphs)
+    #         support_targets, query_targets = split_list(targets)
+    #
+    #         x_support, edge_index_support, cl_mask_support = get_subgraph_batch(support_graphs)
+    #         x_query, edge_index_query, cl_mask_query = get_subgraph_batch(query_graphs)
+    #
+    #         ##############################
+    #         # Initial loop for 0th step
+    #         ##############################
+    #
+    #         # Step 3: put the support graphs through the model
+    #         support_logits = self.model(x_support, edge_index_support, mode)[cl_mask_support]
+    #
+    #         # Step 4: compute support prototypes
+    #         support_prototypes = ProtoNet.calculate_prototypes(support_logits, support_targets)
+    #
+    #         # Create a copy of the current model for the inner loop updates
+    #         local_model = deepcopy(self.model)
+    #         local_model.train()
+    #         local_optim = optim.SGD(local_model.parameters(), lr=self.lr_inner)
+    #         local_optim.zero_grad()
+    #
+    #         # Step 5: compute loss for k=0 / compute L_support
+    #         logits = local_model(x_support, edge_index_support, mode)[cl_mask_support]
+    #         loss_support, _ = proto_loss(logits, support_targets, support_prototypes)
+    #         losses_support[0] += loss_support
+    #
+    #         # Query loss and f1 before first inner update
+    #         with torch.no_grad():
+    #             # Step 8: put the query graphs through the model
+    #             query_logits = local_model(x_query, edge_index_query, mode)[cl_mask_query]
+    #
+    #             # Step 9: Use query logits and support prototypes to compute query loss for task i
+    #             loss_query, predictions = proto_loss(query_logits, query_targets, support_prototypes)
+    #
+    #             if not True in torch.isnan(loss_query):
+    #                 losses_query[0] += loss_query
+    #                 f1_fakes[0].update(predictions, query_targets)
+    #             else:
+    #                 nan_query_loss += 1
+    #
+    #         # Step 6: Loss back propagates and update the GNN parameters
+    #         # Calculate gradients and perform update
+    #
+    #         # self.manual_backward(loss_support)
+    #         # loss_support.backward()
+    #         # local_optim.step()
+    #
+    #         # grad = torch.autograd.grad(loss_support, self.model.parameters())
+    #         # fast_weights = list(map(lambda p: p[1] - self.lr_inner * p[0], zip(grad, self.model.parameters())))
+    #         # update_model_params(loss_support, self.model, self.lr_inner)
+    #
+    #         # loss and f1 after the first parameter update
+    #         with torch.no_grad():
+    #             # Step 8: put the query graphs through the model
+    #             query_logits = local_model(x_query, edge_index_query, mode)[cl_mask_query]
+    #
+    #             # Step 9: Use query logits and support prototypes to compute query loss for task i
+    #             loss_query, predictions = proto_loss(query_logits, query_targets, support_prototypes)
+    #
+    #             if not True in torch.isnan(loss_query):
+    #                 losses_query[1] += loss_query
+    #                 f1_fakes[1].update(predictions, query_targets)
+    #             else:
+    #                 nan_query_loss += 1
+    #
+    #         ##############################
+    #         # Loop for 1st - end step
+    #         ##############################
+    #
+    #         for n in range(1, self.n_inner_updates):
+    #             # Step 3: put the support graphs through the model
+    #             support_logits = local_model(x_support, edge_index_support, mode)[cl_mask_support]
+    #
+    #             # Step 4: compute support prototypes
+    #             support_prototypes = ProtoNet.calculate_prototypes(support_logits, support_targets)
+    #
+    #             # Step 5: compute L_support
+    #             loss_support, _ = proto_loss(support_logits, support_targets, support_prototypes)
+    #             losses_support[n] += loss_support
+    #
+    #             # Step 6: Loss back propagates in order to update the GNN parameters
+    #             # local_optim.zero_grad()
+    #             # # self.manual_backward(loss_support)
+    #             # loss_support.backward()
+    #             # local_optim.step()
+    #
+    #             # 2. compute grad on theta_pi
+    #             # grad = torch.autograd.grad(loss_support, fast_weights, retain_graph=True)
+    #             # # 3. theta_pi = theta_pi - train_lr * grad
+    #             # fast_weights = list(map(lambda p: p[1] - self.lr_inner * p[0], zip(grad, fast_weights)))
+    #             # update_model_params(loss_support, self.model, self.lr_inner, retain_graph=True)
+    #
+    #             # Step 8: put the query graphs through the model
+    #             query_logits = local_model(x_query, edge_index_query, mode)[cl_mask_query]
+    #
+    #             # Step 9: Use query logits and support prototypes to compute query loss for task i
+    #             # loss_query will be overwritten, just keep the loss_query on last update step.
+    #             loss_query, predictions = proto_loss(query_logits, query_targets, support_prototypes)
+    #             losses_query[n + 1] += loss_query
+    #             f1_fakes[n + 1].update(predictions, query_targets)
+    #
+    #     ##############################
+    #     # End of all tasks
+    #     ##############################
+    #
+    #     # sum over all losses on query set across all tasks
+    #     task_num = len(batch)
+    #     total_loss_query = losses_query[-1] / task_num
+    #
+    #     # self.model.load_state_dict(original_state_dict)
+    #
+    #     # optimize theta parameters
+    #     outer_optimizer = self.optimizers()
+    #     # noinspection PyUnresolvedReferences
+    #     outer_optimizer.zero_grad()
+    #
+    #     self.manual_backward(total_loss_query, retain_graph=True)
+    #     outer_optimizer.step()
+    #
+    #     f1_fake_total = torch.tensor([f1.compute() for f1 in f1_fakes]).sum() / task_num
+    #     return f1_fake_total
+    #
+    # def finetune(self, batch, mode):
+    #     f1_fakes = [F1(num_classes=1, average='none').to(DEVICE) for _ in range(self.n_inner_updates_test + 1)]
+    #
+    #     # fine-tuning on the copied model instead of self.model
+    #     model = deepcopy(self.model)
+    #
+    #     graphs, targets = batch[0]
+    #     support_graphs, query_graphs = split_list(graphs)
+    #     support_targets, query_targets = split_list(targets)
+    #
+    #     x_support, edge_index_support, cl_mask_support = get_subgraph_batch(support_graphs)
+    #     x_query, edge_index_query, cl_mask_query = get_subgraph_batch(query_graphs)
+    #
+    #     # put the support graphs through the model
+    #     support_logits = model(x_support, edge_index_support, mode)[cl_mask_support]
+    #
+    #     # compute support prototypes
+    #     support_prototypes = ProtoNet.calculate_prototypes(support_logits, support_targets)
+    #
+    #     # compute loss for k=0 / compute L_support
+    #     loss_support, _ = proto_loss(support_logits, support_targets, support_prototypes)
+    #
+    #     # this is the loss and accuracy before first update
+    #     with torch.no_grad():
+    #         query_logits = model(x_query, edge_index_query, mode)[cl_mask_query]
+    #         _, predictions = proto_loss(query_logits, query_targets, support_prototypes)
+    #         f1_fakes[0].update(predictions, query_targets)
+    #
+    #     # update model parameters
+    #     update_model_params(loss_support, model, self.lr_inner)
+    #
+    #     # this is the loss and accuracy after the first update
+    #     with torch.no_grad():
+    #         query_logits = model(x_query, edge_index_query, mode)[cl_mask_query]
+    #         _, predictions = proto_loss(query_logits, query_targets, support_prototypes)
+    #         f1_fakes[0].update(predictions, query_targets.float())
+    #
+    #     for k in range(1, self.n_inner_updates_test):
+    #         support_logits = model(x_support, edge_index_support, mode)[cl_mask_support]
+    #
+    #         loss_support, _ = proto_loss(support_logits, support_targets, support_prototypes)
+    #
+    #         update_model_params(loss_support, model, self.lr_inner)
+    #
+    #         with torch.no_grad():
+    #             query_logits = model(x_query, edge_index_query, mode)[cl_mask_query]
+    #             _, predictions = proto_loss(query_logits, query_targets, support_prototypes)
+    #             f1_fakes[0].update(predictions, query_targets.float())
+    #
+    #     del model
+    #
+    #     task_num = len(batch)
+    #     f1_fake_total = torch.tensor([f1.compute() for f1 in f1_fakes]).sum() / task_num
+    #     return f1_fake_total
+
+    def protomaml_forward(self, batch, mode):
+        query_losses = []
+        f1 = F1(num_classes=1, average='none').to(DEVICE)
+
+        # if mode == 'val':
+        #     global_model = deepcopy(self.model)
+        # elif mode == 'train':
+        #     global_model = self.model
+        # else:
+        #     return
+
+        self.model.zero_grad()
+        nan_loss = []
+
+        # Determine gradients for batch of tasks
+        for idx, task_batch in enumerate(batch):
             graphs, targets = task_batch
+
             support_graphs, query_graphs = split_list(graphs)
             support_targets, query_targets = split_list(targets)
 
-            x_support, edge_index_support, cl_mask_support = get_subgraph_batch(support_graphs)
+            # Perform inner loop adaptation
+            local_model, support_prototypes = self.inner_loop_update(support_graphs, support_targets, mode)
+
+            # after the last inner update, put query samples through the updated local model
             x_query, edge_index_query, cl_mask_query = get_subgraph_batch(query_graphs)
 
-            support_features = None
-            query_features = None
+            query_logits = local_model(x_query, edge_index_query, mode)[cl_mask_query]
+            last_query_loss, query_predictions = proto_loss(query_logits, query_targets, support_prototypes)
 
-            # 1. run the i-th task and compute loss for k=0
-            support_logits = self.model(x_support, edge_index_support, mode)[cl_mask_support]
+            # add the losses for each respective inner update step
+            if True in torch.isnan(last_query_loss):
+                nan_loss.append(idx)
+            else:
+                query_losses.append(last_query_loss)
 
-            # loss, _, prototypes = proto_loss_spt(logits, y_support[i], self.k_spt)
-            prototypes = ProtoNet.calculate_prototypes(support_logits, support_targets)
-            logits, targets = ProtoNet.classify_features(prototypes, support_logits, support_targets)
-            loss = self.loss_module(logits, targets.float())
+            # Update F1 scores
+            f1.update(query_predictions, query_targets)
 
-            losses_support[0] += loss
+            # TODO: calculate gradients for query set loss and add them to gradients of global model?
 
-            grad = torch.autograd.grad(loss, self.model.parameters())
-            fast_weights = list(map(lambda p: p[1] - self.n_inner_updates * p[0], zip(grad, self.model.parameters())))
+        ##############################
+        # End of all tasks
+        ##############################
 
-            # this is the loss and accuracy before first update
-            with torch.no_grad():
-                # # [setsz, nway]
-                # logits_q, _ = self.net(x_query[i].to(DEVICE), c_qry[i].to(DEVICE), feat_qry, self.net.parameters())
-                query_logits = self.model(x_query, edge_index_query, mode, query_features, self.model.parameters())[
-                    cl_mask_query]
-                loss_q, acc_q = proto_loss_qry(query_logits, query_targets, prototypes)
-                losses_query[0] += loss_q
-                corrects[0] = corrects[0] + acc_q
+        # take loss of last step and average over number of tasks
+        total_loss_query = sum(query_losses) / len(query_losses)
+        self.log_on_epoch(f"{mode}/loss", total_loss_query)
 
-            # this is the loss and accuracy after the first update
-            with torch.no_grad():
-                query_logits = self.model(x_query, edge_index_query, mode, query_features, fast_weights)[cl_mask_query]
-                loss_q, acc_q = proto_loss_qry(query_logits, query_targets, prototypes)
-                losses_query[1] += loss_q
-                corrects[1] = corrects[1] + acc_q
+        if mode == "train":
+            # optimize outer model parameters
+            outer_optimizer = self.optimizers()
+            # noinspection PyUnresolvedReferences
+            outer_optimizer.zero_grad()
 
-            for k in range(1, self.n_inner_updates):
-                # 1. run the i-th task and compute loss for k=1~K-1
+            # noinspection PyTypeChecker
+            self.manual_backward(total_loss_query, retain_graph=True)
+            outer_optimizer.step()
 
-                support_logits = self.model(x_support, edge_index_support, mode, support_features, fast_weights)[
-                    cl_mask_support]
-                # logits, _ = self.net(x_support[i].to(DEVICE), c_spt[i].to(DEVICE), feat_spt, fast_weights)
-                loss, _, prototypes = proto_loss_spt(support_logits, support_targets, self.k_shot)
-                losses_support[k] += loss
+        f1_fake_total = f1.compute()
 
-                # 2. compute grad on theta_pi
-                grad = torch.autograd.grad(loss, fast_weights, retain_graph=True)
+        return f1_fake_total
 
-                # 3. theta_pi = theta_pi - train_lr * grad
-                fast_weights = list(map(lambda p: p[1] - self.update_lr * p[0], zip(grad, fast_weights)))
-
-                query_logits = self.model(x_query, edge_index_query, mode, query_features, fast_weights)[cl_mask_query]
-                # logits_q, _ = self.net(x_query[i].to(DEVICE), c_qry[i].to(DEVICE), feat_qry, fast_weights)
-
-                # loss_q will be overwritten and just keep the loss_q on last update step.
-                loss_q, acc_q = proto_loss_qry(query_logits, query_targets, prototypes)
-                losses_query[k + 1] += loss_q
-
-                corrects[k + 1] = corrects[k + 1] + acc_q
-
-        # end of all tasks
-        # sum over all losses on query set across all tasks
-        task_num = len(batch)
-        total_loss_query = losses_query[-1] / task_num
-
-        # optimize theta parameters
-        self.meta_optim.zero_grad()
-        total_loss_query.backward()
-        self.meta_optim.step()
-
-        accuracy = np.array(corrects) / task_num
-        return accuracy
-
-    # def finetune(self, x_support, y_support, x_query, y_query, c_spt, c_qry, n_spt, n_qry, g_spt, g_qry, feat):
-    def finetune(self, batch, mode):
-        corrects = [0 for _ in range(self.update_step_test + 1)]
-
-        # fine tunning on the copied model instead of self.model
-        model = deepcopy(self.model)
-
-        # x_support = x_support[0]
-        # y_support = y_support[0]
-        # x_query = x_query[0]
-        # y_query = y_query[0]
-        # c_spt = c_spt[0]
-        # c_qry = c_qry[0]
-        # n_spt = n_spt[0]
-        # n_qry = n_qry[0]
-        # g_spt = g_spt[0]
-        # g_qry = g_qry[0]
-        #
-        # feat_spt = torch.Tensor(np.vstack(([feat[g_spt[j]][np.array(x)] for j, x in enumerate(n_spt)]))).to(DEVICE)
-        # feat_qry = torch.Tensor(np.vstack(([feat[g_qry[j]][np.array(x)] for j, x in enumerate(n_qry)]))).to(DEVICE)
-        support_features = None
-        query_features = None
-
-        graphs, targets = batch[0]
-        support_graphs, query_graphs = split_list(graphs)
-        support_targets, query_targets = split_list(targets)
+    def inner_loop_update(self, support_graphs, support_targets, mode):
 
         x_support, edge_index_support, cl_mask_support = get_subgraph_batch(support_graphs)
-        x_query, edge_index_query, cl_mask_query = get_subgraph_batch(query_graphs)
 
-        # 1. run the i-th task and compute loss for k=0
-        # logits, _ = model(x_support.to(DEVICE), c_spt.to(DEVICE), feat_spt)
-        x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
-        support_logits = self.model(x, edge_index, mode, support_features)[cl_mask]
+        # Determine prototype initialization
+        support_logits = self.model(x_support, edge_index_support, mode)[cl_mask_support]
+        support_prototypes = ProtoNet.calculate_prototypes(support_logits, support_targets)
 
-        loss, _, prototypes = proto_loss_spt(support_logits, support_targets, self.k_shot)
-        grad = torch.autograd.grad(loss, model.parameters())
-        fast_weights = list(map(lambda p: p[1] - self.inner_lr * p[0], zip(grad, model.parameters())))
+        # Copy model for inner-loop model and optimizer
+        local_model = deepcopy(self.model)
+        local_model.train()
+        local_optim = optim.SGD(local_model.parameters(), lr=self.hparams.optimizer_hparams['lr_inner'])
+        local_optim.zero_grad()
 
-        # this is the loss and accuracy before first update
-        with torch.no_grad():
-            # logits_q, _ = net(x_query.to(DEVICE), c_qry.to(DEVICE), feat_qry, net.parameters())
-            query_logits = self.model(x_query, edge_index_query, mode, query_features, model.parameters())[
-                cl_mask_query]
+        updates = self.n_inner_updates if mode != 'test' else self.n_inner_updates_test
 
-            loss_q, acc_q = proto_loss_qry(query_logits, query_targets, prototypes)
-            corrects[0] = corrects[0] + acc_q
+        # Optimize inner loop model on support set
+        for n in range(updates):
+            # run the local model
+            support_logits = local_model(x_support, edge_index_support, mode)[cl_mask_support]
 
-        # this is the loss and accuracy after the first update
-        with torch.no_grad():
-            # logits_q, _ = net(x_query.to(DEVICE), c_qry.to(DEVICE), feat_qry, fast_weights)
-            query_logits = self.model(x_query, edge_index_query, mode, query_features, fast_weights)[cl_mask_query]
+            # compute the prototypical loss
+            support_loss, _ = proto_loss(support_logits, support_targets, support_prototypes)
 
-            loss_q, acc_q = proto_loss_qry(query_logits, query_targets, prototypes)
-            corrects[1] = corrects[1] + acc_q
+            # Calculate gradients and perform inner loop update
+            # TODO: why do we have to retain the graph here?
+            support_loss.backward(retain_graph=True)
+            local_optim.step()
+            local_optim.zero_grad()
 
-        for k in range(1, self.update_step_test):
-            # 1. run the i-th task and compute loss for k=1~K-1
-            # logits, _ = net(x_support.to(DEVICE), c_spt.to(DEVICE), feat_spt, fast_weights)
-            x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
-            support_logits = self.model(x, edge_index, mode, support_features, fast_weights)[cl_mask]
-
-            loss, _, prototypes = proto_loss_spt(support_logits, support_targets, self.k_shot)
-
-            # 2. compute grad on theta_pi
-            grad = torch.autograd.grad(loss, fast_weights, retain_graph=True)
-
-            # 3. theta_pi = theta_pi - train_lr * grad
-            fast_weights = list(map(lambda p: p[1] - self.outer_lr * p[0], zip(grad, fast_weights)))
-
-            # logits_q, _ = net(x_query.to(DEVICE), c_qry.to(DEVICE), feat_qry, fast_weights)
-            query_logits = self.model(x_query, edge_index_query, mode, query_features, fast_weights)[cl_mask_query]
-
-            # loss_q will be overwritten and just keep the loss_q on last update step.
-            loss_q, acc_q = proto_loss_qry(query_logits, query_targets, prototypes)
-            corrects[k + 1] = corrects[k + 1] + acc_q
-
-        del model
-        accuracies = np.array(corrects)
-        return accuracies
+        return local_model, support_prototypes
 
 
-def proto_loss_spt(features, targets, n_support):
-    target_cpu = targets.to('cpu')
-    input_cpu = features.to('cpu')
+def proto_loss(logits, targets, prototypes):
+    # expected shapes:
+    #   query_logits: batch size x 64
+    #   prototypes: 1 x 64
+    #   dist: batch size x 1
 
-    def supp_idxs(c):
-        return target_cpu.eq(c).nonzero()[:n_support].squeeze(1)
+    dist = torch.pow(prototypes[None, :] - logits[:, None], 2).sum(dim=2).squeeze()
 
-    classes = torch.unique(target_cpu)
-    n_classes = 1
-    n_query = n_support
+    # original authors use cross-entropy loss as follows: L(p, y) = ∑ j yj log pj
+    # where y indicates a true label’s one-hot encoding.
+    # log_p_y = func.log_softmax(-dists, dim=1).view(n_classes, n_query, -1)
+    # loss_val = -log_p_y.gather(2, target_inds).squeeze().view(-1).mean()
 
-    support_idxs = list(map(supp_idxs, classes))
+    # G-Meta's version
+    # log_p_y = func.log_softmax(-dist, dim=1)
+    # loss_query = -log_p_y.mean()
 
-    prototypes = torch.stack([input_cpu[idx_list].mean(0) for idx_list in support_idxs])
-    query_idxs = torch.stack(list(map(lambda c: target_cpu.eq(c).nonzero()[:n_support], classes))).view(-1)
-    query_samples = input_cpu[query_idxs]
-    dists = euclidean_dist(query_samples, prototypes)
-    log_p_y = func.log_softmax(-dists, dim=1).view(n_classes, n_query, -1)
+    # Phillips version
+    # predictions = func.log_softmax(-dist, dim=1)
+    # loss_query = func.cross_entropy(predictions, query_targets)
 
-    target_inds = torch.arange(0, n_classes)
-    target_inds = target_inds.view(n_classes, 1, 1)
-    target_inds = target_inds.expand(n_classes, n_query, 1).long()
-
-    loss_val = -log_p_y.gather(2, target_inds).squeeze().view(-1).mean()
-    _, y_hat = log_p_y.max(2)
-    acc_val = y_hat.eq(target_inds.squeeze()).float().mean()
-    return loss_val, acc_val, prototypes
+    loss = func.binary_cross_entropy_with_logits(-dist, targets.float())
+    return loss, (-dist.sigmoid() > 0.5).float()
 
 
-def proto_loss_qry(logits, targets, prototypes):
-    target_cpu = targets.to('cpu')
-    input_cpu = logits.to('cpu')
+def update_model_params(loss_support, model, lr_inner, retain_graph=None):
+    # Compute gradient on theta_pi
+    if retain_graph is None:
+        grad = torch.autograd.grad(loss_support, model.parameters(), allow_unused=True)
+    else:
+        grad = torch.autograd.grad(loss_support, model.parameters(), retain_graph=retain_graph, allow_unused=True)
 
-    classes = torch.unique(target_cpu)
-    n_classes = len(classes)
+    # update model parameters
+    # theta_pi = theta_pi - train_lr * grad
 
-    n_query = int(logits.shape[0] / n_classes)
+    # fast_weights = []
+    # for i, (p_grad, p_model) in enumerate(zip(grad, self.model.parameters())):
+    #     new_weight = p_model - self.n_inner_updates * p_grad
+    #     fast_weights.append(new_weight)
 
-    query_idxs = torch.stack(list(map(lambda c: target_cpu.eq(c).nonzero(), classes))).view(-1)
-    query_samples = input_cpu[query_idxs]
-
-    dists = euclidean_dist(query_samples, prototypes)
-
-    log_p_y = func.log_softmax(-dists, dim=1).view(n_classes, n_query, -1)
-
-    target_inds = torch.arange(0, n_classes)
-    target_inds = target_inds.view(n_classes, 1, 1)
-    target_inds = target_inds.expand(n_classes, n_query, 1).long()
-
-    loss_val = -log_p_y.gather(2, target_inds).squeeze().view(-1).mean()
-    _, y_hat = log_p_y.max(2)
-    acc_val = y_hat.eq(target_inds.squeeze()).float().mean()
-    return loss_val, acc_val
+    for i, (p_grad, p_model) in enumerate(zip(grad, model.parameters())):
+        if p_model.requires_grad is False:
+            continue
+        p_model.data -= lr_inner * p_grad
 
 
-def euclidean_dist(x, y):
-    # x: N x D
-    # y: M x D
-    n = x.size(0)
-    m = y.size(0)
-    d = x.size(1)
-    if d != y.size(1):
-        raise Exception
+def test_gmeta(model, test_loader, num_classes=1):
+    mode = 'test'
+    model = model.to(DEVICE)
+    model.eval()
 
-    x = x.unsqueeze(1).expand(n, m, d)
-    y = y.unsqueeze(0).expand(n, m, d)
+    # TODO: use inner loop updates of 200 --> should be higher than in training
 
-    return torch.pow(x - y, 2).sum(2)
+    test_start = time.time()
+
+    # Iterate through the full dataset in two manners:
+    # First, to select the k-shot batch. Second, to evaluate the model on all other batches.
+
+    f1_macros, f1_fakes, f1_reals = [], [], []
+
+    for support_batch_idx, batch in tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing"):
+        support_graphs, _, support_targets, _ = batch
+
+        # graphs are automatically put to device in adapt few shot
+        support_targets = support_targets.to(DEVICE)
+
+        # Finetune new model on support set
+        local_model, support_prototypes = model.inner_loop_update(support_graphs, support_targets, mode)
+
+        f1_target = F1(num_classes=num_classes, average='none').to(DEVICE)
+
+        with torch.no_grad():  # No gradients for query set needed
+            local_model.eval()
+
+            # Evaluate all examples in test dataset
+            for query_batch_idx, test_batch in enumerate(test_loader):
+
+                if support_batch_idx == query_batch_idx:
+                    # Exclude support set elements
+                    continue
+
+                support_graphs, query_graphs, support_targets, query_targets = batch
+                graphs = support_graphs + query_graphs
+                targets = torch.cat([support_targets, query_targets]).to(DEVICE)
+
+                x, edge_index, cl_mask = get_subgraph_batch(graphs)
+
+                logits = local_model(x, edge_index, mode)[cl_mask]
+                _, predictions = proto_loss(logits, targets, support_prototypes)
+
+                f1_target.update(predictions, targets)
+
+            f1_fakes.append(f1_target.compute().item())
+
+    test_end = time.time()
+    test_elapsed = test_end - test_start
+
+    return (mean(f1_fakes), stdev(f1_fakes)), test_elapsed
