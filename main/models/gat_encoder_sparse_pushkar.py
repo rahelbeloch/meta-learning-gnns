@@ -1,7 +1,10 @@
 import torch
 import torch.nn.functional as func
 from torch import nn
+from torch.nn import init
 from torch_geometric.nn import GATConv
+
+from data_prep.data_utils import DEVICE
 
 
 class GatNet(torch.nn.Module):
@@ -16,7 +19,6 @@ class GatNet(torch.nn.Module):
 
         self.in_dim = model_params["input_dim"]
 
-        # with cross entropy, we just use one output dimension
         self.output_dim = model_params["output_dim"]
 
         self.hid_dim = model_params["hid_dim"]

@@ -13,8 +13,8 @@ import wandb
 from data_prep.config import TSV_DIR, COMPLETE_DIR
 from data_prep.data_utils import get_data, SUPPORTED_DATASETS
 from models.gat_base import GatBase, evaluate
-from models.gmeta import GMeta
-from models.maml import Maml
+from models.gmeta import GMeta, test_gmeta
+from models.maml import Maml, test_maml
 from models.proto_maml import ProtoMAML, test_protomaml
 from models.proto_net import ProtoNet, test_proto_net
 from samplers.batch_sampler import SHOTS
@@ -175,23 +175,22 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
     val_f1_fake = 0.0
 
     if model_name == 'gat':
-        test_f1_fake, val_f1_fake, test_elapsed = evaluate(trainer, model, test_loader, test_val_loader)
-
+        test_f1_fake, val_f1_fake, elapsed = evaluate(trainer, model, test_loader, test_val_loader)
     elif model_name == 'prototypical':
-        (test_f1_fake, _), test_elapsed, _ = test_proto_net(model, eval_graph, k_shot=k_shot)
+        (test_f1_fake, _), elapsed, _ = test_proto_net(model, eval_graph, k_shot=k_shot)
     elif model_name == 'proto-maml':
-        (test_f1_fake, _), test_elapsed = test_protomaml(model, test_loader)
+        (test_f1_fake, _), elapsed = test_protomaml(model, test_loader)
+    elif model_name == 'maml':
+        (test_f1_fake, _), elapsed = test_maml(model, test_loader)
+    elif model_name == 'gmeta':
+        (test_f1_fake, _), elapsed = test_gmeta(model, test_loader)
     else:
         raise ValueError(f"Model type {model_name} not supported!")
 
-    wandb.log({
-        "test/f1_fake": test_f1_fake,
-        "test_val/f1_fake": val_f1_fake,
-    })
+    wandb.log({"test/f1_fake": test_f1_fake, "test_val/f1_fake": val_f1_fake})
 
-    print(f'\nRequired time for testing: {int(test_elapsed / 60)} minutes.\n')
-    print(f'Test Results:\n '
-          f'test f1 fake: {round(test_f1_fake, 3)} ({test_f1_fake})\n '
+    print(f'\nRequired time for testing: {int(elapsed / 60)} minutes.\n')
+    print(f'Test Results:\n test f1 fake: {round(test_f1_fake, 3)} ({test_f1_fake})\n '
           f'validation f1 fake: {round(val_f1_fake, 3)} ({val_f1_fake})\n '
           f'\nepochs: {trainer.current_epoch + 1}\n')
 
@@ -328,20 +327,14 @@ if __name__ == "__main__":
                              'If not given then it is computed from the given epochs.')
     parser.add_argument('--lr_decay_epochs', type=float, default=5,
                         help='No. of epochs after which learning rate should be decreased')
-
     parser.add_argument('--lr_decay_epochs_val', type=float, default=2,
                         help='No. of epochs after which learning rate should be decreased')
-
     parser.add_argument('--lr_decay_factor', type=float, default=0.8,
                         help='Decay the learning rate of the optimizer by this multiplicative amount')
-
     parser.add_argument('--scheduler', type=str, default='step',
                         help='The type of lr scheduler to use anneal learning rate: step/multi_step')
-
     parser.add_argument('--weight_decay', type=float, default=1e-3, help='weight decay for optimizer')
-
     parser.add_argument('--momentum', type=float, default=0.8, help='Momentum for optimizer')
-
     parser.add_argument('--optimizer', type=str, default="Adam", help='Momentum for optimizer')
 
     # MODEL CONFIGURATION
@@ -361,7 +354,6 @@ if __name__ == "__main__":
     parser.add_argument('--inner-lr', dest='lr_inner', type=float, default=0.01)
     parser.add_argument('--n-updates', dest='n_updates', type=int, default=5,
                         help="Inner gradient updates during meta learning.")
-
     parser.add_argument('--n-updates-test', dest='n_updates_test', type=int, default=5,
                         help="Inner gradient updates during meta learning.")
 
