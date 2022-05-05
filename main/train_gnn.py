@@ -354,8 +354,8 @@ if __name__ == "__main__":
     parser.add_argument('--inner-lr', dest='lr_inner', type=float, default=0.01)
     parser.add_argument('--n-updates', dest='n_updates', type=int, default=5,
                         help="Inner gradient updates during meta learning.")
-    parser.add_argument('--n-updates-test', dest='n_updates_test', type=int, default=5,
-                        help="Inner gradient updates during meta learning.")
+    parser.add_argument('--n-updates-test', dest='n_updates_test', type=int, default=10,
+                        help="Inner gradient updates during meta testing.")
 
     # DATA CONFIGURATION
     parser.add_argument('--hop-size', dest='hop_size', type=int, default=2)
