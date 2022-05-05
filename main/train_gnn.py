@@ -12,7 +12,7 @@ from pytorch_lightning.loggers import WandbLogger
 import wandb
 from data_prep.config import TSV_DIR, COMPLETE_DIR
 from data_prep.data_utils import get_data, SUPPORTED_DATASETS
-from models.gat_base import GatBase
+from models.gat_base import GatBase, evaluate
 from models.proto_maml import ProtoMAML, test_protomaml
 from models.proto_net import ProtoNet, test_proto_net
 from samplers.batch_sampler import SHOTS
@@ -25,11 +25,11 @@ if torch.cuda.is_available():
 
 
 def train(balance_data, progress_bar, model_name, seed, epochs, patience, patience_metric, h_size, top_users,
-          top_users_excluded, k_shot, lr, lr_cl, lr_inner, lr_output, hidden_dim, feat_reduce_dim,
+          top_users_excluded, k_shot, lr, lr_val, lr_inner, lr_output, hidden_dim, feat_reduce_dim,
           proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size, feature_type, vocab_size,
           n_inner_updates, num_workers, gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup, max_iters,
-          gat_heads, batch_size, lr_decay_epochs, lr_decay_factor, scheduler, weight_decay, momentum, optimizer,
-          suffix):
+          gat_heads, batch_size, lr_decay_epochs, lr_decay_epochs_val, lr_decay_factor, scheduler, weight_decay,
+          momentum, optimizer, suffix):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     eval_split_size = (0.0, 0.25, 0.75) if data_eval != data_train else None
@@ -53,7 +53,7 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
           f' data_train: {data_train} (splits: {str(train_split_size)})\n data_eval: {data_eval} '
           f'(splits: {str(eval_split_size)})\n hop_size: {h_size}\n '
           f'top_users: {top_users}K\n top_users_excluded: {top_users_excluded}%\n num_workers: {num_workers}\n '
-          f'vocab_size: {vocab_size}\n feature_type: {feature_type}\n\n lr: {lr}\n lr_cl: {lr_cl}\n '
+          f'vocab_size: {vocab_size}\n feature_type: {feature_type}\n\n lr: {lr}\n lr_val: {lr_val}\n '
           f'lr_output: {lr_output}\n inner_lr: {lr_inner}\n n_updates: {n_inner_updates}\n proto_dim: {proto_dim}\n')
 
     # reproducible results
@@ -83,7 +83,7 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         'feat_reduce_dim': feat_reduce_dim,
         'input_dim': train_graph.size[1],
         'output_dim': len(train_graph.labels),
-        'class_weight': train_graph.class_ratio,
+        'class_weight': train_graph.class_ratios,
         'gat_dropout': gat_dropout,
         'lin_dropout': lin_dropout,
         'attn_dropout': attn_dropout,
@@ -92,9 +92,11 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
     }
 
     if model_name == 'gat':
-        optimizer_hparams.update(lr_cl=lr_cl)
+        model_params.update(output_dim=1)  # with binary classification, we just use one output dimension
+        optimizer_hparams.update(lr_val=lr_val, lr_decay_epochs_val=lr_decay_epochs_val)
 
-        model = GatBase(model_params, optimizer_hparams, train_graph.label_names, train_loader.b_size)
+        model = GatBase(model_params, optimizer_hparams, train_graph.label_names, train_loader.b_size,
+                        val_batches=len(train_val_loader))
     elif model_name == 'prototypical':
         model_params.update(proto_dim=proto_dim)
 
@@ -167,38 +169,31 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         # TODO: set also the target label for f1 score
         # f1_targets[1]
 
-    test_accuracy, val_accuracy, val_f1_fake, val_f1_real, val_f1_macro = 0.0, 0.0, 0.0, 0.0, 0.0
+    val_f1_fake = 0.0
 
     if model_name == 'gat':
-        test_f1_fake, test_f1_macro, val_f1_fake, val_f1_macro, test_elapsed = evaluate(trainer, model, test_loader,
-                                                                                        test_val_loader)
+        test_f1_fake, val_f1_fake, test_elapsed = evaluate(trainer, model, test_loader, test_val_loader)
 
     elif model_name == 'prototypical':
-        (test_f1_fake, _), (test_f1_macro, _), test_elapsed, _ = test_proto_net(model, eval_graph, k_shot=k_shot)
+        (test_f1_fake, _), test_elapsed, _ = test_proto_net(model, eval_graph, k_shot=k_shot)
     elif model_name == 'gmeta':
-        (test_f1_fake, _), (test_f1_macro, _), test_elapsed = test_protomaml(model, test_loader)
+        (test_f1_fake, _), test_elapsed = test_protomaml(model, test_loader)
     else:
         raise ValueError(f"Model type {model_name} not supported!")
 
     wandb.log({
         "test/f1_fake": test_f1_fake,
-        "test/f1_macro": test_f1_macro,
         "test_val/f1_fake": val_f1_fake,
-        "test_val/f1_macro": val_f1_macro
     })
 
     print(f'\nRequired time for testing: {int(test_elapsed / 60)} minutes.\n')
     print(f'Test Results:\n '
           f'test f1 fake: {round(test_f1_fake, 3)} ({test_f1_fake})\n '
-          f'test f1 macro: {round(test_f1_macro, 3)} ({test_f1_macro})\n '
           f'validation f1 fake: {round(val_f1_fake, 3)} ({val_f1_fake})\n '
-          f'validation f1 macro: {round(val_f1_macro, 3)} ({val_f1_macro})\n '
           f'\nepochs: {trainer.current_epoch + 1}\n')
 
     print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}\n{round_format(test_f1_fake)}\n'
-          f'{round_format(test_f1_macro)}\n{round_format(test_accuracy)}\n'
-          f'{round_format(val_f1_fake)}\n{round_format(val_f1_macro)}\n'
-          f'{round_format(val_accuracy)}\n')
+          f'{round_format(val_f1_fake)}\n')
 
 
 def get_epoch_num(model_path):
@@ -217,7 +212,7 @@ def initialize_trainer(model_name, epochs, patience, patience_metric, progress_b
     """
 
     if patience_metric == 'loss':
-        metric = 'val/loss/dataloader_idx_1' if model_name == 'gat' else 'val/loss'
+        metric = 'val_query/loss' if model_name == 'gat' else 'val/loss'
         # cls, metric, mode = LossEarlyStopping, metric, 'min'
         cls, metric, mode = EarlyStopping, metric, 'min'
     elif patience_metric == 'f1_macro':
@@ -258,38 +253,6 @@ def initialize_trainer(model_name, epochs, patience, patience_metric, progress_b
     trainer.logger._default_hp_metric = None
 
     return trainer
-
-
-def evaluate(trainer, model, test_dataloader, val_dataloader):
-    """
-    Tests a model on test and validation set.
-
-    Args:
-        trainer (pl.Trainer) - Lightning trainer to use.
-        model (pl.LightningModule) - The Lightning Module which should be used.
-        test_dataloader (DataLoader) - Data loader for the test split.
-        val_dataloader (DataLoader) - Data loader for the validation split.
-    """
-
-    print('\nTesting model on validation and test ..........\n')
-
-    test_start = time.time()
-
-    results = trainer.test(model, dataloaders=[test_dataloader, val_dataloader], verbose=False)
-
-    test_results = results[0]
-    val_results = results[1]
-
-    test_f1_fake = test_results['test/f1_fake']
-    test_f1_macro = test_results['test/f1_macro']
-
-    val_f1_fake = val_results['test/f1_fake']
-    val_f1_macro = test_results['test/f1_macro']
-
-    test_end = time.time()
-    test_elapsed = test_end - test_start
-
-    return test_f1_fake, test_f1_macro, val_f1_fake, val_f1_macro, test_elapsed
 
 
 def round_format(metric):
@@ -338,14 +301,16 @@ if __name__ == "__main__":
 
     # OPTIMIZER
     parser.add_argument('--lr', dest='lr', type=float, default=0.0001, help="Learning rate.")
-    parser.add_argument('--lr-cl', dest='lr_cl', type=float, default=0.001,
-                        help="Classifier learning rate for baseline.")
+    parser.add_argument('--lr-val', dest='lr_val', type=float, default=0.0001, help="Learning rate.")
     parser.add_argument("--warmup", dest='warmup', type=int, default=500,
                         help="Number of steps for which we do learning rate warmup.")
     parser.add_argument("--max-iters", dest='max_iters', type=int, default=-1,
                         help='Number of iterations until the learning rate decay after warmup should last. '
                              'If not given then it is computed from the given epochs.')
     parser.add_argument('--lr_decay_epochs', type=float, default=5,
+                        help='No. of epochs after which learning rate should be decreased')
+
+    parser.add_argument('--lr_decay_epochs_val', type=float, default=2,
                         help='No. of epochs after which learning rate should be decreased')
 
     parser.add_argument('--lr_decay_factor', type=float, default=0.8,
@@ -393,7 +358,7 @@ if __name__ == "__main__":
     parser.add_argument('--feature-type', dest='feature_type', type=str, default='one-hot',
                         help="Type of features used.")
     parser.add_argument('--vocab-size', dest='vocab_size', type=int, default=10000, help="Size of the vocabulary.")
-    parser.add_argument('--batch-size', dest='batch_size', type=int, default=344, help="Size of batches.")
+    parser.add_argument('--batch-size', dest='batch_size', type=int, default=None, help="Size of batches.")
     parser.add_argument('--data-dir', dest='data_dir', default='data',
                         help='Select the dataset you want to use.')
 
@@ -435,7 +400,7 @@ if __name__ == "__main__":
         top_users_excluded=params["top_users_excluded"],
         k_shot=params["k_shot"],
         lr=params["lr"],
-        lr_cl=params["lr_cl"],
+        lr_val=params["lr_val"],
         lr_inner=params["lr_inner"],
         lr_output=params["lr_output"],
         hidden_dim=params["hidden_dim"],
@@ -459,6 +424,7 @@ if __name__ == "__main__":
         gat_heads=params['gat_heads'],
         batch_size=params['batch_size'],
         lr_decay_epochs=params['lr_decay_epochs'],
+        lr_decay_epochs_val=params['lr_decay_epochs_val'],
         lr_decay_factor=params['lr_decay_factor'],
         scheduler=params['scheduler'],
         weight_decay=params['weight_decay'],

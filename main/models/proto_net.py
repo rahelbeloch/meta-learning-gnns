@@ -249,7 +249,6 @@ def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=1):
         prototypes, proto_classes = model.calculate_prototypes(k_node_feats, k_targets)
 
         batch_f1_target = tm.F1(num_classes=num_classes, average='none')
-        batch_f1_macro = tm.F1(num_classes=num_classes, average='macro')
 
         for e_idx in range(0, node_features.shape[0], k_shot):
             if k_idx == e_idx:  # Do not evaluate on the support set examples
@@ -261,25 +260,18 @@ def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=1):
             predictions = (logits.sigmoid() > 0.5).float()
 
             batch_f1_target.update(predictions, targets)
-            batch_f1_macro.update(predictions, targets)
 
         # F1 values can be nan, if e.g. proto_classes contains only one of the 2 classes
         f1_fake_value = batch_f1_target.compute().item()
         if not np.isnan(f1_fake_value):
             f1_fake.append(f1_fake_value)
 
-        batch_f1_macro_value = batch_f1_macro.compute().item()
-        if not np.isnan(batch_f1_macro_value):
-            f1_macros.append(batch_f1_macro_value)
-
         batch_f1_target.reset()
-        batch_f1_macro.reset()
 
     test_end = time.time()
     test_elapsed = test_end - test_start
 
-    return (mean(f1_fake), stdev(f1_fake)), (mean(f1_macros), stdev(f1_macros)), test_elapsed, \
-           (node_features, node_targets)
+    return (mean(f1_fake), stdev(f1_fake)), test_elapsed, (node_features, node_targets)
 
 
 def get_as_set(idx, k_shot, all_node_features, all_node_targets, start_indices_per_class):

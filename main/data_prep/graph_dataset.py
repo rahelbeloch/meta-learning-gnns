@@ -6,13 +6,14 @@ import torch
 from scipy.sparse import load_npz
 from torch_geometric.data import Data
 from torch_geometric.data import Dataset as GeometricDataset
-from torch_geometric.utils import contains_isolated_nodes, remove_isolated_nodes
+from torch_geometric.utils import remove_isolated_nodes
 
 import data_prep.fake_news_tsv_processor
 import data_prep.twitter_tsv_processor
 from data_prep.config import *
 from data_prep.data_preprocess_utils import load_json_file
 from data_prep.graph_io import GraphIO
+from data_prep.graph_preprocessor import SPLITS
 
 
 def get_adj_matrix(edge_index, num_nodes):
@@ -38,7 +39,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         self._analyse_node_degrees = analyse_node_degrees
 
         self.top_users = config['top_users']
-        self.class_ratio = None
+        self.class_ratios = None
         self.train_size, self.val_size, self.test_size = split_size
         self._data = None
         self._labels = None
@@ -128,9 +129,6 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         self.y_data = torch.LongTensor(load_json_file(labels_file)['all_labels'])
         self._labels = self.y_data.unique()
 
-        # calculate class imbalance for the loss function
-        self.compute_class_ratio()
-
         edge_list_file = self.data_complete_path(self.get_file_name(EDGE_LIST_FILE_NAME))
         if not edge_list_file.exists():
             raise ValueError(f"Edge list file does not exist: {edge_list_file}")
@@ -165,16 +163,29 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         true_values = [torch.unique(self.split_masks[key], return_counts=True)[1][1].item() for key in self.split_masks]
         assert sum(true_values) == self.y_data.shape[0], "Split masks have more True values than there are labels!"
 
+        # calculate class imbalance for the loss function
+        self.compute_class_ratio()
+
         if self._verbose:
             self.print_step("Statistics")
             print(f"Vocabulary size: {self.vocab_size}")
             print(f'No. of nodes in graph: {num_nodes}')
 
     def compute_class_ratio(self):
-        self.class_ratio = torch.bincount(self.y_data) / self.y_data.shape[0]
 
-        for i in range(len(self.class_ratio)):
-            print(f"Ratio class '{self.label_names[i]}': {round(self.class_ratio[i].item(), 3)}")
+        class_ratios = dict()
+        for split in SPLITS:
+            y = self.y_data[self.split_masks[f"{split}_mask"]]
+            class_ratio = torch.bincount(y) / y.shape[0]
+
+            class_ratios[split] = class_ratio
+
+            print(f"Split: {split}")
+            for i in range(len(class_ratio)):
+                print(f"Ratio class '{self.label_names[i]}': {round(class_ratio[i].item(), 3)}")
+            print()
+
+        self.class_ratios = class_ratios
 
     def fix_node_degree_distribution(self, node_degrees, probs, keep_threshold=0.97):
         """
