@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch.utils.data import Sampler
 
-SHOTS = [5, 10, 20, 40]
+from train_config import SHOTS
 
 
 class FewShotSampler(Sampler):

@@ -13,12 +13,12 @@ import wandb
 from data_prep.config import TSV_DIR, COMPLETE_DIR
 from data_prep.data_utils import get_data, SUPPORTED_DATASETS
 from models.gat_base import GatBase, evaluate
+from models.gmeta import GMeta
+from models.maml import Maml
 from models.proto_maml import ProtoMAML, test_protomaml
 from models.proto_net import ProtoNet, test_proto_net
 from samplers.batch_sampler import SHOTS
-
-SUPPORTED_MODELS = ['gat', 'prototypical', 'gmeta']
-LOG_PATH = "../logs/"
+from train_config import LOG_PATH, SUPPORTED_MODELS, META_MODELS
 
 if torch.cuda.is_available():
     torch.cuda.empty_cache()
@@ -27,9 +27,9 @@ if torch.cuda.is_available():
 def train(balance_data, progress_bar, model_name, seed, epochs, patience, patience_metric, h_size, top_users,
           top_users_excluded, k_shot, lr, lr_val, lr_inner, lr_output, hidden_dim, feat_reduce_dim,
           proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size, feature_type, vocab_size,
-          n_inner_updates, num_workers, gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup, max_iters,
-          gat_heads, batch_size, lr_decay_epochs, lr_decay_epochs_val, lr_decay_factor, scheduler, weight_decay,
-          momentum, optimizer, suffix):
+          n_inner_updates, n_inner_updates_test, num_workers, gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup,
+          max_iters, gat_heads, batch_size, lr_decay_epochs, lr_decay_epochs_val, lr_decay_factor, scheduler,
+          weight_decay, momentum, optimizer, suffix):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     eval_split_size = (0.0, 0.25, 0.75) if data_eval != data_train else None
@@ -82,31 +82,33 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         'hid_dim': hidden_dim,
         'feat_reduce_dim': feat_reduce_dim,
         'input_dim': train_graph.size[1],
-        'output_dim': len(train_graph.labels),
+        'output_dim': get_output_dim(model_name, proto_dim),
         'class_weight': train_graph.class_ratios,
         'gat_dropout': gat_dropout,
         'lin_dropout': lin_dropout,
         'attn_dropout': attn_dropout,
         'concat': True,
-        'n_heads': gat_heads
+        'n_heads': gat_heads,
+        'batch_size': get_batch_size(model_name, train_loader),
+        'label_names': train_graph.label_names,
     }
 
     if model_name == 'gat':
-        model_params.update(output_dim=1)  # with binary classification, we just use one output dimension
         optimizer_hparams.update(lr_val=lr_val, lr_decay_epochs_val=lr_decay_epochs_val)
 
-        model = GatBase(model_params, optimizer_hparams, train_graph.label_names, train_loader.b_size,
-                        val_batches=len(train_val_loader))
+        model = GatBase(model_params, optimizer_hparams, val_batches=len(train_val_loader))
     elif model_name == 'prototypical':
-        model_params.update(proto_dim=proto_dim)
-
-        model = ProtoNet(model_params, optimizer_hparams, train_graph.label_names, train_loader.b_size)
-    elif model_name == 'gmeta':
-        model_params.update(n_inner_updates=n_inner_updates)
+        model = ProtoNet(model_params, optimizer_hparams)
+    elif model_name in META_MODELS:
+        model_params.update(n_inner_updates=n_inner_updates, n_inner_updates_test=n_inner_updates_test)
         optimizer_hparams.update(lr_output=lr_output, lr_inner=lr_inner)
 
-        model = ProtoMAML(model_params, optimizer_hparams, train_graph.label_names,
-                          train_loader.b_sampler.task_batch_size)
+        if model_name == 'proto-maml':
+            model = ProtoMAML(model_params, optimizer_hparams)
+        elif model_name == 'gmeta':
+            model = GMeta(model_params, optimizer_hparams)
+        elif model_name == 'maml':
+            model = Maml(model_params, optimizer_hparams)
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 
@@ -146,6 +148,7 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         # we want to train on the support set of the validation loader and validate only on query set of validation
         val_loaders = [train_val_loader, train_val_loader] if model_name == 'gat' else train_val_loader
 
+        # noinspection PyUnboundLocalVariable
         trainer.fit(model, train_loader, val_loaders)
 
         end = time.time()
@@ -176,7 +179,7 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
 
     elif model_name == 'prototypical':
         (test_f1_fake, _), test_elapsed, _ = test_proto_net(model, eval_graph, k_shot=k_shot)
-    elif model_name == 'gmeta':
+    elif model_name == 'proto-maml':
         (test_f1_fake, _), test_elapsed = test_protomaml(model, test_loader)
     else:
         raise ValueError(f"Model type {model_name} not supported!")
@@ -196,6 +199,24 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
           f'{round_format(val_f1_fake)}\n')
 
 
+def get_output_dim(model_name, proto_dim):
+    if model_name in ['gat', 'maml']:
+        return 1  # with binary classification, we just use one output dimension
+    elif model_name in ['gmeta', 'proto-maml', 'prototypical']:
+        return proto_dim
+    else:
+        raise ValueError(f"Model '{model_name}' is not supported.")
+
+
+def get_batch_size(model_name, train_loader):
+    if model_name in ['gat', 'prototypical']:
+        return train_loader.b_size
+    elif model_name in ['gmeta', 'proto-maml', 'maml']:
+        return train_loader.b_sampler.task_batch_size
+    else:
+        raise ValueError(f"Model '{model_name}' is not supported.")
+
+
 def get_epoch_num(model_path):
     epoch_str = 'epoch='
     start_idx = model_path.find(epoch_str) + len(epoch_str)
@@ -212,11 +233,9 @@ def initialize_trainer(model_name, epochs, patience, patience_metric, progress_b
     """
 
     if patience_metric == 'loss':
-        metric = 'val_query/loss' if model_name == 'gat' else 'val/loss'
-        # cls, metric, mode = LossEarlyStopping, metric, 'min'
-        cls, metric, mode = EarlyStopping, metric, 'min'
+        metric, mode = 'val_query/loss' if model_name == 'gat' else 'val/loss', 'min'
     elif patience_metric == 'f1_macro':
-        cls, metric, mode = EarlyStopping, 'val/f1_macro', 'max'
+        metric, mode = 'val/f1_macro', 'max'
     else:
         raise ValueError(f"Patience metric '{patience_metric}' is not supported.")
 
@@ -229,7 +248,7 @@ def initialize_trainer(model_name, epochs, patience, patience_metric, progress_b
                          offline=wb_mode == 'offline',
                          config=wandb_config)
 
-    early_stop_callback = cls(
+    early_stop_callback = EarlyStopping(
         monitor=metric,
         patience=patience,
         verbose=False,
@@ -343,6 +362,9 @@ if __name__ == "__main__":
     parser.add_argument('--n-updates', dest='n_updates', type=int, default=5,
                         help="Inner gradient updates during meta learning.")
 
+    parser.add_argument('--n-updates-test', dest='n_updates_test', type=int, default=5,
+                        help="Inner gradient updates during meta learning.")
+
     # DATA CONFIGURATION
     parser.add_argument('--hop-size', dest='hop_size', type=int, default=2)
     parser.add_argument('--top-users', dest='top_users', type=int, default=30)
@@ -414,6 +436,7 @@ if __name__ == "__main__":
         feature_type=params["feature_type"],
         vocab_size=params["vocab_size"],
         n_inner_updates=params["n_updates"],
+        n_inner_updates_test=params["n_updates_test"],
         num_workers=params["n_workers"],
         gat_dropout=params["gat_dropout"],
         lin_dropout=params["lin_dropout"],

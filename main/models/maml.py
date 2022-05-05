@@ -2,20 +2,21 @@ import time
 from copy import deepcopy
 from statistics import mean, stdev
 
-import torch.nn.functional as func
 from torch import optim
 from torchmetrics import F1
 from tqdm.auto import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
 from models.graph_trainer import GraphTrainer
-from models.proto_net import ProtoNet
 from models.train_utils import *
 from samplers.batch_sampler import split_list
 
 
 # noinspection PyAbstractClass
-class ProtoMAML(GraphTrainer):
+class Maml(GraphTrainer):
+    """
+    First-Order MAML (FOML) which only uses first-order gradients.
+    """
 
     # noinspection PyUnusedLocal
     def __init__(self, model_params, optimizer_hparams):
@@ -32,25 +33,25 @@ class ProtoMAML(GraphTrainer):
         self.n_inner_updates = model_params['n_inner_updates']
         self.n_inner_updates_test = model_params['n_inner_updates_test']
 
+        self.lr_output = self.hparams.optimizer_hparams['lr_output']
         self.lr_inner = self.hparams.optimizer_hparams['lr_inner']
 
+        # flipping the weights
         pos_weight = 1 // model_params["class_weight"]['train'][1]
         print(f"Using positive weight: {pos_weight}")
         self.loss_module = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
         self.model = GatNet(model_params)
 
+        self.automatic_optimization = False
+
     def configure_optimizers(self):
-        optimizer = optim.AdamW(self.parameters(), lr=self.hparams.optimizer_hparams['lr'])
-        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[140, 180], gamma=0.1)
+        opt_params = self.hparams.optimizer_hparams
+        # scheduler = MultiStepLR(optimizer, milestones=[140, 180], gamma=0.1)
+        optimizer, scheduler = self.get_optimizer(opt_params['lr'], opt_params['lr_decay_epochs'])
         return [optimizer], [scheduler]
 
     def adapt_few_shot(self, x, edge_index, cl_mask, support_targets, mode):
-
-        # Determine prototype initialization
-        support_feats = self.model(x, edge_index, mode).squeeze()[cl_mask]
-
-        prototype = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
         # Copy model for inner-loop model and optimizer
         local_model = deepcopy(self.model)
@@ -58,38 +59,16 @@ class ProtoMAML(GraphTrainer):
         local_optim = optim.SGD(local_model.parameters(), lr=self.lr_inner)
         local_optim.zero_grad()
 
-        # Create output layer weights with prototype-based initialization
-        init_weight = 2 * prototype
-        init_bias = -torch.norm(prototype, dim=1) ** 2
-        output_weight = init_weight.detach().requires_grad_()
-        output_bias = init_bias.detach().requires_grad_()
-
-        updates = self.n_inner_updates if mode == 'train' else self.n_inner_updates_test
-
         # Optimize inner loop model on support set
-        for _ in range(updates):
+        for _ in range(self.n_inner_updates):
             # Determine loss on the support set
-            loss, _ = run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask, support_targets, mode,
-                                self.loss_module)
+            loss, logits = run_model(local_model, x, edge_index, cl_mask, support_targets, mode, self.loss_module)
 
             # Calculate gradients and perform inner loop update
             loss.backward()
             local_optim.step()
 
-            # Update output layer via SGD
-            output_weight.data -= self.hparams.optimizer_hparams['lr_output'] * output_weight.grad
-            output_bias.data -= self.hparams.optimizer_hparams['lr_output'] * output_bias.grad
-
-            # Reset gradients
-            local_optim.zero_grad()
-            output_weight.grad.fill_(0)
-            output_bias.grad.fill_(0)
-
-        # Re-attach computation graph of prototypes
-        output_weight = (output_weight - init_weight).detach() + init_weight
-        output_bias = (output_bias - init_bias).detach() + init_bias
-
-        return local_model, output_weight, output_bias
+        return local_model
 
     def outer_loop(self, batch, mode):
         losses = []
@@ -103,12 +82,10 @@ class ProtoMAML(GraphTrainer):
             support_targets, query_targets = split_list(targets)
 
             # Perform inner loop adaptation
-            local_model, output_weight, output_bias = self.adapt_few_shot(*get_subgraph_batch(support_graphs),
-                                                                          support_targets, mode)
+            local_model = self.adapt_few_shot(*get_subgraph_batch(support_graphs), support_targets, mode)
 
             # Determine loss of query set
-            loss, query_predictions = run_model(local_model, output_weight, output_bias,
-                                                *get_subgraph_batch(query_graphs), query_targets, mode,
+            loss, query_predictions = run_model(local_model, *get_subgraph_batch(query_graphs), query_targets, mode,
                                                 self.loss_module)
 
             self.update_metrics(mode, query_predictions, query_targets)
@@ -147,7 +124,7 @@ class ProtoMAML(GraphTrainer):
         torch.set_grad_enabled(False)
 
 
-def run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask, targets, mode, loss_module=None):
+def run_model(local_model, x, edge_index, cl_mask, targets, mode, loss_module=None):
     """
     Execute a model with given output layer weights and inputs.
     """
@@ -159,15 +136,13 @@ def run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask, t
     # output_weight shape 1 x 64
     # output_bias shape 1
 
-    logits = func.linear(logits, output_weight, output_bias)
-
     targets = targets.view(-1, 1) if not len(targets.shape) == 2 else targets
     loss = loss_module(logits, targets.float()) if loss_module is not None else None
 
     return loss, (logits.sigmoid() > 0.5).float()
 
 
-def test_protomaml(model, test_loader, num_classes=1):
+def test_maml(model, test_loader, num_classes=1):
     mode = 'test'
     model = model.to(DEVICE)
     model.eval()
@@ -188,8 +163,7 @@ def test_protomaml(model, test_loader, num_classes=1):
         support_targets = support_targets.to(DEVICE)
 
         # Finetune new model on support set
-        local_model, output_weight, output_bias = model.adapt_few_shot(*get_subgraph_batch(support_graphs),
-                                                                       support_targets, mode)
+        local_model = model.adapt_few_shot(*get_subgraph_batch(support_graphs), support_targets, mode)
 
         f1_target = F1(num_classes=num_classes, average='none').to(DEVICE)
 
@@ -207,7 +181,7 @@ def test_protomaml(model, test_loader, num_classes=1):
                 graphs = support_graphs + query_graphs
                 targets = torch.cat([support_targets, query_targets]).to(DEVICE)
 
-                _, pred = run_model(local_model, output_weight, output_bias, *get_subgraph_batch(graphs), targets, mode)
+                _, pred = run_model(local_model, *get_subgraph_batch(graphs), targets, mode)
 
                 f1_target.update(pred, targets)
 

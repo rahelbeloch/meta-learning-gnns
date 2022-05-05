@@ -16,13 +16,13 @@ from samplers.graph_sampler import KHopSamplerSimple
 class ProtoNet(GraphTrainer):
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, optimizer_hparams, label_names, batch_size):
+    def __init__(self, model_params, optimizer_hparams):
         """
         Inputs
             proto_dim - Dimensionality of prototype feature space
             lr - Learning rate of Adam optimizer
         """
-        super().__init__()
+        super().__init__(validation_sets=['val'])
         self.save_hyperparameters()
 
         # the output dimension for the prototypical network is not num classes, but the prototypes dimension!
@@ -31,11 +31,9 @@ class ProtoNet(GraphTrainer):
         self.num_classes = model_params["class_weight"].shape[0]
 
         # flipping the weights
-        # pos_weight = 1 // model_params["class_weight"][1]
-        # print(f"Using positive weight: {pos_weight}")
-        # self.loss_module = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-
-        self.loss_module = torch.nn.BCEWithLogitsLoss()
+        pos_weight = 1 // model_params["class_weight"]['train'][1]
+        print(f"Using positive weight: {pos_weight}")
+        self.loss_module = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
         self.model = GatNet(model_params)
 
@@ -131,7 +129,7 @@ class ProtoNet(GraphTrainer):
             "Nr of features returned does not equal nr. of classification nodes!"
 
         # support logits: episode size x 2, support targets: episode size x 1
-        prototypes = ProtoNet.calculate_prototypes(support_logits, support_targets)
+        prototype = ProtoNet.calculate_prototypes(support_logits, support_targets)
 
         x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
         query_logits = self.model(x, edge_index, mode)[cl_mask]
@@ -139,7 +137,7 @@ class ProtoNet(GraphTrainer):
         assert query_logits.shape[0] == query_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
 
-        logits, targets = ProtoNet.classify_features(prototypes, query_logits, query_targets)
+        logits, targets = ProtoNet.classify_features(prototype, query_logits, query_targets)
         # logits and targets: batch size x 1
 
         # if predictions.shape[1] != self.num_classes:
@@ -241,7 +239,7 @@ def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=1):
     for k_idx in tqdm(range(0, node_features.shape[0], k_shot), "Evaluating prototype classification", leave=False):
         # Select support set (k examples per class) and calculate prototypes
         k_node_feats, k_targets = get_as_set(k_idx, k_shot, node_features, node_targets, start_indices_per_class)
-        prototypes, proto_classes = model.calculate_prototypes(k_node_feats, k_targets)
+        prototype = model.calculate_prototypes(k_node_feats, k_targets)
 
         batch_f1_target = tm.F1(num_classes=num_classes, average='none')
 
@@ -250,7 +248,7 @@ def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=1):
                 continue
 
             e_node_feats, e_targets = get_as_set(e_idx, k_shot, node_features, node_targets, start_indices_per_class)
-            logits, targets = model.classify_features(prototypes, e_node_feats, e_targets)
+            logits, targets = model.classify_features(prototype, e_node_feats, e_targets)
 
             predictions = (logits.sigmoid() > 0.5).float()
 

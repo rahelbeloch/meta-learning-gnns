@@ -1,8 +1,6 @@
 import time
 
 from torch import nn
-from torch.optim import AdamW, SGD
-from torch.optim.lr_scheduler import StepLR, MultiStepLR
 
 from models.gat_encoder_sparse_pushkar import GatNet
 from models.graph_trainer import GraphTrainer
@@ -17,7 +15,7 @@ class GatBase(GraphTrainer):
     """
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, optimizer_hparams, label_names, batch_size, val_batches):
+    def __init__(self, model_params, optimizer_hparams, val_batches):
         """
         Args:
             model_params - Hyperparameters for the whole model, as dictionary.
@@ -45,28 +43,6 @@ class GatBase(GraphTrainer):
         self.validation_model = GatNet(model_params)
 
         self.automatic_optimization = False
-
-    def get_optimizer(self, lr, step_size, model=None):
-        opt_params = self.hparams.optimizer_hparams
-
-        model = self.model if model is None else model
-
-        if opt_params['optimizer'] == 'Adam':
-            optimizer = AdamW(model.parameters(), lr=lr, weight_decay=opt_params['weight_decay'])
-        elif opt_params['optimizer'] == 'SGD':
-            optimizer = SGD(model.parameters(), lr=lr, momentum=opt_params['momentum'],
-                            weight_decay=opt_params['weight_decay'])
-        else:
-            raise ValueError("No optimizer name provided!")
-
-        scheduler = None
-        if opt_params['scheduler'] == 'step':
-            scheduler = StepLR(optimizer, step_size=step_size, gamma=opt_params['lr_decay_factor'])
-        elif opt_params['scheduler'] == 'multi_step':
-            scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 30, 40, 55],
-                                    gamma=opt_params['lr_decay_factor'])
-
-        return optimizer, scheduler
 
     def configure_optimizers(self):
         opt_params = self.hparams.optimizer_hparams

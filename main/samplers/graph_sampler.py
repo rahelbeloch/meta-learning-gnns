@@ -5,6 +5,7 @@ from torch_geometric.loader import GraphSAINTSampler
 from torch_geometric.utils import k_hop_subgraph
 
 from samplers.batch_sampler import split_list
+from train_config import META_MODELS
 
 
 class KHopSampler(GraphSAINTSampler):
@@ -90,13 +91,13 @@ class KHopSampler(GraphSAINTSampler):
 
         sup_graphs, labels = list(map(list, zip(*data_list_collated)))
 
-        if self.model_type in ['prototypical', 'gat'] or (self.model_type == 'gmeta' and self.mode == 'test'):
+        if self.model_type in ['prototypical', 'gat'] or (self.model_type in META_MODELS and self.mode == 'test'):
 
             supp_sub_graphs, query_sub_graphs = split_list(sup_graphs)
             supp_labels, query_labels = split_list(labels)
             return supp_sub_graphs, query_sub_graphs, torch.LongTensor(supp_labels), torch.LongTensor(query_labels)
 
-        elif self.model_type == 'gmeta':
+        elif self.model_type in META_MODELS:
 
             # converts list of all given samples (e.g. (local batch size * task batch size) x 3) into a list of
             # batches (task batch size x 3 x local batch size). Makes it easier to process in the PL Maml.

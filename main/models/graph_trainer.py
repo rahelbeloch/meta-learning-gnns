@@ -32,7 +32,7 @@ class GraphTrainer(pl.LightningModule):
         self.log(metric, value, on_step=False, on_epoch=True)
 
     def log(self, metric, value, on_step=True, on_epoch=False, **kwargs):
-        b_size = self.hparams['batch_size']
+        b_size = self.hparams["model_params"]["batch_size"]
         super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=b_size, add_dataloader_idx=False)
 
     def validation_epoch_end(self, outputs) -> None:
@@ -56,31 +56,31 @@ class GraphTrainer(pl.LightningModule):
         f1_fake = self.metrics['f1_target'][0][mode].compute()
 
         if verbose:
-            label_names = self.hparams["label_names"]
+            label_names = self.hparams["model_params"]["label_names"]
 
             # we are at the end of an epoch, so log now on step
             self.log_on_epoch(f'{mode}/f1_{label_names[1]}', f1_fake)
 
         self.metrics['f1_target'][0][mode].reset()
 
-    # def get_optimizer(self, lr, step_size, model=None):
-    #     opt_params = self.hparams.optimizer_hparams
-    #
-    #     model = self.model if model is None else model
-    #
-    #     if opt_params['optimizer'] == 'Adam':
-    #         optimizer = AdamW(model.parameters(), lr=lr, weight_decay=opt_params['weight_decay'])
-    #     elif opt_params['optimizer'] == 'SGD':
-    #         optimizer = SGD(model.parameters(), lr=lr, momentum=opt_params['momentum'],
-    #                         weight_decay=opt_params['weight_decay'])
-    #     else:
-    #         raise ValueError("No optimizer name provided!")
-    #
-    #     scheduler = None
-    #     if opt_params['scheduler'] == 'step':
-    #         scheduler = StepLR(optimizer, step_size=step_size, gamma=opt_params['lr_decay_factor'])
-    #     elif opt_params['scheduler'] == 'multi_step':
-    #         scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 30, 40, 55],
-    #                                 gamma=opt_params['lr_decay_factor'])
-    #
-    #     return optimizer, scheduler
+    def get_optimizer(self, lr, step_size, model=None):
+        opt_params = self.hparams.optimizer_hparams
+
+        model = self.model if model is None else model
+
+        if opt_params['optimizer'] == 'Adam':
+            optimizer = AdamW(model.parameters(), lr=lr, weight_decay=opt_params['weight_decay'])
+        elif opt_params['optimizer'] == 'SGD':
+            optimizer = SGD(model.parameters(), lr=lr, momentum=opt_params['momentum'],
+                            weight_decay=opt_params['weight_decay'])
+        else:
+            raise ValueError("No optimizer name provided!")
+
+        scheduler = None
+        if opt_params['scheduler'] == 'step':
+            scheduler = StepLR(optimizer, step_size=step_size, gamma=opt_params['lr_decay_factor'])
+        elif opt_params['scheduler'] == 'multi_step':
+            scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 30, 40, 55],
+                                    gamma=opt_params['lr_decay_factor'])
+
+        return optimizer, scheduler
