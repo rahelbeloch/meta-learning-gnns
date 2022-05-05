@@ -17,8 +17,7 @@ class GatNet(torch.nn.Module):
         self.in_dim = model_params["input_dim"]
 
         # with cross entropy, we just use one output dimension
-        self.output_dim = 1
-        # self.output_dim = model_params["output_dim"]
+        self.output_dim = model_params["output_dim"]
 
         self.hid_dim = model_params["hid_dim"]
         self.feat_reduce_dim = model_params["feat_reduce_dim"]
@@ -62,8 +61,8 @@ class GatNet(torch.nn.Module):
         #                      nn.Linear(self.feat_reduce_dim, num_classes))
 
         # Pushkar implementation
-        return SparseGATLayer(self.hid_dim * self.n_heads, self.output_dim, self.feat_reduce_dim, dropout=self.gat_dropout,
-                              attn_drop=self.attn_dropout, concat=False)
+        return SparseGATLayer(self.hid_dim * self.n_heads, self.output_dim, self.feat_reduce_dim,
+                              dropout=self.gat_dropout, attn_drop=self.attn_dropout, concat=False)
 
     def forward(self, x, edge_index, mode):
         x = func.dropout(x, self.gat_dropout, training=mode == 'train')
@@ -199,3 +198,97 @@ class GraphNet(torch.nn.Module):
         out = self.classifier(x)
         # return out, node_mask
         return out
+
+
+class GMetaGat(nn.Module):
+    def __init__(self, model_params):
+        super(GMetaGat, self).__init__()
+
+        self.vars = nn.ParameterList()
+
+        self.n_heads = model_params["n_heads"]
+
+        self.in_dim = model_params["input_dim"]
+
+        self.output_dim = model_params["output_dim"]
+
+        self.hid_dim = model_params["hid_dim"]
+        self.feat_reduce_dim = model_params["feat_reduce_dim"]
+
+        self.gat_dropout = model_params["gat_dropout"]
+        self.lin_dropout = model_params["lin_dropout"]
+        self.attn_dropout = model_params["attn_dropout"]
+
+        # param[1] attention_head_size
+        # param[2] hidden_dim for classifier
+        # param[3] n_ways
+        # param[4] number of graphlets
+
+        # attention_head_size = param[1]
+        # graphlets_nr = param[4]
+        # n_ways = param[3]
+        # classifier_hid_dim = param[2]
+
+        # attention heads
+        w_q = nn.Parameter(torch.ones(self.in_dim, self.hid_dim))
+        w_k = nn.Parameter(torch.ones(self.in_dim, self.hid_dim))
+        w_v = nn.Parameter(torch.ones(self.in_dim, self.hid_dim))
+
+        w_l = nn.Parameter(torch.ones(self.output_dim, self.hid_dim * 3))
+
+        init.kaiming_normal_(w_q)
+        init.kaiming_normal_(w_k)
+        init.kaiming_normal_(w_v)
+        init.kaiming_normal_(w_l)
+
+        self.vars.append(w_q)
+        self.vars.append(w_k)
+        self.vars.append(w_v)
+        self.vars.append(w_l)
+
+        # bias for attentions
+        self.vars.append(nn.Parameter(torch.zeros(self.in_dim)))
+        self.vars.append(nn.Parameter(torch.zeros(self.in_dim)))
+        self.vars.append(nn.Parameter(torch.zeros(self.in_dim)))
+
+        # bias for classifier
+        self.vars.append(nn.Parameter(torch.zeros(self.output_dim)))
+
+    def forward(self, x, edge_index, mode, variables=None):
+
+        if variables is None:
+            variables = self.vars
+
+        x = x.float().to(DEVICE)
+
+        w_q, w_k, w_v, w_l = variables[0], variables[1], variables[2], variables[3]
+        b_q, b_k, b_v, b_l = variables[4], variables[5], variables[6], variables[7]
+
+        Q = func.linear(x, w_q, b_q)
+        K = func.linear(h_graphlets, w_k, b_k)
+
+        attention_scores = torch.matmul(Q, K.T)
+        attention_probs = nn.Softmax(dim=-1)(attention_scores)
+        context = func.linear(attention_probs, w_v, b_v)
+
+        # classify layer, first concatenate the context vector
+        # with the hidden dim of center nodes
+        h = torch.cat((context, x), 1)
+        h = func.linear(h, w_l, b_l)
+
+        return h, h
+
+    def zero_grad(self, variables=None):
+
+        with torch.no_grad():
+            if variables is None:
+                for p in self.vars:
+                    if p.grad is not None:
+                        p.grad.zero_()
+            else:
+                for p in variables:
+                    if p.grad is not None:
+                        p.grad.zero_()
+
+    def parameters(self, **kwargs):
+        return self.vars

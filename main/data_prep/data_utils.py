@@ -128,7 +128,7 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
         batch_sampler = BatchSampler(targets, max_n_query, mode, batch_size, n_classes, k_shot)
     elif model_name == 'prototypical' or (model_name == 'gat' and mode != 'train'):
         batch_sampler = FewShotSampler(targets, max_n_query, mode, n_way=n_classes, k_shot=k_shot)
-    elif model_name == 'gmeta':
+    elif model_name in ['gmeta', 'proto-maml', 'maml']:
         batch_size = None if mode == 'train' else 2
         batch_sampler = FewShotMamlSampler(targets, max_n_query, mode, n_classes, k_shot, batch_size)
     else:
