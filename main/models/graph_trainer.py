@@ -1,30 +1,24 @@
 import pytorch_lightning as pl
 import torch
 import torchmetrics as tm
-
-from data_prep.graph_preprocessor import SPLITS
+from torch.optim import AdamW, SGD
+from torch.optim.lr_scheduler import StepLR, MultiStepLR
 
 
 class GraphTrainer(pl.LightningModule):
 
-    def __init__(self):
+    def __init__(self, validation_sets):
         super().__init__()
-
-        type(self)
 
         self._device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
-        self.metrics = {
-            'f1_macro': ({}, 'macro'),
-            'f1_target': ({}, 'none')
-        }
+        self.metrics = {'f1_target': ({}, 'none')}
 
         # we have a binary problem
         n_classes = 1
+        self.validation_sets = validation_sets
 
-        splits = SPLITS
-        if 'GatBase' in str(type(self)):
-            splits += ['val_tune']
+        splits = ['train', 'test'] + validation_sets
 
         # Metrics from torchmetrics
         for s in splits:
@@ -39,11 +33,12 @@ class GraphTrainer(pl.LightningModule):
 
     def log(self, metric, value, on_step=True, on_epoch=False, **kwargs):
         b_size = self.hparams['batch_size']
-        super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=b_size)
+        super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=b_size, add_dataloader_idx=False)
 
     def validation_epoch_end(self, outputs) -> None:
         super().validation_epoch_end(outputs)
-        self.compute_and_log_metrics('val')
+        for s in self.validation_sets:
+            self.compute_and_log_metrics(s)
 
     def training_epoch_end(self, outputs) -> None:
         super().training_epoch_end(outputs)
@@ -53,16 +48,39 @@ class GraphTrainer(pl.LightningModule):
         super().test_epoch_end(outputs)
         self.compute_and_log_metrics('test')
 
+    def update_metrics(self, mode, predictions, targets):
+        for mode_dict, _ in self.metrics.values():
+            mode_dict[mode].update(predictions, targets)
+
     def compute_and_log_metrics(self, mode, verbose=True):
         f1_fake = self.metrics['f1_target'][0][mode].compute()
-        f1_macro = self.metrics['f1_macro'][0][mode].compute()
 
         if verbose:
             label_names = self.hparams["label_names"]
 
             # we are at the end of an epoch, so log now on step
             self.log_on_epoch(f'{mode}/f1_{label_names[1]}', f1_fake)
-            self.log_on_epoch(f'{mode}/f1_macro', f1_macro)
 
         self.metrics['f1_target'][0][mode].reset()
-        self.metrics['f1_macro'][0][mode].reset()
+
+    # def get_optimizer(self, lr, step_size, model=None):
+    #     opt_params = self.hparams.optimizer_hparams
+    #
+    #     model = self.model if model is None else model
+    #
+    #     if opt_params['optimizer'] == 'Adam':
+    #         optimizer = AdamW(model.parameters(), lr=lr, weight_decay=opt_params['weight_decay'])
+    #     elif opt_params['optimizer'] == 'SGD':
+    #         optimizer = SGD(model.parameters(), lr=lr, momentum=opt_params['momentum'],
+    #                         weight_decay=opt_params['weight_decay'])
+    #     else:
+    #         raise ValueError("No optimizer name provided!")
+    #
+    #     scheduler = None
+    #     if opt_params['scheduler'] == 'step':
+    #         scheduler = StepLR(optimizer, step_size=step_size, gamma=opt_params['lr_decay_factor'])
+    #     elif opt_params['scheduler'] == 'multi_step':
+    #         scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 30, 40, 55],
+    #                                 gamma=opt_params['lr_decay_factor'])
+    #
+    #     return optimizer, scheduler
