@@ -161,7 +161,7 @@ def run_model(local_model, output_weight, output_bias, graphs, targets, mode, lo
     # binary class
     # output_weight: 1 x 1, output_bias: 1 x 1, logits: 40 x 1
 
-    logits = func.linear(logits, output_weight, output_bias)
+    logits = func.linear(logits, output_weight.T, output_bias)
 
     targets = targets.view(-1, 1) if not len(targets.shape) == 2 else targets
     loss = loss_module(logits, targets.float()) if loss_module is not None else None
