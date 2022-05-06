@@ -46,7 +46,7 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
     # if we only want to evaluate, model should be initialized with nr of labels from evaluation data
     evaluation = checkpoint is not None and Path(checkpoint).exists()
 
-    print(f'\nConfiguration:\n\n mode: {"TEST" if evaluation else "TRAIN"}\n seed: {seed}\n max epochs: {epochs}\n '
+    print(f'\nConfiguration:\n\n balance_data: {balance_data}\n mode: {"TEST" if evaluation else "TRAIN"}\n seed: {seed}\n max epochs: {epochs}\n '
           f'patience: {patience}\n patience metric: {patience_metric}\n k_shot: {k_shot}\n\n model_name: {model_name}\n'
           f' hidden_dim: {hidden_dim}\n feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n '
           f' gat heads: {gat_heads}\n\n'
@@ -376,7 +376,7 @@ if __name__ == "__main__":
     parser.add_argument('--data-dir', dest='data_dir', default='data',
                         help='Select the dataset you want to use.')
 
-    parser.add_argument('--balance-data', dest='no_balance_data', action='store_false')
+    parser.add_argument('--balance-data', dest='balance_data', action='store_false')
     parser.add_argument('--no-balance-data', dest='no_balance_data', action='store_true')
     parser.set_defaults(no_balance_data=True)
 
