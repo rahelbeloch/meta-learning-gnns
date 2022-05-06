@@ -328,7 +328,7 @@ if __name__ == "__main__":
                              'If not given then it is computed from the given epochs.')
     parser.add_argument('--lr-decay-epochs', dest='lr_decay_epochs', type=float, default=5,
                         help='No. of epochs after which learning rate should be decreased')
-    parser.add_argument('--lr-decay-epochs-val', dest='lr_decay_epochs_val', ype=float, default=2,
+    parser.add_argument('--lr-decay-epochs-val', dest='lr_decay_epochs_val', type=float, default=2,
                         help='No. of epochs after which learning rate should be decreased')
     parser.add_argument('--lr-decay-factor', dest='lr_decay_factor', type=float, default=0.8,
                         help='Decay the learning rate of the optimizer by this multiplicative amount')
