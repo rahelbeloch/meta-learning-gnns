@@ -63,7 +63,7 @@ class GraphTrainer(pl.LightningModule):
 
         self.metrics['f1_target'][0][mode].reset()
 
-    def get_optimizer(self, lr, step_size, model=None):
+    def get_optimizer(self, lr, step_size, model=None, milestones=None):
         opt_params = self.hparams.optimizer_hparams
 
         model = self.model if model is None else model
@@ -80,7 +80,7 @@ class GraphTrainer(pl.LightningModule):
         if opt_params['scheduler'] == 'step':
             scheduler = StepLR(optimizer, step_size=step_size, gamma=opt_params['lr_decay_factor'])
         elif opt_params['scheduler'] == 'multi_step':
-            scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 30, 40, 55],
-                                    gamma=opt_params['lr_decay_factor'])
+            milestones = [5, 10, 15, 20, 30, 40, 55] if milestones is None else milestones
+            scheduler = MultiStepLR(optimizer, milestones=milestones, gamma=opt_params['lr_decay_factor'])
 
         return optimizer, scheduler

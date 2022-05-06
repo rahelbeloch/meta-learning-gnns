@@ -25,7 +25,7 @@ if torch.cuda.is_available():
 
 
 def train(balance_data, progress_bar, model_name, seed, epochs, patience, patience_metric, h_size, top_users,
-          top_users_excluded, k_shot, lr, lr_val, lr_inner, lr_outer, hidden_dim, feat_reduce_dim,
+          top_users_excluded, k_shot, lr, lr_val, lr_inner, lr_output, hidden_dim, feat_reduce_dim,
           proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size, feature_type, vocab_size,
           n_inner_updates, n_inner_updates_test, num_workers, gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup,
           max_iters, gat_heads, batch_size, lr_decay_epochs, lr_decay_epochs_val, lr_decay_factor, scheduler,
@@ -46,15 +46,15 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
     # if we only want to evaluate, model should be initialized with nr of labels from evaluation data
     evaluation = checkpoint is not None and Path(checkpoint).exists()
 
-    print(f'\nConfiguration:\n\n balance_data: {balance_data}\n mode: {"TEST" if evaluation else "TRAIN"}\n seed: {seed}\n max epochs: {epochs}\n '
-          f'patience: {patience}\n patience metric: {patience_metric}\n k_shot: {k_shot}\n\n model_name: {model_name}\n'
-          f' hidden_dim: {hidden_dim}\n feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n '
-          f' gat heads: {gat_heads}\n\n'
+    print(f'\nConfiguration:\n\n balance_data: {balance_data}\n mode: {"TEST" if evaluation else "TRAIN"}\n '
+          f'seed: {seed}\n max epochs: {epochs}\n patience: {patience}\n patience metric: {patience_metric}\n '
+          f'k_shot: {k_shot}\n\n model_name: {model_name}\n hidden_dim: {hidden_dim}\n '
+          f' feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n gat heads: {gat_heads}\n\n'
           f' data_train: {data_train} (splits: {str(train_split_size)})\n data_eval: {data_eval} '
           f'(splits: {str(eval_split_size)})\n hop_size: {h_size}\n '
           f'top_users: {top_users}K\n top_users_excluded: {top_users_excluded}%\n num_workers: {num_workers}\n '
           f'vocab_size: {vocab_size}\n feature_type: {feature_type}\n\n lr: {lr}\n lr_val: {lr_val}\n '
-          f'lr_outer: {lr_outer}\n inner_lr: {lr_inner}\n n_updates: {n_inner_updates}\n proto_dim: {proto_dim}\n')
+          f'lr_output: {lr_output}\n inner_lr: {lr_inner}\n n_updates: {n_inner_updates}\n proto_dim: {proto_dim}\n')
 
     # reproducible results
     pl.seed_everything(seed)
@@ -101,9 +101,10 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         model = ProtoNet(model_params, optimizer_hparams)
     elif model_name in META_MODELS:
         model_params.update(n_inner_updates=n_inner_updates, n_inner_updates_test=n_inner_updates_test)
-        optimizer_hparams.update(lr_outer=lr_outer, lr_inner=lr_inner)
+        optimizer_hparams.update(lr_inner=lr_inner)
 
         if model_name == 'proto-maml':
+            optimizer_hparams.update(lr_output=lr_output)
             model = ProtoMAML(model_params, optimizer_hparams)
         elif model_name == 'gmeta':
             model = GMeta(model_params, optimizer_hparams)
@@ -295,7 +296,7 @@ if __name__ == "__main__":
     # proto_dim = 64,
     # lr = 1e-3,
     # lr_inner = 0.1,
-    # lr_outer = 0.1
+    # lr_output = 0.1
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -325,15 +326,16 @@ if __name__ == "__main__":
     parser.add_argument("--max-iters", dest='max_iters', type=int, default=-1,
                         help='Number of iterations until the learning rate decay after warmup should last. '
                              'If not given then it is computed from the given epochs.')
-    parser.add_argument('--lr_decay_epochs', type=float, default=5,
+    parser.add_argument('--lr-decay-epochs', dest='lr_decay_epochs', type=float, default=5,
                         help='No. of epochs after which learning rate should be decreased')
-    parser.add_argument('--lr_decay_epochs_val', type=float, default=2,
+    parser.add_argument('--lr-decay-epochs-val', dest='lr_decay_epochs_val', ype=float, default=2,
                         help='No. of epochs after which learning rate should be decreased')
-    parser.add_argument('--lr_decay_factor', type=float, default=0.8,
+    parser.add_argument('--lr-decay-factor', dest='lr_decay_factor', type=float, default=0.8,
                         help='Decay the learning rate of the optimizer by this multiplicative amount')
     parser.add_argument('--scheduler', type=str, default='step',
                         help='The type of lr scheduler to use anneal learning rate: step/multi_step')
-    parser.add_argument('--weight_decay', type=float, default=1e-3, help='weight decay for optimizer')
+    parser.add_argument('--weight-decay', dest='weight_decay', type=float, default=1e-3,
+                        help='weight decay for optimizer')
     parser.add_argument('--momentum', type=float, default=0.8, help='Momentum for optimizer')
     parser.add_argument('--optimizer', type=str, default="Adam", help='Momentum for optimizer')
 
@@ -350,7 +352,7 @@ if __name__ == "__main__":
     # META PARAMETERS
 
     parser.add_argument('--proto-dim', dest='proto_dim', type=int, default=64)
-    parser.add_argument('--output-lr', dest='lr_outer', type=float, default=0.01)
+    parser.add_argument('--output-lr', dest='lr_output', type=float, default=0.01)
     parser.add_argument('--inner-lr', dest='lr_inner', type=float, default=0.01)
     parser.add_argument('--n-updates', dest='n_updates', type=int, default=5,
                         help="Inner gradient updates during meta learning.")
@@ -416,7 +418,7 @@ if __name__ == "__main__":
         lr=params["lr"],
         lr_val=params["lr_val"],
         lr_inner=params["lr_inner"],
-        lr_outer=params["lr_outer"],
+        lr_output=params["lr_output"],
         hidden_dim=params["hidden_dim"],
         feat_reduce_dim=params["feat_reduce_dim"],
         proto_dim=params["proto_dim"],

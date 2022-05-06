@@ -24,7 +24,6 @@ class Maml(GraphTrainer):
         Inputs
             lr - Learning rate of the outer loop Adam optimizer
             lr_inner - Learning rate of the inner loop SGD optimizer
-            lr_output - Learning rate for the output layer in the inner loop
             n_inner_updates - Number of inner loop updates to perform
         """
         super().__init__(validation_sets=['val'])
@@ -33,7 +32,6 @@ class Maml(GraphTrainer):
         self.n_inner_updates = model_params['n_inner_updates']
         self.n_inner_updates_test = model_params['n_inner_updates_test']
 
-        self.lr_output = self.hparams.optimizer_hparams['lr_output']
         self.lr_inner = self.hparams.optimizer_hparams['lr_inner']
 
         # flipping the weights
@@ -47,8 +45,8 @@ class Maml(GraphTrainer):
 
     def configure_optimizers(self):
         opt_params = self.hparams.optimizer_hparams
-        # scheduler = MultiStepLR(optimizer, milestones=[140, 180], gamma=0.1)
-        optimizer, scheduler = self.get_optimizer(opt_params['lr'], opt_params['lr_decay_epochs'])
+        optimizer, scheduler = self.get_optimizer(opt_params['lr'], opt_params['lr_decay_epochs'],
+                                                  milestones=[140, 180])
         return [optimizer], [scheduler]
 
     def adapt_few_shot(self, x, edge_index, cl_mask, support_targets, mode):

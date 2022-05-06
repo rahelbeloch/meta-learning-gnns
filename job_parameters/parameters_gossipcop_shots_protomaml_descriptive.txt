@@ -8,9 +8,25 @@ proto-maml
 
 ME
 
-- task numbers train: 16, 32, (64)
+- task numbers train / task batch size: 43 (all tasks we can create into 1 batch)
+- local batch size / number of samples in 1 batch: 160
 - task numbers val/test: 2
+
 - inner update learning rate: 1e−2, 5e−3, 1e−3, 5e−4
 - outer update learning rate: 1e−2, 5e−3, 1e−3, 5e−4
-- hidden dimension: 16, (64)
-- gradient update steps: 5 in training, 5 in testing
+- hidden dimension: 16, 64
+- gat heads: 8, 2
+- gradient update steps training: 1, 2, 3, 5, 10, 20
+- gradient update steps training: 5
+
+
+WORKING WELL
+
+- task numbers train / task batch size: 43 (all tasks we can create into 1 batch)
+- local batch size / number of samples in 1 batch: 160
+
+- inner lr: 0.001
+
+- hidden dimension: 16
+- gat heads: 8
+- gradient update steps training: 5, 10, 20
