@@ -29,13 +29,13 @@ class GatBase(GraphTrainer):
 
         self.model = GatNet(model_params)
 
-        # flipping the weights
-        pos_weight = 1 // model_params["class_weight"]['train'][1]
-        print(f"Using positive weight: {pos_weight}")
-        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        train_weight = 1 // model_params["class_weight"]['train'][1]
+        print(f"Using positive train weight: {train_weight}")
+        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=train_weight)
 
-        # have a validation loss without pos weight of training set
-        self.validation_loss = nn.BCEWithLogitsLoss()
+        val_weight = 1 // model_params["class_weight"]['val'][1]
+        print(f"Using positive validation weight: {val_weight}")
+        self.validation_loss = nn.BCEWithLogitsLoss(pos_weight=val_weight)
 
         # Deep copy of the model: one for train, one for val --> update validation model with weights from train model
         # validation fine-tuning should happen on a copy of the model NOT on the model which is trained
@@ -147,7 +147,7 @@ class GatBase(GraphTrainer):
         support_graphs, query_graphs, support_targets, query_targets = batch
 
         if dataloader_idx == 0:
-            print(f"\nValidation finetune: {batch_idx + 1}")
+            # print(f"\nValidation finetune: {batch_idx + 1}")
 
             mode = 'val_support'
 
@@ -201,7 +201,7 @@ class GatBase(GraphTrainer):
             torch.set_grad_enabled(False)
 
         elif dataloader_idx == 1:
-            print(f"\nValidation test: {batch_idx + 1}")
+            # print(f"\nValidation test: {batch_idx + 1}")
 
             # Evaluate on meta test set
             mode = 'val_query'
@@ -218,35 +218,6 @@ class GatBase(GraphTrainer):
 
             # only log this once in the end of an epoch (averaged over steps)
             self.log_on_epoch(f"{mode}/loss", loss)
-
-            # if dataloader_idx == 1:
-            #     # Evaluate on meta test set
-            #
-            #     # testing on a query set that is oversampled should not be happening --> use original distribution
-            #     # training is using a weighted loss --> validation set should use weighted loss as well
-            #
-            #     # only val query
-            #     sub_graphs = query_graphs
-            #     targets = query_targets
-            #
-            #     # whole val set
-            #     # sub_graphs = support_graphs + query_graphs
-            #     # targets = torch.cat([support_targets, query_targets])
-            #
-            #     logits = self.forward(sub_graphs, targets, mode='val')
-            #
-            #     loss = self.validation_loss(logits, targets.float())
-            #
-            #     # with only 1 model
-            #     # logits = self.forward(query_graphs, query_targets, mode)
-            #
-            #     # loss = self.loss_module(logits, func.one_hot(query_targets).float())
-            #     loss = func.binary_cross_entropy_with_logits(logits, func.one_hot(query_targets).float(),
-            #                                                  pos_weight=self.val_class_weight)
-            #     # loss = self.loss_module(logits, func.one_hot(query_targets).float())
-            #
-            #     # only log this once in the end of an epoch (averaged over steps)
-            #     self.log_on_epoch(f"{mode}/loss", loss)
 
     def test_step(self, batch, batch_idx1, batch_idx2):
         """
