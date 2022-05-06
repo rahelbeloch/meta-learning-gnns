@@ -25,7 +25,7 @@ if torch.cuda.is_available():
 
 
 def train(balance_data, progress_bar, model_name, seed, epochs, patience, patience_metric, h_size, top_users,
-          top_users_excluded, k_shot, lr, lr_val, lr_inner, lr_output, hidden_dim, feat_reduce_dim,
+          top_users_excluded, k_shot, lr, lr_val, lr_inner, lr_outer, hidden_dim, feat_reduce_dim,
           proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size, feature_type, vocab_size,
           n_inner_updates, n_inner_updates_test, num_workers, gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup,
           max_iters, gat_heads, batch_size, lr_decay_epochs, lr_decay_epochs_val, lr_decay_factor, scheduler,
@@ -54,7 +54,7 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
           f'(splits: {str(eval_split_size)})\n hop_size: {h_size}\n '
           f'top_users: {top_users}K\n top_users_excluded: {top_users_excluded}%\n num_workers: {num_workers}\n '
           f'vocab_size: {vocab_size}\n feature_type: {feature_type}\n\n lr: {lr}\n lr_val: {lr_val}\n '
-          f'lr_output: {lr_output}\n inner_lr: {lr_inner}\n n_updates: {n_inner_updates}\n proto_dim: {proto_dim}\n')
+          f'lr_outer: {lr_outer}\n inner_lr: {lr_inner}\n n_updates: {n_inner_updates}\n proto_dim: {proto_dim}\n')
 
     # reproducible results
     pl.seed_everything(seed)
@@ -101,7 +101,7 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         model = ProtoNet(model_params, optimizer_hparams)
     elif model_name in META_MODELS:
         model_params.update(n_inner_updates=n_inner_updates, n_inner_updates_test=n_inner_updates_test)
-        optimizer_hparams.update(lr_output=lr_output, lr_inner=lr_inner)
+        optimizer_hparams.update(lr_outer=lr_outer, lr_inner=lr_inner)
 
         if model_name == 'proto-maml':
             model = ProtoMAML(model_params, optimizer_hparams)
@@ -295,7 +295,7 @@ if __name__ == "__main__":
     # proto_dim = 64,
     # lr = 1e-3,
     # lr_inner = 0.1,
-    # lr_output = 0.1
+    # lr_outer = 0.1
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -350,7 +350,7 @@ if __name__ == "__main__":
     # META PARAMETERS
 
     parser.add_argument('--proto-dim', dest='proto_dim', type=int, default=64)
-    parser.add_argument('--output-lr', dest='lr_output', type=float, default=0.01)
+    parser.add_argument('--output-lr', dest='lr_outer', type=float, default=0.01)
     parser.add_argument('--inner-lr', dest='lr_inner', type=float, default=0.01)
     parser.add_argument('--n-updates', dest='n_updates', type=int, default=5,
                         help="Inner gradient updates during meta learning.")
@@ -416,7 +416,7 @@ if __name__ == "__main__":
         lr=params["lr"],
         lr_val=params["lr_val"],
         lr_inner=params["lr_inner"],
-        lr_output=params["lr_output"],
+        lr_outer=params["lr_outer"],
         hidden_dim=params["hidden_dim"],
         feat_reduce_dim=params["feat_reduce_dim"],
         proto_dim=params["proto_dim"],
