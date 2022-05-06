@@ -115,7 +115,7 @@ class ProtoMAML(GraphTrainer):
 
             # Calculate gradients for query set loss
             if mode == "train":
-                loss.backward()
+                loss.backward()     # initializes the grads in the outer model, as we used its support features for prototype computation
 
                 for i, (p_global, p_local) in enumerate(zip(self.model.parameters(), local_model.parameters())):
                     if p_global.requires_grad is False:

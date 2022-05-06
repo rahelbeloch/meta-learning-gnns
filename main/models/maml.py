@@ -97,8 +97,12 @@ class Maml(GraphTrainer):
                 for i, (p_global, p_local) in enumerate(zip(self.model.parameters(), local_model.parameters())):
                     if p_global.requires_grad is False:
                         continue
+
                     # First-order approx. -> add gradients of fine-tuned and base model
-                    p_global.grad += p_local.grad
+                    if p_global.grad is None:
+                        p_global.grad = p_local.grad
+                    else:
+                        p_global.grad += p_local.grad
 
             losses.append(loss.detach())
 
