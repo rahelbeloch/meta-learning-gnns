@@ -375,7 +375,7 @@ class DataPreprocessor(GraphIO):
 
             if val_split is not None and self.balance_val_split:
                 print("Balancing val split")
-                val_split = get_balanced(val_split)
+                val_split = get_balanced(val_split, self.labels)
 
             assert len(set(val_split[2])) == len(val_split[2]), \
                 "Validation split contains duplicate doc names!"
@@ -383,21 +383,11 @@ class DataPreprocessor(GraphIO):
 
             split_dict['val'] = val_split
         else:
-
-            # TODO: oversample if flag is enabled
-            # if self.balance_train_split and self.labels[label] == 'fake':
-            # # add this document a second time to the dataset
-            #     x_data.append(tokens)
-            #     y_data.append(label)
-            #     doc_names.append(doc_key + '-1')
-            #     x_lengths.append(len(tokens))
-            # counted = np.bincount(data)
-
             train_split = data
 
         if train_split is not None and self.balance_train_split:
             print("Balancing train split")
-            train_split = get_balanced(train_split)
+            train_split = get_balanced(train_split, self.labels)
 
         if train_split is not None:
             assert len(set(train_split[2])) == len(train_split[2]), \
@@ -532,8 +522,18 @@ class DataPreprocessor(GraphIO):
         save_json_file(temp_dict, user_splits_file)
 
 
-def get_balanced(split):
-    fake_indices = np.argwhere(split[1] == 0).squeeze()
+def get_balanced(split, labels):
+
+    fake_class_idx = None
+    for idx, label_name in labels.items():
+        if label_name == 'fake':
+            fake_class_idx = idx
+            break
+
+    if fake_class_idx is None:
+        raise ValueError(f"No label index found for class with name 'fake'!")
+
+    fake_indices = np.argwhere(split[1] == fake_class_idx).squeeze()
 
     texts = split[0][fake_indices]
     labels = split[1][fake_indices]
