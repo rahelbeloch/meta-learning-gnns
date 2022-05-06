@@ -376,7 +376,7 @@ if __name__ == "__main__":
     parser.add_argument('--data-dir', dest='data_dir', default='data',
                         help='Select the dataset you want to use.')
 
-    parser.add_argument('--balance-data', dest='balance_data', action='store_false')
+    parser.add_argument('--balance-data', dest='no_balance_data', action='store_false')
     parser.add_argument('--no-balance-data', dest='no_balance_data', action='store_true')
     parser.set_defaults(no_balance_data=True)
 
