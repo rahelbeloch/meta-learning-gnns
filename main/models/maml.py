@@ -8,7 +8,7 @@ from torchmetrics import F1
 from tqdm.auto import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
-from models.graph_trainer import GraphTrainer, get_loss_weight
+from models.graph_trainer import GraphTrainer
 from models.train_utils import *
 from samplers.batch_sampler import split_list
 
@@ -35,9 +35,9 @@ class Maml(GraphTrainer):
 
         self.lr_inner = self.hparams.optimizer_hparams['lr_inner']
 
-        class_weights = model_params["class_weight"]
-        train_weight = get_loss_weight(class_weights, 'train')
-        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=train_weight)
+        # train_weight = get_loss_weight(model_params["class_weight"], 'train')
+        # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=train_weight)
+        self.loss_module = nn.BCEWithLogitsLoss()
 
         self.model = GatNet(model_params)
 
