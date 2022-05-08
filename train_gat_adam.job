@@ -1,0 +1,29 @@
+#!/bin/bash
+
+#SBATCH --job-name=meta-gnn-job
+#SBATCH --time=1:00:00
+#SBATCH --array=1-56
+#SBATCH --output=logs/job_outputs/meta_gnn_%A_%a.out
+
+# GPU Settings
+#SBATCH --partition=gpu_shared
+#SBATCH --gres=gpu:1
+#SBATCH --ntasks=1
+
+# CPU Settings
+#SBATCH --cpus-per-task=6
+#SBATCH --mem=96G
+
+module purge
+module load 2019
+module load CUDA/10.1.243
+
+# Your job starts in the directory where you call sbatch
+cd $HOME/meta-learning-gnns/main
+
+# Activate your environment
+source activate meta-gnn-env
+
+PARAMETERS_FILE=../job_parameters/parameters_gossipcop_gat_adam.txt
+
+srun python -u train_gnn.py $(head -$SLURM_ARRAY_TASK_ID $PARAMETERS_FILE | tail -1)

@@ -146,10 +146,10 @@ class GatBase(GraphTrainer):
 
     def validation_step(self, batch, batch_idx, dataloader_idx):
 
-        if batch_idx == 0:
-            train_scheduler, val_scheduler = self.lr_schedulers()
-            print(f"\nTrain Scheduler LR: {train_scheduler.state_dict()}")
-            print(f"Val Scheduler LR: {val_scheduler.state_dict()}\n")
+        # if batch_idx == 0:
+        #     train_scheduler, val_scheduler = self.lr_schedulers()
+        #     print(f"\nTrain Scheduler LR: {train_scheduler.state_dict()}")
+        #     print(f"Val Scheduler LR: {val_scheduler.state_dict()}\n")
 
         # update the weights of the validation model with weights from trained model
         self.validation_model.load_state_dict(self.model.state_dict())
