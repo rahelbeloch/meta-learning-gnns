@@ -2,7 +2,7 @@ import pytorch_lightning as pl
 import torch
 import torchmetrics as tm
 from torch.optim import AdamW, SGD
-from torch.optim.lr_scheduler import StepLR, MultiStepLR
+from torch.optim.lr_scheduler import MultiStepLR, StepLR
 
 
 class GraphTrainer(pl.LightningModule):

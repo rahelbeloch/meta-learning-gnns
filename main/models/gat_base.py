@@ -130,7 +130,7 @@ class GatBase(GraphTrainer):
         # step every N epochs
         train_scheduler, _ = self.lr_schedulers()
         # print(f"Train SD, step size: {train_scheduler.step_size}")
-        if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % train_scheduler.step_size == 0:
+        if self.trainer.current_epoch != 1 and (self.trainer.current_epoch + 1) % train_scheduler.step_size == 0:
             # print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
             # print("Reducing Train LR")
             # print(f"LR before: {train_scheduler.get_last_lr()}")
@@ -146,14 +146,17 @@ class GatBase(GraphTrainer):
 
     def validation_step(self, batch, batch_idx, dataloader_idx):
 
+        if batch_idx == 0:
+            train_scheduler, val_scheduler = self.lr_schedulers()
+            print(f"\nTrain Scheduler LR: {train_scheduler.state_dict()}")
+            print(f"Val Scheduler LR: {val_scheduler.state_dict()}\n")
+
         # update the weights of the validation model with weights from trained model
         self.validation_model.load_state_dict(self.model.state_dict())
 
         support_graphs, query_graphs, support_targets, query_targets = batch
 
         if dataloader_idx == 0:
-            # print(f"\nValidation finetune: {batch_idx + 1}")
-
             mode = 'val_support'
 
             # Validation requires to finetune a model, hence we need to enable gradients
@@ -206,8 +209,6 @@ class GatBase(GraphTrainer):
             torch.set_grad_enabled(False)
 
         elif dataloader_idx == 1:
-            # print(f"\nValidation test: {batch_idx + 1}")
-
             # Evaluate on meta test set
             mode = 'val_query'
 
