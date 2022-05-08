@@ -3,11 +3,10 @@ import time
 from torch import nn
 
 from models.gat_encoder_sparse_pushkar import GatNet
-from models.graph_trainer import GraphTrainer
+from models.graph_trainer import GraphTrainer, get_loss_weight
 from models.train_utils import *
 
 
-# noinspection PyAbstractClass
 class GatBase(GraphTrainer):
     """
     PyTorch Lightning module containing all model setup: Picking the correct encoder, initializing the classifier,
@@ -30,10 +29,10 @@ class GatBase(GraphTrainer):
         self.model = GatNet(model_params)
 
         class_weights = model_params["class_weight"]
-        train_weight = self.get_loss_weight(class_weights, 'train')
+        train_weight = get_loss_weight(class_weights, 'train')
         self.loss_module = nn.BCEWithLogitsLoss(pos_weight=train_weight)
 
-        val_weight = self.get_loss_weight(class_weights, 'val')
+        val_weight = get_loss_weight(class_weights, 'val')
         self.validation_loss = nn.BCEWithLogitsLoss(pos_weight=val_weight)
 
         # Deep copy of the model: one for train, one for val --> update validation model with weights from train model
@@ -42,12 +41,6 @@ class GatBase(GraphTrainer):
         self.validation_model = GatNet(model_params)
 
         self.automatic_optimization = False
-
-    @staticmethod
-    def get_loss_weight(class_weights, split):
-        pos_weight = class_weights[split][0] // class_weights[split][1]
-        print(f"Positive {split} weight: {pos_weight}")
-        return pos_weight if pos_weight > 0 else None
 
     def configure_optimizers(self):
         opt_params = self.hparams.optimizer_hparams
@@ -130,7 +123,7 @@ class GatBase(GraphTrainer):
         # step every N epochs
         train_scheduler, _ = self.lr_schedulers()
         # print(f"Train SD, step size: {train_scheduler.step_size}")
-        if self.trainer.current_epoch != 1 and (self.trainer.current_epoch + 1) % train_scheduler.step_size == 0:
+        if self.trainer.current_epoch != 0 and (self.trainer.current_epoch + 1) % train_scheduler.step_size == 0:
             # print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
             # print("Reducing Train LR")
             # print(f"LR before: {train_scheduler.get_last_lr()}")

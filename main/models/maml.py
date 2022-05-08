@@ -3,11 +3,12 @@ from copy import deepcopy
 from statistics import mean, stdev
 
 from torch import optim
+from torch_geometric import nn
 from torchmetrics import F1
 from tqdm.auto import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
-from models.graph_trainer import GraphTrainer
+from models.graph_trainer import GraphTrainer, get_loss_weight
 from models.train_utils import *
 from samplers.batch_sampler import split_list
 
@@ -34,10 +35,9 @@ class Maml(GraphTrainer):
 
         self.lr_inner = self.hparams.optimizer_hparams['lr_inner']
 
-        # flipping the weights
-        pos_weight = 1 // model_params["class_weight"]['train'][1]
-        print(f"Using positive weight: {pos_weight}")
-        self.loss_module = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        class_weights = model_params["class_weight"]
+        train_weight = get_loss_weight(class_weights, 'train')
+        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=train_weight)
 
         self.model = GatNet(model_params)
 
@@ -110,6 +110,10 @@ class Maml(GraphTrainer):
             opt.step()
             # noinspection PyUnresolvedReferences
             opt.zero_grad()
+
+            train_scheduler = self.lr_schedulers()
+            if self.trainer.current_epoch != 0 and (self.trainer.current_epoch + 1) % train_scheduler.step_size == 0:
+                train_scheduler.step()
 
         self.log_on_epoch(f"{mode}/loss", sum(losses) / len(losses))
 
