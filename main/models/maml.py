@@ -2,8 +2,7 @@ import time
 from copy import deepcopy
 from statistics import mean, stdev
 
-from torch import optim
-from torch_geometric import nn
+from torch import optim, nn
 from torchmetrics import F1
 from tqdm.auto import tqdm
 
