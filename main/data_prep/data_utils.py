@@ -45,10 +45,7 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
             "Data for training and evaluation is equal and one of the split sizes is 0!"
 
     data_config = {'top_users': top_k, 'top_users_excluded': top_users_excluded, 'feature_type': feature_type,
-                   'vocab_size': vocab_size, 'balance_data': balance_data
-                   }
-    # TODO: only temporary for testing
-    # , 'balance_val': True}
+                   'vocab_size': vocab_size, 'balance_data': balance_data}
 
     # creating a train and val loader from the train dataset
     train_config = {**data_config, **{'data_set': data_train, 'train_size': train_split_size[0],
@@ -58,13 +55,13 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
     n_query_train = get_max_n_query(graph_data_train)
     print(f"\nUsing max query samples for episode creation: {n_query_train}\n")
 
-    # TODO: only for testing
-    # train_mode = 'val'
     train_mode = 'train'
 
     train_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, train_mode, n_query_train,
                               batch_size)
-    train_val_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, 'val', n_query_train,
+    val_split = 'train'
+
+    train_val_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, val_split, n_query_train,
                                   batch_size)
 
     print(f"\nTrain graph size: \n num_features: {graph_data_train.size[1]}\n total_nodes: {graph_data_train.size[0]}")
@@ -131,7 +128,7 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
         batch_sampler = FewShotSampler(targets, max_n_query, mode, n_classes, k_shot)
     elif model_name in META_MODELS:
         batch_size = None if mode == 'train' else 2
-        
+
         batch_sampler = FewShotMamlSampler(targets, max_n_query, mode, n_classes, k_shot, batch_size)
     else:
         raise ValueError(f"Model with name '{model_name}' is not supported.")
