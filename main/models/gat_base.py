@@ -1,7 +1,7 @@
 import time
 
 from torch import nn
-
+import torch.nn.functional as func
 from models.gat_encoder_sparse_pushkar import GatNet
 from models.graph_trainer import GraphTrainer, get_loss_weight
 from models.train_utils import *
@@ -210,7 +210,9 @@ class GatBase(GraphTrainer):
             # with extra validation model
             x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
             logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
-            loss = self.validation_loss(logits, query_targets.float())
+
+            loss = func.binary_cross_entropy_with_logits(logits, query_targets.float())
+            # loss = self.validation_loss(logits, query_targets.float())
 
             query_predictions = (logits.sigmoid() > 0.5).float()
             self.update_metrics(mode, query_predictions, query_targets)
