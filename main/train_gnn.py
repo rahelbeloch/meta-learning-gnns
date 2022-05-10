@@ -311,7 +311,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
     parser.add_argument('--epochs', dest='epochs', type=int, default=1)
     parser.add_argument('--patience-metric', dest='patience_metric', type=str, default='loss')
-    parser.add_argument('--patience', dest='patience', type=int, default=10)
+    parser.add_argument('--patience', dest='patience', type=int, default=20)
     parser.add_argument('--gat-dropout', dest='gat_dropout', type=float, default=0.6)
     parser.add_argument('--lin-dropout', dest='lin_dropout', type=float, default=0.5)
     parser.add_argument('--attn-dropout', dest='attn_dropout', type=float, default=0.6)
