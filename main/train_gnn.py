@@ -243,7 +243,8 @@ def initialize_trainer(model_name, epochs, patience, patience_metric, progress_b
 
     logger = WandbLogger(project='meta-gnn',
                          name=f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}{suffix}",
-                         log_model=True if wb_mode == 'online' else False,
+                         # log_model=True if wb_mode == 'online' else False,
+                         log_model=False,
                          save_dir=LOG_PATH,
                          offline=wb_mode == 'offline',
                          config=wandb_config)
