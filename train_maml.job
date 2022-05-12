@@ -1,12 +1,12 @@
 #!/bin/bash
 
 #SBATCH --job-name=meta-gnn-job
-#SBATCH --time=00:30:00
-#SBATCH --array=1-32
+#SBATCH --time=00:45:00
+#SBATCH --array=1-10
 #SBATCH --output=logs/job_outputs/meta_gnn_%A_%a.out
 
 # GPU Settings
-#SBATCH --partition=gpu_shared
+#SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
 
