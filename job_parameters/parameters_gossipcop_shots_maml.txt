@@ -39,8 +39,17 @@
 --model maml --seed 3333 --output-lr 1e-3 --inner-lr 5e-4 --hidden-dim 16 --k-shot 20 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --gat-heads 8 --n-updates 20 --suffix val_loss_no_weight
 --model maml --seed 3333 --output-lr 1e-3 --inner-lr 5e-4 --hidden-dim 16 --k-shot 40 --epochs 200 --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --gat-heads 8 --n-updates 20 --suffix val_loss_no_weight
 
+TO BE RUN with validation loss
 
---model maml --seed 3333 --output-lr 1e-2 --inner-lr 1e-3 --hidden-dim 16 --k-shot 20 --epochs 2 --gat-dropout 0.4 --attn-dropout 0.4 --wb-mode offline --gat-heads 8 --n-updates 5 --n-workers 0
+--model maml --seed 3333 --output-lr 5e-4 --inner-lr 5e-3 --hidden-dim 16 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --wb-mode online --gat-heads 8 --n-updates 20 --n-workers 0 --suffix train_loss_weight_val_no_loss_weight
+--model maml --seed 3333 --output-lr 5e-4 --inner-lr 1e-2 --hidden-dim 16 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --wb-mode online --gat-heads 8 --n-updates 20 --n-workers 0 --suffix train_loss_weight_val_no_loss_weight
+--model maml --seed 3333 --output-lr 1e-3 --inner-lr 5e-3 --hidden-dim 16 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --wb-mode online --gat-heads 8 --n-updates 20 --n-workers 0 --suffix train_loss_weight_val_no_loss_weight
+--model maml --seed 3333 --output-lr 1e-3 --inner-lr 1e-2 --hidden-dim 16 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --wb-mode online --gat-heads 8 --n-updates 20 --n-workers 0 --suffix train_loss_weight_val_no_loss_weight
+
+--model maml --seed 3333 --output-lr 5e-4 --inner-lr 5e-3 --hidden-dim 64 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --wb-mode online --gat-heads 2 --n-updates 20 --n-workers 0 --suffix train_loss_weight_val_no_loss_weight
+--model maml --seed 3333 --output-lr 5e-4 --inner-lr 1e-2 --hidden-dim 64 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --wb-mode online --gat-heads 2 --n-updates 20 --n-workers 0 --suffix train_loss_weight_val_no_loss_weight
+--model maml --seed 3333 --output-lr 1e-3 --inner-lr 5e-3 --hidden-dim 64 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --wb-mode online --gat-heads 2 --n-updates 20 --n-workers 0 --suffix train_loss_weight_val_no_loss_weight
+--model maml --seed 3333 --output-lr 1e-3 --inner-lr 1e-2 --hidden-dim 64 --k-shot 40 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --wb-mode online --gat-heads 2 --n-updates 20 --n-workers 0 --suffix train_loss_weight_val_no_loss_weight
 
 MAML & PROTOMAML interactive on Lisa
 
