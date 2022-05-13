@@ -187,6 +187,14 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         self.class_ratios = class_ratios
 
+    # def compute_query_set_distribution(self, n_real, n_fake, ratio=0.5):
+    #     fake_support_samples = (n_fake * ratio)
+    #     fake_query_samples = (n_fake - fake_support_samples)
+    #     return fake_query_samples / (fake_query_samples + (n_real - fake_support_samples))
+    #
+    # def compute_query_set_dist1(self, n_real, n_fake):
+    #     return 2 - n_real / n_fake
+
     def fix_node_degree_distribution(self, node_degrees, probs, keep_threshold=0.97):
         """
         Find the bin (number of neighboring nodes) where at least 97% of the graph nodes fall in and discard the rest

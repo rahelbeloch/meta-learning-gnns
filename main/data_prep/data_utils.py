@@ -156,7 +156,7 @@ def get_max_n_query(graph_data):
     n_queries = {}
     for split in SPLITS:
         # maximum amount of query samples which should be used from the total amount of samples
-        samples = int(len(torch.where(graph_data.split_masks[f"{split}_mask"])[0]) / n_classes)
+        samples = len(torch.where(graph_data.split_masks[f"{split}_mask"])[0]) // n_classes
         n_queries[split] = get_n_query_for_samples(samples, n_classes)
 
     return n_queries

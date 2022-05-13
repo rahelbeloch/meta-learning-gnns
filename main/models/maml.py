@@ -7,7 +7,7 @@ from torchmetrics import F1
 from tqdm.auto import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
-from models.graph_trainer import GraphTrainer
+from models.graph_trainer import GraphTrainer, get_loss_weight
 from models.train_utils import *
 from samplers.batch_sampler import split_list
 
@@ -34,9 +34,13 @@ class Maml(GraphTrainer):
 
         self.lr_inner = self.hparams.optimizer_hparams['lr_inner']
 
-        # train_weight = get_loss_weight(model_params["class_weight"], 'train')
-        # self.loss_module = nn.BCEWithLogitsLoss(pos_weight=train_weight)
-        self.loss_module = nn.BCEWithLogitsLoss()
+        train_weight = get_loss_weight(model_params["class_weight"], 'train')
+        self.train_loss_module = nn.BCEWithLogitsLoss(pos_weight=train_weight)
+        # self.train_loss_module = nn.BCEWithLogitsLoss()
+
+        # val_weight = get_loss_weight(model_params["class_weight"], 'val')
+        # self.val_loss_module = nn.BCEWithLogitsLoss(pos_weight=val_weight)
+        self.val_loss_module = nn.BCEWithLogitsLoss()
 
         self.model = GatNet(model_params)
 
@@ -48,7 +52,7 @@ class Maml(GraphTrainer):
                                                   milestones=[140, 180])
         return [optimizer], [scheduler]
 
-    def adapt_few_shot(self, x, edge_index, cl_mask, support_targets, mode):
+    def adapt_few_shot(self, x, edge_index, cl_mask, support_targets, mode, loss_module):
 
         # Copy model for inner-loop model and optimizer
         local_model = deepcopy(self.model)
@@ -59,7 +63,7 @@ class Maml(GraphTrainer):
         # Optimize inner loop model on support set
         for _ in range(self.n_inner_updates):
             # Determine loss on the support set
-            loss, logits = run_model(local_model, x, edge_index, cl_mask, support_targets, mode, self.loss_module)
+            loss, logits = run_model(local_model, x, edge_index, cl_mask, support_targets, mode, loss_module)
 
             # Calculate gradients and perform inner loop update
             loss.backward()
@@ -67,7 +71,7 @@ class Maml(GraphTrainer):
 
         return local_model
 
-    def outer_loop(self, batch, mode):
+    def outer_loop(self, batch, loss_module, mode):
         losses = []
 
         self.model.zero_grad()
@@ -79,11 +83,11 @@ class Maml(GraphTrainer):
             support_targets, query_targets = split_list(targets)
 
             # Perform inner loop adaptation
-            local_model = self.adapt_few_shot(*get_subgraph_batch(support_graphs), support_targets, mode)
+            local_model = self.adapt_few_shot(*get_subgraph_batch(support_graphs), support_targets, mode, loss_module)
 
             # Determine loss of query set
             loss, query_predictions = run_model(local_model, *get_subgraph_batch(query_graphs), query_targets, mode,
-                                                self.loss_module)
+                                                loss_module)
 
             self.update_metrics(mode, query_predictions, query_targets)
 
@@ -117,7 +121,7 @@ class Maml(GraphTrainer):
         self.log_on_epoch(f"{mode}/loss", sum(losses) / len(losses))
 
     def training_step(self, batch, batch_idx):
-        self.outer_loop(batch, mode="train")
+        self.outer_loop(batch, self.train_loss_module, mode="train")
 
         # Returning None means skipping the default training optimizer steps by PyTorch Lightning
         return None
@@ -125,7 +129,7 @@ class Maml(GraphTrainer):
     def validation_step(self, batch, batch_idx):
         # Validation requires to finetune a model, hence we need to enable gradients
         torch.set_grad_enabled(True)
-        self.outer_loop(batch, mode="val")
+        self.outer_loop(batch, self.val_loss_module, mode="val")
         torch.set_grad_enabled(False)
 
 

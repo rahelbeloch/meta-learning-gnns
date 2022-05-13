@@ -90,6 +90,8 @@ class FewShotSampler(Sampler):
         if self.verbose:
             print(f"{mode} sampler episodes/batches: {self.num_batches}")
 
+        nr_support_samples = sum([len(indices) for indices in self.indices_per_class['support'].values()])
+        print(f"{mode} sampler support samples: {nr_support_samples}")
         print(f"{mode} sampler query samples: {nr_query_samples}")
 
         # verify that we used only up to n_query query examples
