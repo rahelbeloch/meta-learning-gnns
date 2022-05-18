@@ -11,10 +11,10 @@ from models.gat_encoder_sparse_pushkar import GatNet
 from models.graph_trainer import GraphTrainer
 from models.proto_net import ProtoNet
 from models.train_utils import *
-from samplers.batch_sampler import split_list
-
-
 # noinspection PyAbstractClass
+from samplers.episode_sampler import split_list
+
+
 class ProtoMAML(GraphTrainer):
 
     # noinspection PyUnusedLocal
@@ -50,7 +50,7 @@ class ProtoMAML(GraphTrainer):
         # Determine prototype initialization
         support_feats = self.model(x, edge_index, mode).squeeze()[cl_mask]
 
-        prototype = ProtoNet.calculate_prototypes(support_feats, support_targets)
+        prototypes, _ = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
         # Copy model for inner-loop model and optimizer
         local_model = deepcopy(self.model)
@@ -59,8 +59,8 @@ class ProtoMAML(GraphTrainer):
         local_optim.zero_grad()
 
         # Create output layer weights with prototype-based initialization
-        init_weight = 2 * prototype
-        init_bias = -torch.norm(prototype, dim=1) ** 2
+        init_weight = 2 * prototypes
+        init_bias = -torch.norm(prototypes, dim=1) ** 2
         output_weight = init_weight.detach().requires_grad_()
         output_bias = init_bias.detach().requires_grad_()
 
@@ -115,7 +115,7 @@ class ProtoMAML(GraphTrainer):
 
             # Calculate gradients for query set loss
             if mode == "train":
-                loss.backward()     # initializes the grads in the outer model, as we used its support features for prototype computation
+                loss.backward()  # initializes the grads in the outer model, as we used its support features for prototype computation
 
                 for i, (p_global, p_local) in enumerate(zip(self.model.parameters(), local_model.parameters())):
                     if p_global.requires_grad is False:
@@ -155,16 +155,20 @@ def run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask, t
     logits = local_model(x, edge_index, mode)[cl_mask]
 
     # Expected
-    # logits shape batch size x 64
-    # output_weight shape 1 x 64
-    # output_bias shape 1
+    # logits shape:         batch size x 64
+    # output_weight shape:  2 x 64
+    # output_bias shape:    2
 
+    # out:                  80 x 2
     logits = func.linear(logits, output_weight, output_bias)
 
-    targets = targets.view(-1, 1) if not len(targets.shape) == 2 else targets
-    loss = loss_module(logits, targets.float()) if loss_module is not None else None
+    # now we have logits for both prototype classes --> use only logits for the target class
+    logits_fake = logits[:, 1].view(-1, 1)
 
-    return loss, (logits.sigmoid() > 0.5).float()
+    targets = targets.view(-1, 1) if not len(targets.shape) == 2 else targets
+    loss = loss_module(logits_fake, targets.float()) if loss_module is not None else None
+
+    return loss, (logits_fake.sigmoid() > 0.5).float()
 
 
 def test_protomaml(model, test_loader, num_classes=1):

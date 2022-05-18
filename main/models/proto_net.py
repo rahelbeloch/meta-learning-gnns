@@ -77,16 +77,16 @@ class ProtoNet(GraphTrainer):
 
         # features shape: [N, proto_dim], targets shape: [N]
 
-        # Only calculate the prototypes for the target/positive class because we do binary classification
+        classes, _ = torch.unique(targets).sort()  # Determine which classes we have
 
-        # get all node features for this class and average them
-        prototype = features[torch.where(targets == 1)[0]].mean(dim=0)
+        prototypes = []
+        for c in classes:
+            # noinspection PyTypeChecker
+            p = features[torch.where(targets == c)[0]].mean(dim=0)  # Average class feature vectors
+            prototypes.append(p)
+        prototypes = torch.stack(prototypes, dim=0)
 
-        # prototype should be 1 x 1 for binary classification
-        prototype = prototype.unsqueeze(dim=0) if len(prototype.shape) != 2 else prototype
-
-        # returns just one prototype, namely for the target class
-        return prototype
+        return prototypes
 
     @staticmethod
     def classify_features(prototypes, feats, targets):
@@ -129,7 +129,7 @@ class ProtoNet(GraphTrainer):
             "Nr of features returned does not equal nr. of classification nodes!"
 
         # support logits: episode size x 2, support targets: episode size x 1
-        prototype = ProtoNet.calculate_prototypes(support_logits, support_targets)
+        prototypes = ProtoNet.calculate_prototypes(support_logits, support_targets)
 
         x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
         query_logits = self.model(x, edge_index, mode)[cl_mask]
@@ -137,7 +137,7 @@ class ProtoNet(GraphTrainer):
         assert query_logits.shape[0] == query_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
 
-        logits, targets = ProtoNet.classify_features(prototype, query_logits, query_targets)
+        logits, targets = ProtoNet.classify_features(prototypes, query_logits, query_targets)
         # logits and targets: batch size x 1
 
         # if predictions.shape[1] != self.num_classes:

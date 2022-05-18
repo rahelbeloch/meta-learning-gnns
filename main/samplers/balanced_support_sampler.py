@@ -1,25 +1,13 @@
-from collections import defaultdict
-from math import floor
-
 import numpy as np
 import torch
 from torch.utils.data import Sampler
 
-from train_config import SHOTS
+from samplers.episode_sampler import get_max_nr_for_shots
 
 
-class FewShotSampler(Sampler):
+class FewShotEpisodeSampler(Sampler):
 
-    def __init__(self, targets, max_n_query, mode, n_way=2, k_shot=5, verbose=False):
-        """
-        Support sets should contain n_way * k_shot examples. So, e.g. 2 * 5 = 10 sub graphs.
-        Query set is of same size ...
-
-        Inputs:
-            targets - Tensor containing all targets of the graph.
-            n_way - Number of classes to sample per batch.
-            k_shot - Number of examples to sample per class in the batch.
-        """
+    def __init__(self, targets, n_support, mode, n_way=2, k_shot=5, verbose=False):
         super().__init__(None)
 
         self.verbose = verbose
@@ -31,8 +19,8 @@ class FewShotSampler(Sampler):
         self.data_targets = targets
         self.total_samples = self.data_targets.shape[0]
 
-        # is the maximum number of query examples which should be used
-        self.max_n_query = max_n_query
+        # total nr of samples that should be used for support sets
+        self.n_support = n_support
 
         # Organize examples by set type and class
         self.sets = ['query', 'support']
@@ -42,22 +30,24 @@ class FewShotSampler(Sampler):
         # Number of K-shot batches that each class can provide
         self.batches_per_class, self.indices_per_class = dict(support={}, query={}), dict(support={}, query={})
 
+        # some verification
+
         for c in self.classes:
             # noinspection PyTypeChecker
             class_indices = torch.where(self.data_targets == c)[0]
             n_class = len(class_indices)
 
-            # calculate how many query samples to take from this class
-            c_max_n_query = int(round(n_class / self.total_samples, 1) * self.max_n_query)
-            n_query_class = get_n_query_for_samples(c_max_n_query, self.n_way)
+            # calculate how many support samples to take from this class
+            c_max_n_support = int(round(n_class / self.total_samples, 1) * self.n_support)
+            n_support_class = get_max_nr_for_shots(c_max_n_support, self.n_way)
 
             # divide the samples we have for this class into support and query samples
-            n_support_class = n_class - n_query_class
-            self.indices_per_class['support'][c] = class_indices[:n_support_class]
+            n_query_class = n_class - n_support_class
+            self.indices_per_class['query'][c] = class_indices[:n_query_class]
 
-            query_samples = class_indices[n_support_class:]
-            assert query_samples.shape[0] == n_query_class
-            self.indices_per_class['query'][c] = query_samples
+            support_samples = class_indices[n_query_class:]
+            assert support_samples.shape[0] == n_query_class
+            self.indices_per_class['support'][c] = support_samples
 
             if self.verbose:
                 print(
@@ -70,12 +60,12 @@ class FewShotSampler(Sampler):
                 self.batches_per_class[s][c] = self.indices_per_class[s][c].shape[0] // self.k_shot
 
         # some validation
-        nr_query_samples = sum([len(indices) for indices in self.indices_per_class['query'].values()])
-        assert nr_query_samples <= self.max_n_query, \
+        nr_support_samples = sum([len(indices) for indices in self.indices_per_class['support'].values()])
+        assert nr_support_samples <= self.n_support, \
             "The number of query examples we are using exceeds the max query nr!"
 
         # dividing all query samples into batches/episodes should be the number of batches we have for the query set
-        assert (nr_query_samples // self.k_shot) == sum(self.batches_per_class['query'].values())
+        assert (nr_support_samples // self.k_shot) == sum(self.batches_per_class['support'].values())
 
         # Create a list of classes from which we select the N classes per batch
         query_batches = sum(self.batches_per_class['query'].values()) // self.n_way
@@ -95,7 +85,7 @@ class FewShotSampler(Sampler):
         print(f"{mode} sampler query samples: {nr_query_samples}")
 
         # verify that we used only up to n_query query examples
-        assert query_batches * self.k_shot * self.n_way <= self.max_n_query
+        assert support_batches * self.k_shot * self.n_way <= self.n_support
 
         self.batches_target_lists = {}
         for s in self.sets:
@@ -140,67 +130,3 @@ class FewShotSampler(Sampler):
 
     def __len__(self):
         return self.num_batches
-
-
-class BatchSampler(FewShotSampler):
-    """
-    Sampler which uses batches created by FewShotSampler and concatenates them to bigger batches.
-    Useful for non-meta baselines for more stable training with bigger batches.
-    """
-
-    def __init__(self, targets, max_n_query, mode, batch_size, n_way=2, k_shot=5, verbose=False):
-        super().__init__(targets, max_n_query, mode, n_way, k_shot, verbose)
-
-        # assert (batch_size / (self.k_shot * self.n_way)) % 1 == 0, "Batch size not divisible by n way and k shot."
-        # must be divisible by self.k_shot * self.n_way
-
-        # unbalanced dataset (gossipcop)
-        # self.new_b_size = 688   # --> 5 batches
-        # self.new_b_size = 344  # --> 10 batches
-
-        # balanced dataset (gossipcop)
-        # self.new_b_size = 497  # --> balanced dataset, 9 batches
-
-        self.new_b_size = batch_size
-        self.n_old_batches = super(BatchSampler, self).__len__()
-
-        n_new_batches = 2 * self.n_old_batches * self.k_shot / self.new_b_size
-        # assert n_new_batches % 1 == 0, f"New batch size {self.new_b_size} can not create even number of batches."
-
-        self.n_new_batches = int(n_new_batches)
-
-    def __iter__(self):
-        offset = int(self.new_b_size / 4)
-        yield from super(BatchSampler, self)._iter(self.n_new_batches, offset)
-
-    def __len__(self):
-        return self.n_new_batches
-
-    @property
-    def b_size(self):
-        return self.new_b_size
-
-
-def split_list(a_list):
-    half = len(a_list) // 2
-    return a_list[:half], a_list[half:]
-
-
-def get_n_query_for_samples(max_samples, n_class, max_shot=max(SHOTS)):
-    """
-    First determines the maximum amount of query examples based on the number of classes and total samples available.
-    Subsequently, define a number which is divisible by the shot int and the number of classes.
-    """
-
-    # make sure it is still evenly divisible
-    max_n_query = get_max_n(max_samples, n_class, max_shot)
-
-    # test to verify this number is divisible by shot int and number of classes
-    for shot in SHOTS:
-        assert (max_n_query / shot / n_class) % 1 == 0
-
-    return max_n_query
-
-
-def get_max_n(n_query, n_class, max_shot=max(SHOTS)):
-    return (max_shot * n_class) * floor(n_query / (max_shot * n_class))

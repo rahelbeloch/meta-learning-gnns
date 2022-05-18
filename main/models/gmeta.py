@@ -14,7 +14,7 @@ from models.gat_encoder_sparse_pushkar import GatNet
 from models.graph_trainer import GraphTrainer
 from models.proto_net import ProtoNet
 from models.train_utils import get_subgraph_batch
-from samplers.batch_sampler import split_list
+from samplers.episode_sampler import split_list
 
 
 class GMeta(GraphTrainer):

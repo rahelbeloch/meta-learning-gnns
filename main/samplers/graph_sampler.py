@@ -4,7 +4,7 @@ import torch
 from torch_geometric.loader import GraphSAINTSampler
 from torch_geometric.utils import k_hop_subgraph
 
-from samplers.batch_sampler import split_list
+from samplers.episode_sampler import split_list
 from train_config import META_MODELS
 
 

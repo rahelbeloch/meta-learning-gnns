@@ -9,10 +9,12 @@ from tqdm.auto import tqdm
 from models.gat_encoder_sparse_pushkar import GatNet
 from models.graph_trainer import GraphTrainer, get_loss_weight
 from models.train_utils import *
-from samplers.batch_sampler import split_list
 
 
 # noinspection PyAbstractClass
+from samplers.episode_sampler import split_list
+
+
 class Maml(GraphTrainer):
     """
     First-Order MAML (FOML) which only uses first-order gradients.

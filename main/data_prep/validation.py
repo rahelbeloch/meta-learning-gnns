@@ -7,7 +7,7 @@ from torch_geometric.utils import to_networkx
 
 from data_prep.data_utils import get_data, get_loader, get_max_n_query
 from data_prep.graph_dataset import TorchGeomGraphDataset
-from samplers.batch_sampler import SHOTS
+from train_config import SHOTS
 
 data_train = 'gossipcop'
 data_eval = 'gossipcop'
