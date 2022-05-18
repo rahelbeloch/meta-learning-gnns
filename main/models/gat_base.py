@@ -1,9 +1,11 @@
 import time
 
-from torch import nn
 import torch.nn.functional as func
+from torch import nn
+from torch.nn import BCEWithLogitsLoss
+
 from models.gat_encoder_sparse_pushkar import GatNet
-from models.graph_trainer import GraphTrainer, get_loss_weight
+from models.graph_trainer import GraphTrainer, get_or_none
 from models.train_utils import *
 
 
@@ -14,7 +16,7 @@ class GatBase(GraphTrainer):
     """
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, optimizer_hparams, val_batches):
+    def __init__(self, model_params, optimizer_hparams, other_params):
         """
         Args:
             model_params - Hyperparameters for the whole model, as dictionary.
@@ -28,13 +30,12 @@ class GatBase(GraphTrainer):
 
         self.model = GatNet(model_params)
 
-        class_weights = model_params["class_weight"]
-        train_weight = get_loss_weight(class_weights, 'train')
-        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=train_weight)
+        # class_weights = model_params["class_weight"]
+        # train_weight = get_loss_weight(class_weights, 'train')
+        self.loss_module = BCEWithLogitsLoss(pos_weight=get_or_none(other_params, 'train_loss_weight'))
 
         # val_weight = get_loss_weight(class_weights, 'val')
-        # self.validation_loss = nn.BCEWithLogitsLoss(pos_weight=val_weight)
-        self.validation_loss = nn.BCEWithLogitsLoss()
+        self.validation_loss = nn.BCEWithLogitsLoss(pos_weight=get_or_none(other_params, 'val_loss_weight'))
 
         # Deep copy of the model: one for train, one for val --> update validation model with weights from train model
         # validation fine-tuning should happen on a copy of the model NOT on the model which is trained

@@ -91,3 +91,6 @@ def get_loss_weight(class_weights, split):
     pos_weight = class_weights[split][0] // class_weights[split][1]
     print(f"Positive {split} weight: {pos_weight}")
     return pos_weight if pos_weight > 0 else None
+
+def get_or_none(dikt, key):
+    return dikt[key] if key in dikt else None

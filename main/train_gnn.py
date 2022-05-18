@@ -23,7 +23,8 @@ if torch.cuda.is_available():
     torch.cuda.empty_cache()
 
 
-def train(balance_data, progress_bar, model_name, seed, epochs, patience, patience_metric, h_size, top_users,
+def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_name, seed, epochs, patience,
+          patience_metric, h_size, top_users,
           top_users_excluded, k_shot, lr, lr_val, lr_inner, lr_output, hidden_dim, feat_reduce_dim,
           proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size, feature_type, vocab_size,
           n_inner_updates, n_inner_updates_test, num_workers, gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup,
@@ -45,7 +46,8 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
     # if we only want to evaluate, model should be initialized with nr of labels from evaluation data
     evaluation = checkpoint is not None and Path(checkpoint).exists()
 
-    print(f'\nConfiguration:\n\n balance_data: {balance_data}\n mode: {"TEST" if evaluation else "TRAIN"}\n '
+    print(f'\nConfiguration:\n\n balance_data: {balance_data}\n train_loss_weight: {train_loss_weight}\n '
+          f'val_loss_weight: {val_loss_weight}\n mode: {"TEST" if evaluation else "TRAIN"}\n '
           f'seed: {seed}\n max epochs: {epochs}\n patience: {patience}\n patience metric: {patience_metric}\n '
           f'k_shot: {k_shot}\n\n model_name: {model_name}\n hidden_dim: {hidden_dim}\n '
           f' feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n gat heads: {gat_heads}\n\n'
@@ -92,23 +94,26 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         'label_names': train_graph.label_names,
     }
 
+    other_params = dict(train_loss_weight=train_loss_weight, val_loss_weight=val_loss_weight)
+
     if model_name == 'gat':
         optimizer_hparams.update(lr_val=lr_val, lr_decay_epochs_val=lr_decay_epochs_val)
+        other_params.update(val_batches=len(train_val_loader))
 
-        model = GatBase(model_params, optimizer_hparams, val_batches=len(train_val_loader))
+        model = GatBase(model_params, optimizer_hparams, other_params)
     elif model_name == 'prototypical':
-        model = ProtoNet(model_params, optimizer_hparams)
+        model = ProtoNet(model_params, optimizer_hparams, other_params)
     elif model_name in META_MODELS:
         model_params.update(n_inner_updates=n_inner_updates, n_inner_updates_test=n_inner_updates_test)
         optimizer_hparams.update(lr_inner=lr_inner)
 
         if model_name == 'proto-maml':
             optimizer_hparams.update(lr_output=lr_output)
-            model = ProtoMAML(model_params, optimizer_hparams)
+            model = ProtoMAML(model_params, optimizer_hparams, other_params)
         elif model_name == 'gmeta':
-            model = GMeta(model_params, optimizer_hparams)
+            model = GMeta(model_params, optimizer_hparams, other_params)
         elif model_name == 'maml':
-            model = Maml(model_params, optimizer_hparams)
+            model = Maml(model_params, optimizer_hparamsm, other_params)
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 
@@ -382,6 +387,12 @@ if __name__ == "__main__":
     parser.add_argument('--no-balance-data', dest='no_balance_data', action='store_true')
     parser.set_defaults(no_balance_data=True)
 
+    parser.add_argument('--val-loss-weight', dest='val_loss_weight', type=int, default=3,
+                        help="Weight of the minority class for the validation loss function.")
+
+    parser.add_argument('--train-loss-weight', dest='train_loss_weight', type=int, default=3,
+                        help="Weight of the minority class for the training loss function.")
+
     # parser.add_argument('--train-size', dest='train_size', type=float, default=0.875)
     # parser.add_argument('--val-size', dest='val_size', type=float, default=0.125)
     # parser.add_argument('--test-size', dest='test_size', type=float, default=0.0)
@@ -404,6 +415,8 @@ if __name__ == "__main__":
     # wandb.init(settings=wandb.Settings(start_method="fork"))
 
     train(balance_data=not params['no_balance_data'],
+          val_loss_weight=params['no_val_loss_weight'],
+          train_loss_weight=params['no_train_loss_weight'],
           progress_bar=params['progress_bar'],
           model_name=params['model'],
           seed=params['seed'],

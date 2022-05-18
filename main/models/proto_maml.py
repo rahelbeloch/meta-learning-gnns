@@ -2,13 +2,15 @@ import time
 from copy import deepcopy
 from statistics import mean, stdev
 
+import torch.nn
 import torch.nn.functional as func
 from torch import optim
+from torch.nn import BCEWithLogitsLoss
 from torchmetrics import F1
 from tqdm.auto import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
-from models.graph_trainer import GraphTrainer, get_loss_weight
+from models.graph_trainer import GraphTrainer, get_or_none
 from models.proto_net import ProtoNet
 from models.train_utils import *
 # noinspection PyAbstractClass
@@ -18,7 +20,7 @@ from samplers.episode_sampler import split_list
 class ProtoMAML(GraphTrainer):
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, optimizer_hparams):
+    def __init__(self, model_params, optimizer_hparams, other_params):
         """
         Inputs
             lr - Learning rate of the outer loop Adam optimizer
@@ -34,9 +36,9 @@ class ProtoMAML(GraphTrainer):
 
         self.lr_inner = self.hparams.optimizer_hparams['lr_inner']
 
-        class_weights = model_params["class_weight"]
-        train_weight = get_loss_weight(class_weights, 'train')
-        self.loss_module = torch.nn.BCEWithLogitsLoss(pos_weight=train_weight)
+        # class_weights = model_params["class_weight"]
+        # train_weight = get_loss_weight(class_weights, 'train')
+        self.train_loss_module = BCEWithLogitsLoss(pos_weight=get_or_none(other_params, 'train_loss_weight'))
 
         self.model = GatNet(model_params)
 

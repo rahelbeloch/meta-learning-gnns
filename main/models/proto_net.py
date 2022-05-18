@@ -5,10 +5,11 @@ import numpy as np
 import torch.nn
 import torchmetrics as tm
 from torch import optim
+from torch.nn import BCEWithLogitsLoss
 from tqdm.auto import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
-from models.graph_trainer import GraphTrainer, get_loss_weight
+from models.graph_trainer import GraphTrainer
 from models.train_utils import *
 from samplers.graph_sampler import KHopSamplerSimple
 
@@ -16,7 +17,7 @@ from samplers.graph_sampler import KHopSamplerSimple
 class ProtoNet(GraphTrainer):
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, optimizer_hparams):
+    def __init__(self, model_params, optimizer_hparams, other_params):
         """
         Inputs
             proto_dim - Dimensionality of prototype feature space
@@ -25,12 +26,10 @@ class ProtoNet(GraphTrainer):
         super().__init__(validation_sets=['val'])
         self.save_hyperparameters()
 
-        # self.num_classes = model_params["class_weight"]['train'].shape[0]
-
-        # flipping the weights
-        class_weights = model_params["class_weight"]
-        train_weight = get_loss_weight(class_weights, 'train')
-        self.loss_module = torch.nn.BCEWithLogitsLoss(pos_weight=train_weight)
+        # class_weights = model_params["class_weight"]
+        # train_weight = get_loss_weight(class_weights, 'train')
+        train_weight = other_params['train_loss_weight'] if 'train_loss_weight' in other_params else None
+        self.loss_module = BCEWithLogitsLoss(pos_weight=train_weight)
 
         self.model = GatNet(model_params)
 
@@ -38,30 +37,6 @@ class ProtoNet(GraphTrainer):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.optimizer_hparams['lr'])
         scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[140, 180], gamma=0.1)
         return [optimizer], [scheduler]
-
-    # def configure_optimizers(self):
-    #     opt_params = self.hparams.optimizer_hparams
-    #
-    #     if opt_params['optimizer'] == 'Adam':
-    #         optimizer = AdamW(self.model.parameters(), lr=opt_params['lr'],
-    #                           weight_decay=opt_params['weight_decay'])
-    #     # elif opt_params['optimizer'] == 'RAdam':
-    #     #     self.optimizer = RiemannianAdam(self.model.parameters(), lr=config['lr'],
-    #     #                                     weight_decay=config['weight_decay'])
-    #     elif opt_params['optimizer'] == 'SGD':
-    #         optimizer = SGD(self.model.parameters(), lr=opt_params['lr'], momentum=opt_params['momentum'],
-    #                         weight_decay=opt_params['weight_decay'])
-    #     else:
-    #         raise ValueError("No optimizer name provided!")
-    #
-    #     scheduler = None
-    #     if opt_params['scheduler'] == 'step':
-    #         scheduler = StepLR(optimizer, step_size=opt_params['lr_decay_epochs'], gamma=opt_params['lr_decay_factor'])
-    #     elif opt_params['scheduler'] == 'multi_step':
-    #         scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 30, 40, 55],
-    #                                 gamma=opt_params['lr_decay_factor'])
-    #
-    #     return [optimizer], [] if scheduler is None else [scheduler]
 
     @staticmethod
     def calculate_prototypes(features, targets):
@@ -139,18 +114,6 @@ class ProtoNet(GraphTrainer):
 
         logits, targets = ProtoNet.classify_features(prototypes, query_logits, query_targets)
         # logits and targets: batch size x 1
-
-        # if predictions.shape[1] != self.num_classes:
-        #     # if predictions only have one class, we need to pad in order to use weight in loss function
-        #     n_pad = self.num_classes - predictions.shape[1]
-        #     predictions = func.pad(predictions, pad=(0, n_pad), value=0)
-
-        # if targets.shape[1] != self.num_classes:
-        #     # if targets only have one class, we need to pad in order to use weight in loss function
-        #     n_pad = self.num_classes - targets.shape[1]
-        #     targets = func.pad(targets, pad=(0, n_pad), value=0)
-
-        # meta_loss = func.binary_cross_entropy_with_logits(logits, targets.float())
 
         # for cross entropy
         # targets = targets.long().argmax(dim=-1)
@@ -239,7 +202,7 @@ def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=1):
     for k_idx in tqdm(range(0, node_features.shape[0], k_shot), "Evaluating prototype classification", leave=False):
         # Select support set (k examples per class) and calculate prototypes
         k_node_feats, k_targets = get_as_set(k_idx, k_shot, node_features, node_targets, start_indices_per_class)
-        prototype = model.calculate_prototypes(k_node_feats, k_targets)
+        prototypes = model.calculate_prototypes(k_node_feats, k_targets)
 
         batch_f1_target = tm.F1(num_classes=num_classes, average='none')
 
@@ -248,7 +211,7 @@ def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=1):
                 continue
 
             e_node_feats, e_targets = get_as_set(e_idx, k_shot, node_features, node_targets, start_indices_per_class)
-            logits, targets = model.classify_features(prototype, e_node_feats, e_targets)
+            logits, targets = model.classify_features(prototypes, e_node_feats, e_targets)
 
             predictions = (logits.sigmoid() > 0.5).float()
 

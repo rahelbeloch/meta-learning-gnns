@@ -7,10 +7,8 @@ from torchmetrics import F1
 from tqdm.auto import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
-from models.graph_trainer import GraphTrainer, get_loss_weight
+from models.graph_trainer import GraphTrainer, get_or_none
 from models.train_utils import *
-
-
 # noinspection PyAbstractClass
 from samplers.episode_sampler import split_list
 
@@ -21,7 +19,7 @@ class Maml(GraphTrainer):
     """
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, optimizer_hparams):
+    def __init__(self, model_params, optimizer_hparams, other_params):
         """
         Inputs
             lr - Learning rate of the outer loop Adam optimizer
@@ -36,13 +34,11 @@ class Maml(GraphTrainer):
 
         self.lr_inner = self.hparams.optimizer_hparams['lr_inner']
 
-        train_weight = get_loss_weight(model_params["class_weight"], 'train')
-        self.train_loss_module = nn.BCEWithLogitsLoss(pos_weight=train_weight)
-        # self.train_loss_module = nn.BCEWithLogitsLoss()
+        # train_weight = get_loss_weight(model_params["class_weight"], 'train')
+        self.train_loss_module = nn.BCEWithLogitsLoss(pos_weight=get_or_none(other_params, 'train_loss_weight'))
 
         # val_weight = get_loss_weight(model_params["class_weight"], 'val')
-        # self.val_loss_module = nn.BCEWithLogitsLoss(pos_weight=val_weight)
-        self.val_loss_module = nn.BCEWithLogitsLoss()
+        self.val_loss_module = nn.BCEWithLogitsLoss(pos_weight=get_or_none(other_params, 'val_loss_weight'))
 
         self.model = GatNet(model_params)
 
