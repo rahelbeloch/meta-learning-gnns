@@ -10,8 +10,8 @@ from train_config import SHOTS
 
 def get_random_oversampled(majority_class_idx, minority_class_idx, indices):
     n_sample_minority = indices[majority_class_idx].shape[0] - indices[minority_class_idx].shape[0]
-    oversampled_minority = torch.multinomial(indices[majority_class_idx].float(), n_sample_minority)
-    return torch.cat([indices[minority_class_idx], oversampled_minority])
+    oversampled = torch.multinomial(indices[minority_class_idx].float(), n_sample_minority, replacement=True)
+    return torch.cat([indices[minority_class_idx], indices[minority_class_idx][oversampled]])
 
 
 class FewShotEpisodeSampler(Sampler):
@@ -30,8 +30,7 @@ class FewShotEpisodeSampler(Sampler):
 
         self.verbose = verbose
         self.n_way = n_way
-        self.k_shot = k_shot
-        self.batch_size = self.n_way * self.k_shot  # Number of overall samples per query and support batch
+        self.k_shot_support = k_shot
 
         # number of samples which actually can be used with n classes and k shot
         self.data_targets = targets
@@ -72,41 +71,66 @@ class FewShotEpisodeSampler(Sampler):
             self.indices_per_class['query'][c] = query_samples
 
             if self.verbose:
-                print(f" samples for shot '{self.k_shot}' and class '{c}': {n_support_class} (support),"
+                print(f" samples for shot '{self.k_shot_support}' and class '{c}': {n_support_class} (support),"
                       f" {n_query_class} (query).")
 
         # random oversampling for the support sets for both classes
         self.indices_per_class['support'][1] = get_random_oversampled(0, 1, self.indices_per_class['support'])
 
+        assert 1 not in self.data_targets[self.indices_per_class['support'][0]] \
+               and 0 not in self.data_targets[self.indices_per_class['support'][1]] \
+               and 1 not in self.data_targets[self.indices_per_class['query'][0]] \
+               and 0 not in self.data_targets[self.indices_per_class['query'][1]], \
+            "There are wrong data targets in the indices per class stored!"
+
+        # we use the number of batches we can create from support and align the query batch sizes accordingly
         for c in self.classes:
-            for s in self.sets:
-                # nr of examples we have per class // nr of shots -> amount of batches we can create from this class
-                # noinspection PyUnresolvedReferences
-                self.batches_per_class[s][c] = self.indices_per_class[s][c].shape[0] // self.k_shot
+            # nr of examples we have per class // nr of shots -> amount of batches we can create from this class
+            # noinspection PyUnresolvedReferences
+            self.batches_per_class['support'][c] = self.indices_per_class['support'][c].shape[0] // self.k_shot_support
+
+        support_batches = self.batches_per_class['support'][0]
+        self.num_batches = support_batches
+
+        self.k_shot_query = {}
+        for c in self.classes:
+            self.k_shot_query[c] = self.indices_per_class['query'][c].shape[0] / support_batches
+
+        if self.verbose:
+            print(f" Query shots before rounding: {self.k_shot_query}")
+
+        for c in self.classes:
+            self.k_shot_query[c] = int(self.k_shot_query[c])
+
+        if self.verbose:
+            print(f" Query shots after rounding: {self.k_shot_query}")
+
+        # Number of overall samples per query and support batch
+        self.batch_size = self.k_shot_support * 2 + self.k_shot_query[0] + self.k_shot_query[1]
 
         # some validation
         nr_query_samples = self.count_samples('query')
         assert nr_query_samples <= self.max_n_query, "Number of query examples we are using exceeds the max query nr!"
 
         # dividing all query samples into batches/episodes should be the number of batches we have for the query set
-        assert (nr_query_samples // self.k_shot) == sum(self.batches_per_class['query'].values())
+        # assert (nr_query_samples // self.k_shot_support) == sum(self.batches_per_class['query'].values())
 
-        # Create a list of classes from which we select the N classes per batch
-        query_batches = sum(self.batches_per_class['query'].values()) // self.n_way
-        support_batches = sum(self.batches_per_class['support'].values()) // self.n_way
+        # dividing query samples according to k-shots for each class should yield at least as many support batches
+        for c in self.classes:
+            query_class_batches = int(self.indices_per_class['query'][c].shape[0] // self.k_shot_query[c])
+            assert query_class_batches >= support_batches, "Number of query batches is smaller than support batches!"
+            self.batches_per_class['query'][c] = query_class_batches
 
-        self.num_batches = min(query_batches, support_batches)
-        nr_support_samples = self.count_samples('support')
+        # nr_support_samples = self.count_samples('support')
 
         if self.verbose:
-            print(f" support batches: {support_batches}")
-            print(f" query batches: {query_batches}")
+            print(f" batches: {self.batches_per_class}")
             print(f" final episodes/batches used: {self.num_batches}")
-            print(f" support samples: {nr_support_samples}")
-            print(f" query samples: {nr_query_samples}")
+            # print(f" support samples: {nr_support_samples}")
+            # print(f" query samples: {nr_query_samples}")
 
         # verify that we used only up to n_query query examples
-        assert query_batches * self.k_shot * self.n_way <= self.max_n_query
+        # assert query_batches * self.k_shot_support * self.n_way <= self.max_n_query
 
         self.batches_target_lists = {}
         for s in self.sets:
@@ -131,22 +155,24 @@ class FewShotEpisodeSampler(Sampler):
         return self.batch_size
 
     def __iter__(self):
-        yield from self._iter(self.num_batches, self.k_shot)
+        yield from self._iter(self.num_batches, self.k_shot_support, self.k_shot_query)
 
-    def _iter(self, n_batches, offset):
+    def _iter(self, n_batches, offset_support, offset_query):
         # Sample few-shot batches
         start_index = defaultdict(lambda: defaultdict(int))
         for it in range(n_batches):
             index_batches = dict()
             for s in self.sets:
-
                 # Select N classes for the batch
                 class_batch = self.batches_target_lists[s][it * self.n_way:(it + 1) * self.n_way]
                 set_index_batch = []
-                for c in class_batch:  # For each class, select the next K examples and add them to the batch
-                    set_index_batch.extend(
-                        self.indices_per_class[s][c][start_index[s][c]:start_index[s][c] + offset])
+
+                for c in class_batch:
+                    # For each class, select the next K examples and add them to the batch
+                    offset = offset_support if s == 'support' else offset_query[c]
+                    set_index_batch.extend(self.indices_per_class[s][c][start_index[s][c]:start_index[s][c] + offset])
                     start_index[s][c] += offset
+
                 index_batches[s] = set_index_batch
 
             full_batch = index_batches['support'] + index_batches['query']
@@ -165,8 +191,8 @@ class NonMetaFewShotEpisodeSampler(FewShotEpisodeSampler):
     def __init__(self, targets, max_n_query, mode, batch_size, n_way=2, k_shot=5, verbose=False):
         super().__init__(targets, max_n_query, mode, n_way, k_shot, verbose)
 
-        # assert (batch_size / (self.k_shot * self.n_way)) % 1 == 0, "Batch size not divisible by n way and k shot."
-        # must be divisible by self.k_shot * self.n_way
+        # assert (batch_size / (self.k_shot_support * self.n_way)) % 1 == 0, "Batch size not divisible by n way and k shot."
+        # must be divisible by self.k_shot_support * self.n_way
 
         # unbalanced dataset (gossipcop)
         # self.new_b_size = 688   # --> 5 batches
@@ -178,7 +204,7 @@ class NonMetaFewShotEpisodeSampler(FewShotEpisodeSampler):
         self.new_b_size = batch_size
         self.n_old_batches = super(NonMetaFewShotEpisodeSampler, self).__len__()
 
-        n_new_batches = 2 * self.n_old_batches * self.k_shot / self.new_b_size
+        n_new_batches = 2 * self.n_old_batches * self.k_shot_support / self.new_b_size
         # assert n_new_batches % 1 == 0, f"New batch size {self.new_b_size} can not create even number of batches."
 
         self.n_new_batches = int(n_new_batches)
@@ -211,7 +237,7 @@ class MetaFewShotEpisodeSampler(FewShotEpisodeSampler):
         self.task_batch_size = batch_size if batch_size is not None else self.num_batches
         # self.task_batch_size = batch_size
 
-        self.local_batch_size = self.batch_size * 2  # to account for support and query
+        self.local_batch_size = self.batch_size     # already includes both classes for support and query
 
     def __iter__(self):
         # Aggregate multiple batches before returning the indices
@@ -255,9 +281,8 @@ class MetaFewShotEpisodeSampler(FewShotEpisodeSampler):
     #     return collate_fn
 
 
-def split_list(a_list):
-    half = len(a_list) // 2
-    return a_list[:half], a_list[half:]
+def split_list(a_list, num_support):
+    return a_list[:num_support], a_list[num_support:]
 
 
 def get_max_nr_for_shots(max_samples, n_class, max_shot=max(SHOTS)):

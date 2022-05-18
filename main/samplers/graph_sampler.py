@@ -4,7 +4,6 @@ import torch
 from torch_geometric.loader import GraphSAINTSampler
 from torch_geometric.utils import k_hop_subgraph
 
-from samplers.episode_sampler import split_list
 from train_config import META_MODELS
 
 
@@ -89,30 +88,33 @@ class KHopSampler(GraphSAINTSampler):
             data, target = self.as_data_target(adj, center_indices, node_indices)
             data_list_collated.append((data, target))
 
-        sup_graphs, labels = list(map(list, zip(*data_list_collated)))
+        graphs, targets = list(map(list, zip(*data_list_collated)))
 
         if self.model_type in ['prototypical', 'gat'] or (self.model_type in META_MODELS and self.mode == 'test'):
 
-            supp_sub_graphs, query_sub_graphs = split_list(sup_graphs)
-            supp_labels, query_labels = split_list(labels)
-            return supp_sub_graphs, query_sub_graphs, torch.LongTensor(supp_labels), torch.LongTensor(query_labels)
+            n_support_samples = self.b_sampler.k_shot_support * 2
+
+            support_graphs, query_graphs = graphs[:n_support_samples], graphs[n_support_samples:]
+            support_labels, query_labels = targets[:n_support_samples], targets[n_support_samples:]
+
+            return support_graphs, query_graphs, torch.LongTensor(support_labels), torch.LongTensor(query_labels)
 
         elif self.model_type in META_MODELS:
 
             # converts list of all given samples (e.g. (local batch size * task batch size) x 3) into a list of
             # batches (task batch size x 3 x local batch size). Makes it easier to process in the PL Maml.
-            targets = torch.tensor(labels)
+            targets = torch.tensor(targets)
 
             local_b_size = self.batch_sampler.local_batch_size
             task_b_size = self.batch_sampler.task_batch_size
 
             # all samples should be divisible by 2 (support/query), the local batch size and the size of one task
-            assert len(sup_graphs) == targets.shape[0] == (local_b_size * task_b_size)
+            assert len(graphs) == targets.shape[0] == (local_b_size * task_b_size)
 
             targets = targets.chunk(task_b_size, dim=0)
 
             # no torch chunking for list of graphs
-            graphs = [sup_graphs[i:i + local_b_size] for i in range(0, len(sup_graphs), local_b_size)]
+            graphs = [graphs[i:i + local_b_size] for i in range(0, len(graphs), local_b_size)]
 
             # should have size: 16 (self.task_batch_size)
             assert len(targets) == len(graphs) == task_b_size

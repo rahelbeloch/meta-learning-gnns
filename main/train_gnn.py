@@ -72,7 +72,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
 
     train_loader, train_val_loader, test_loader, test_val_loader = loaders
 
-    optimizer_hparams = {"lr": lr, "warmup": warmup,
+    optimizer_params = {"lr": lr, "warmup": warmup,
                          "max_iters": len(train_loader) * epochs if max_iters < 0 else max_iters,
                          "lr_decay_epochs": lr_decay_epochs, "lr_decay_factor": lr_decay_factor,
                          "scheduler": scheduler, "weight_decay": weight_decay, "momentum": momentum,
@@ -94,26 +94,28 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
         'label_names': train_graph.label_names,
     }
 
-    other_params = dict(train_loss_weight=train_loss_weight, val_loss_weight=val_loss_weight)
+    other_params = dict(train_loss_weight=torch.tensor(train_loss_weight),
+                        val_loss_weight=torch.tensor(val_loss_weight))
 
     if model_name == 'gat':
-        optimizer_hparams.update(lr_val=lr_val, lr_decay_epochs_val=lr_decay_epochs_val)
+        optimizer_params.update(lr_val=lr_val, lr_decay_epochs_val=lr_decay_epochs_val)
         other_params.update(val_batches=len(train_val_loader))
 
-        model = GatBase(model_params, optimizer_hparams, other_params)
+        model = GatBase(model_params, optimizer_params, other_params)
     elif model_name == 'prototypical':
-        model = ProtoNet(model_params, optimizer_hparams, other_params)
+        model = ProtoNet(model_params, optimizer_params, other_params)
     elif model_name in META_MODELS:
         model_params.update(n_inner_updates=n_inner_updates, n_inner_updates_test=n_inner_updates_test)
-        optimizer_hparams.update(lr_inner=lr_inner)
+        optimizer_params.update(lr_inner=lr_inner)
+        other_params.update(k_shot_support=k_shot)
 
         if model_name == 'proto-maml':
-            optimizer_hparams.update(lr_output=lr_output)
-            model = ProtoMAML(model_params, optimizer_hparams, other_params)
+            optimizer_params.update(lr_output=lr_output)
+            model = ProtoMAML(model_params, optimizer_params, other_params)
         elif model_name == 'gmeta':
-            model = GMeta(model_params, optimizer_hparams, other_params)
+            model = GMeta(model_params, optimizer_params, other_params)
         elif model_name == 'maml':
-            model = Maml(model_params, optimizer_hparamsm, other_params)
+            model = Maml(model_params, optimizer_params, other_params)
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 
@@ -415,8 +417,8 @@ if __name__ == "__main__":
     # wandb.init(settings=wandb.Settings(start_method="fork"))
 
     train(balance_data=not params['no_balance_data'],
-          val_loss_weight=params['no_val_loss_weight'],
-          train_loss_weight=params['no_train_loss_weight'],
+          val_loss_weight=params['val_loss_weight'],
+          train_loss_weight=params['train_loss_weight'],
           progress_bar=params['progress_bar'],
           model_name=params['model'],
           seed=params['seed'],

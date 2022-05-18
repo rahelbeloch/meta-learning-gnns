@@ -9,11 +9,12 @@ from torch.nn import BCEWithLogitsLoss
 from tqdm.auto import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
-from models.graph_trainer import GraphTrainer
+from models.graph_trainer import GraphTrainer, get_or_none
 from models.train_utils import *
 from samplers.graph_sampler import KHopSamplerSimple
 
 
+# noinspection PyAbstractClass
 class ProtoNet(GraphTrainer):
 
     # noinspection PyUnusedLocal
@@ -26,10 +27,7 @@ class ProtoNet(GraphTrainer):
         super().__init__(validation_sets=['val'])
         self.save_hyperparameters()
 
-        # class_weights = model_params["class_weight"]
-        # train_weight = get_loss_weight(class_weights, 'train')
-        train_weight = other_params['train_loss_weight'] if 'train_loss_weight' in other_params else None
-        self.loss_module = BCEWithLogitsLoss(pos_weight=train_weight)
+        self.loss_module = BCEWithLogitsLoss(pos_weight=get_or_none(other_params, 'train_loss_weight'))
 
         self.model = GatNet(model_params)
 
@@ -104,6 +102,7 @@ class ProtoNet(GraphTrainer):
             "Nr of features returned does not equal nr. of classification nodes!"
 
         # support logits: episode size x 2, support targets: episode size x 1
+
         prototypes = ProtoNet.calculate_prototypes(support_logits, support_targets)
 
         x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
@@ -141,7 +140,7 @@ class ProtoNet(GraphTrainer):
 
 
 @torch.no_grad()
-def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=1):
+def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=2):
     """
     Use the trained ProtoNet & adapt to test classes. Pick k examples/sub graphs per class from which prototypes are
     determined. Test the metrics on all other sub graphs, i.e. use k sub graphs per class as support set and
@@ -194,17 +193,17 @@ def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=1):
 
     test_start = time.time()
 
-    start_indices_per_class = torch.tensor((num_classes, 1))
+    start_indices_per_class = torch.zeros(num_classes).int()
     for c in range(num_classes):
         start_indices_per_class[c] = torch.where(node_targets == c)[0][0].item()
 
-    accuracies, f1_fake, f1_macros = [], [], []
+    f1_fake = []
     for k_idx in tqdm(range(0, node_features.shape[0], k_shot), "Evaluating prototype classification", leave=False):
         # Select support set (k examples per class) and calculate prototypes
         k_node_feats, k_targets = get_as_set(k_idx, k_shot, node_features, node_targets, start_indices_per_class)
         prototypes = model.calculate_prototypes(k_node_feats, k_targets)
 
-        batch_f1_target = tm.F1(num_classes=num_classes, average='none')
+        batch_f1_target = tm.F1(num_classes=1, average='none')
 
         for e_idx in range(0, node_features.shape[0], k_shot):
             if k_idx == e_idx:  # Do not evaluate on the support set examples

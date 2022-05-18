@@ -13,10 +13,10 @@ from models.gat_encoder_sparse_pushkar import GatNet
 from models.graph_trainer import GraphTrainer, get_or_none
 from models.proto_net import ProtoNet
 from models.train_utils import *
-# noinspection PyAbstractClass
 from samplers.episode_sampler import split_list
 
 
+# noinspection PyAbstractClass
 class ProtoMAML(GraphTrainer):
 
     # noinspection PyUnusedLocal
@@ -36,6 +36,8 @@ class ProtoMAML(GraphTrainer):
 
         self.lr_inner = self.hparams.optimizer_hparams['lr_inner']
 
+        self.k_shot_support = other_params['k_shot_support']
+
         # class_weights = model_params["class_weight"]
         # train_weight = get_loss_weight(class_weights, 'train')
         self.train_loss_module = BCEWithLogitsLoss(pos_weight=get_or_none(other_params, 'train_loss_weight'))
@@ -52,7 +54,7 @@ class ProtoMAML(GraphTrainer):
         # Determine prototype initialization
         support_feats = self.model(x, edge_index, mode).squeeze()[cl_mask]
 
-        prototypes, _ = ProtoNet.calculate_prototypes(support_feats, support_targets)
+        prototypes = ProtoNet.calculate_prototypes(support_feats, support_targets)
 
         # Copy model for inner-loop model and optimizer
         local_model = deepcopy(self.model)
@@ -72,7 +74,7 @@ class ProtoMAML(GraphTrainer):
         for _ in range(updates):
             # Determine loss on the support set
             loss, _ = run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask, support_targets, mode,
-                                self.loss_module)
+                                self.train_loss_module)
 
             # Calculate gradients and perform inner loop update
             loss.backward()
@@ -100,9 +102,9 @@ class ProtoMAML(GraphTrainer):
 
         # Determine gradients for batch of tasks
         for graphs, targets in batch:
-
-            support_graphs, query_graphs = split_list(graphs)
-            support_targets, query_targets = split_list(targets)
+            # This should be done in the graph sampler
+            support_graphs, query_graphs = split_list(graphs, self.k_shot_support * 2)
+            support_targets, query_targets = split_list(targets, self.k_shot_support * 2)
 
             # Perform inner loop adaptation
             local_model, output_weight, output_bias = self.adapt_few_shot(*get_subgraph_batch(support_graphs),
@@ -111,7 +113,7 @@ class ProtoMAML(GraphTrainer):
             # Determine loss of query set
             loss, query_predictions = run_model(local_model, output_weight, output_bias,
                                                 *get_subgraph_batch(query_graphs), query_targets, mode,
-                                                self.loss_module)
+                                                self.train_loss_module)
 
             self.update_metrics(mode, query_predictions, query_targets)
 

@@ -9,10 +9,10 @@ from tqdm.auto import tqdm
 from models.gat_encoder_sparse_pushkar import GatNet
 from models.graph_trainer import GraphTrainer, get_or_none
 from models.train_utils import *
-# noinspection PyAbstractClass
 from samplers.episode_sampler import split_list
 
 
+# noinspection PyAbstractClass
 class Maml(GraphTrainer):
     """
     First-Order MAML (FOML) which only uses first-order gradients.
@@ -33,6 +33,7 @@ class Maml(GraphTrainer):
         self.n_inner_updates_test = model_params['n_inner_updates_test']
 
         self.lr_inner = self.hparams.optimizer_hparams['lr_inner']
+        self.k_shot_support = other_params['k_shot_support']
 
         # train_weight = get_loss_weight(model_params["class_weight"], 'train')
         self.train_loss_module = nn.BCEWithLogitsLoss(pos_weight=get_or_none(other_params, 'train_loss_weight'))
@@ -77,8 +78,8 @@ class Maml(GraphTrainer):
         # Determine gradients for batch of tasks
         for graphs, targets in batch:
 
-            support_graphs, query_graphs = split_list(graphs)
-            support_targets, query_targets = split_list(targets)
+            support_graphs, query_graphs = split_list(graphs, self.k_shot_support)
+            support_targets, query_targets = split_list(targets, self.k_shot_support)
 
             # Perform inner loop adaptation
             local_model = self.adapt_few_shot(*get_subgraph_batch(support_graphs), support_targets, mode, loss_module)
@@ -160,6 +161,8 @@ def test_maml(model, test_loader, num_classes=1):
 
     # Iterate through the full dataset in two manners:
     # First, to select the k-shot batch. Second, to evaluate the model on all other batches.
+    test_loss_weight = None
+    loss_module = nn.BCEWithLogitsLoss(pos_weight=test_loss_weight)
 
     f1_fakes = []
 
@@ -170,7 +173,7 @@ def test_maml(model, test_loader, num_classes=1):
         support_targets = support_targets.to(DEVICE)
 
         # Finetune new model on support set
-        local_model = model.adapt_few_shot(*get_subgraph_batch(support_graphs), support_targets, mode)
+        local_model = model.adapt_few_shot(*get_subgraph_batch(support_graphs), support_targets, mode, loss_module)
 
         f1_target = F1(num_classes=num_classes, average='none').to(DEVICE)
 

@@ -8,7 +8,7 @@ from models.gat_encoder_sparse_pushkar import GatNet
 from models.graph_trainer import GraphTrainer, get_or_none
 from models.train_utils import *
 
-
+# noinspection PyAbstractClass
 class GatBase(GraphTrainer):
     """
     PyTorch Lightning module containing all model setup: Picking the correct encoder, initializing the classifier,
@@ -32,7 +32,7 @@ class GatBase(GraphTrainer):
 
         # class_weights = model_params["class_weight"]
         # train_weight = get_loss_weight(class_weights, 'train')
-        self.loss_module = BCEWithLogitsLoss(pos_weight=get_or_none(other_params, 'train_loss_weight'))
+        self.train_loss = BCEWithLogitsLoss(pos_weight=get_or_none(other_params, 'train_loss_weight'))
 
         # val_weight = get_loss_weight(class_weights, 'val')
         self.validation_loss = nn.BCEWithLogitsLoss(pos_weight=get_or_none(other_params, 'val_loss_weight'))
@@ -108,7 +108,7 @@ class GatBase(GraphTrainer):
         # 2. Loss weighting
         # 3. Sanity Check with train and val on the same split
 
-        loss = self.loss_module(logits, targets.float())
+        loss = self.train_loss(logits, targets.float())
 
         train_opt.zero_grad()
         self.manual_backward(loss)
