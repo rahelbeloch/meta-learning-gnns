@@ -8,7 +8,7 @@ from torch import optim
 from tqdm.auto import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
-from models.graph_trainer import GraphTrainer
+from models.graph_trainer import GraphTrainer, get_loss_weight
 from models.train_utils import *
 from samplers.graph_sampler import KHopSamplerSimple
 
@@ -25,15 +25,12 @@ class ProtoNet(GraphTrainer):
         super().__init__(validation_sets=['val'])
         self.save_hyperparameters()
 
-        # the output dimension for the prototypical network is not num classes, but the prototypes dimension!
-        model_params['output_dim'] = model_params['proto_dim']
-
-        self.num_classes = model_params["class_weight"].shape[0]
+        # self.num_classes = model_params["class_weight"]['train'].shape[0]
 
         # flipping the weights
-        pos_weight = 1 // model_params["class_weight"]['train'][1]
-        print(f"Using positive weight: {pos_weight}")
-        self.loss_module = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        class_weights = model_params["class_weight"]
+        train_weight = get_loss_weight(class_weights, 'train')
+        self.loss_module = torch.nn.BCEWithLogitsLoss(pos_weight=train_weight)
 
         self.model = GatNet(model_params)
 
@@ -97,17 +94,20 @@ class ProtoNet(GraphTrainer):
                 :param targets:
                 :return:
                 """
-        # Squared euclidean distance
+        # Squared euclidean distance:   batch size x 2
         dist = torch.pow(prototypes[None, :] - feats[:, None], 2).sum(dim=2)
+
+        # we only want to consider the distance for the target/fake class
+        dist_fake = dist[:, 1]
 
         # predictions = func.log_softmax(-dist, dim=1)      # for CE loss
         # predictions = torch.sigmoid(-dist)  # for BCE loss
 
         # predictions = -dist  # for BCE with logits loss
         # for BCE with logits loss: don't use negative dist
-        logits = dist
+        logits = dist_fake
 
-        return logits, targets.view(-1, 1)
+        return logits.view(-1, 1), targets.view(-1, 1)
 
     def calculate_loss(self, batch, mode):
         """

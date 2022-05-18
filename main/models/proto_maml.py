@@ -8,7 +8,7 @@ from torchmetrics import F1
 from tqdm.auto import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
-from models.graph_trainer import GraphTrainer
+from models.graph_trainer import GraphTrainer, get_loss_weight
 from models.proto_net import ProtoNet
 from models.train_utils import *
 # noinspection PyAbstractClass
@@ -34,9 +34,9 @@ class ProtoMAML(GraphTrainer):
 
         self.lr_inner = self.hparams.optimizer_hparams['lr_inner']
 
-        pos_weight = 1 // model_params["class_weight"]['train'][1]
-        print(f"Using positive weight: {pos_weight}")
-        self.loss_module = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        class_weights = model_params["class_weight"]
+        train_weight = get_loss_weight(class_weights, 'train')
+        self.loss_module = torch.nn.BCEWithLogitsLoss(pos_weight=train_weight)
 
         self.model = GatNet(model_params)
 
