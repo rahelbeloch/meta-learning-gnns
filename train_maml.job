@@ -8,7 +8,7 @@
 # GPU Settings
 #SBATCH --partition=gpu_shared
 #SBATCH --gres=gpu:1
-#SBATCH --ntasks=1-18
+#SBATCH --ntasks=1
 
 # CPU Settings
 #SBATCH --cpus-per-task=6
