@@ -40,7 +40,7 @@ class GatBase(GraphTrainer):
         # val_weight = get_loss_weight(class_weights, 'val')
         val_weight = get_or_none(other_params, 'val_loss_weight')
         print(f"Positive val weight: {val_weight}")
-        self.validation_loss = nn.BCEWithLogitsLoss(pos_weight=val_weight)
+        self.validation_loss = BCEWithLogitsLoss(pos_weight=val_weight)
 
         # Deep copy of the model: one for train, one for val --> update validation model with weights from train model
         # validation fine-tuning should happen on a copy of the model NOT on the model which is trained
