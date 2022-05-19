@@ -191,27 +191,59 @@ class NonMetaFewShotEpisodeSampler(FewShotEpisodeSampler):
     def __init__(self, targets, max_n_query, mode, batch_size, n_way=2, k_shot=5, verbose=False):
         super().__init__(targets, max_n_query, mode, n_way, k_shot, verbose)
 
-        # assert (batch_size / (self.k_shot_support * self.n_way)) % 1 == 0, "Batch size not divisible by n way and k shot."
-        # must be divisible by self.k_shot_support * self.n_way
+        # different shot sizes change the number of samples which can be used.
+        # For comparability, GAT should be trained with 3 batches for each shot size...
 
-        # unbalanced dataset (gossipcop)
-        # self.new_b_size = 688   # --> 5 batches
-        # self.new_b_size = 344  # --> 10 batches
+        # unbalanced dataset (gossipcop): shots 5
+        # self.new_b_size = 8112   # --> 1 batch
+        # self.new_b_size = 4056   # --> 2 batches
+        # self.new_b_size = 2704   # --> 3 batches
+        # self.new_b_size = 624  # --> 13 batches
+
+        # unbalanced dataset (gossipcop): shots 10
+        # self.new_b_size = 8349   # --> 1 batch
+        # self.new_b_size = 2783   # --> 3 batches
+        # self.new_b_size = 759  # --> 11 batches
+
+        # unbalanced dataset (gossipcop): shots 20
+        # self.new_b_size = 4221   # --> 2 batch
+        # self.new_b_size = 2814   # --> 3 batches
+        # self.new_b_size = 1407  # --> 6 batches
+        # self.new_b_size = 938  # --> 9 batches
+        # self.new_b_size = 603  # --> 14 batches
+
+        # unbalanced dataset (gossipcop): shots 40
+        # self.new_b_size = 8442   # --> 1 batch
+        # self.new_b_size = 4221   # --> 2 batches
+        # self.new_b_size = 2814   # --> 3 batches
+        # self.new_b_size = 1206  # --> 7 batches
+        # self.new_b_size = 938  # --> 9 batches
 
         # balanced dataset (gossipcop)
         # self.new_b_size = 497  # --> balanced dataset, 9 batches
 
         self.new_b_size = batch_size
-        self.n_old_batches = super(NonMetaFewShotEpisodeSampler, self).__len__()
 
-        n_new_batches = 2 * self.n_old_batches * self.k_shot_support / self.new_b_size
-        # assert n_new_batches % 1 == 0, f"New batch size {self.new_b_size} can not create even number of batches."
+        used_samples = self.num_batches * self.batch_size
+        n_new_batches = used_samples / self.new_b_size
+        assert n_new_batches % 1 == 0, f"New batch size {self.new_b_size} can not create even number of batches."
 
         self.n_new_batches = int(n_new_batches)
 
     def __iter__(self):
-        offset = int(self.new_b_size / 4)
-        yield from super(NonMetaFewShotEpisodeSampler, self)._iter(self.n_new_batches, offset)
+        """
+        Aggregates multiple batches until
+        :return:
+        """
+
+        batch_list = []
+        for batch_idx, batch in enumerate(super().__iter__()):
+            batch_list.extend(batch)
+
+            # Aggregate as many batches until we reach the new batch size
+            if len(batch_list) == self.new_b_size:
+                yield batch_list
+                batch_list = []
 
     def __len__(self):
         return self.n_new_batches
@@ -237,7 +269,7 @@ class MetaFewShotEpisodeSampler(FewShotEpisodeSampler):
         self.task_batch_size = batch_size if batch_size is not None else self.num_batches
         # self.task_batch_size = batch_size
 
-        self.local_batch_size = self.batch_size     # already includes both classes for support and query
+        self.local_batch_size = self.batch_size  # already includes both classes for support and query
 
     def __iter__(self):
         # Aggregate multiple batches before returning the indices

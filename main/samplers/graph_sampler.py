@@ -90,9 +90,17 @@ class KHopSampler(GraphSAINTSampler):
 
         graphs, targets = list(map(list, zip(*data_list_collated)))
 
-        if self.model_type in ['prototypical', 'gat'] or (self.model_type in META_MODELS and self.mode == 'test'):
+        n_support_samples = self.b_sampler.k_shot_support * 2
 
-            n_support_samples = self.b_sampler.k_shot_support * 2
+        if self.model_type == 'gat':
+
+            if self.mode == 'train':
+                # no need to split support and query, as they are concatenated anyway for GAT
+                return graphs, torch.LongTensor(targets)
+
+        if self.model_type == 'prototypical' \
+                or (self.model_type == 'gat' and self.mode in ['val', 'test']) \
+                or (self.model_type in META_MODELS and self.mode == 'test'):
 
             support_graphs, query_graphs = graphs[:n_support_samples], graphs[n_support_samples:]
             support_labels, query_labels = targets[:n_support_samples], targets[n_support_samples:]

@@ -73,10 +73,10 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     train_loader, train_val_loader, test_loader, test_val_loader = loaders
 
     optimizer_params = {"lr": lr, "warmup": warmup,
-                         "max_iters": len(train_loader) * epochs if max_iters < 0 else max_iters,
-                         "lr_decay_epochs": lr_decay_epochs, "lr_decay_factor": lr_decay_factor,
-                         "scheduler": scheduler, "weight_decay": weight_decay, "momentum": momentum,
-                         "optimizer": optimizer}
+                        "max_iters": len(train_loader) * epochs if max_iters < 0 else max_iters,
+                        "lr_decay_epochs": lr_decay_epochs, "lr_decay_factor": lr_decay_factor,
+                        "scheduler": scheduler, "weight_decay": weight_decay, "momentum": momentum,
+                        "optimizer": optimizer}
 
     model_params = {
         'model': model_name,
@@ -94,8 +94,8 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
         'label_names': train_graph.label_names,
     }
 
-    other_params = dict(train_loss_weight=torch.tensor(train_loss_weight),
-                        val_loss_weight=torch.tensor(val_loss_weight))
+    other_params = {'train_loss_weight': torch.tensor(train_loss_weight) if train_loss_weight is not None else None,
+                    'val_loss_weight': torch.tensor(val_loss_weight) if val_loss_weight is not None else None}
 
     if model_name == 'gat':
         optimizer_params.update(lr_val=lr_val, lr_decay_epochs_val=lr_decay_epochs_val)
@@ -389,10 +389,10 @@ if __name__ == "__main__":
     parser.add_argument('--no-balance-data', dest='no_balance_data', action='store_true')
     parser.set_defaults(no_balance_data=True)
 
-    parser.add_argument('--val-loss-weight', dest='val_loss_weight', type=int, default=3,
+    parser.add_argument('--val-loss-weight', dest='val_loss_weight', type=int, default=None,
                         help="Weight of the minority class for the validation loss function.")
 
-    parser.add_argument('--train-loss-weight', dest='train_loss_weight', type=int, default=3,
+    parser.add_argument('--train-loss-weight', dest='train_loss_weight', type=int, default=None,
                         help="Weight of the minority class for the training loss function.")
 
     # parser.add_argument('--train-size', dest='train_size', type=float, default=0.875)

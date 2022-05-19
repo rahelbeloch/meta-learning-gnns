@@ -8,6 +8,7 @@ from models.gat_encoder_sparse_pushkar import GatNet
 from models.graph_trainer import GraphTrainer, get_or_none
 from models.train_utils import *
 
+
 # noinspection PyAbstractClass
 class GatBase(GraphTrainer):
     """
@@ -32,10 +33,14 @@ class GatBase(GraphTrainer):
 
         # class_weights = model_params["class_weight"]
         # train_weight = get_loss_weight(class_weights, 'train')
-        self.train_loss = BCEWithLogitsLoss(pos_weight=get_or_none(other_params, 'train_loss_weight'))
+        train_weight = get_or_none(other_params, 'train_loss_weight')
+        print(f"Positive train weight: {train_weight}")
+        self.train_loss = BCEWithLogitsLoss(pos_weight=train_weight)
 
         # val_weight = get_loss_weight(class_weights, 'val')
-        self.validation_loss = nn.BCEWithLogitsLoss(pos_weight=get_or_none(other_params, 'val_loss_weight'))
+        val_weight = get_or_none(other_params, 'val_loss_weight')
+        print(f"Positive val weight: {val_weight}")
+        self.validation_loss = nn.BCEWithLogitsLoss(pos_weight=val_weight)
 
         # Deep copy of the model: one for train, one for val --> update validation model with weights from train model
         # validation fine-tuning should happen on a copy of the model NOT on the model which is trained
@@ -86,9 +91,9 @@ class GatBase(GraphTrainer):
         train_opt, _ = self.optimizers()
 
         # collapse support and query set and train on whole
-        support_graphs, query_graphs, support_targets, query_targets = batch
-        sub_graphs = support_graphs + query_graphs
-        targets = torch.cat([support_targets, query_targets])
+        sub_graphs, targets = batch
+        # sub_graphs = support_graphs + query_graphs
+        # targets = torch.cat([support_targets, query_targets])
 
         logits = self.forward(sub_graphs, targets, mode='train')
 
@@ -187,7 +192,7 @@ class GatBase(GraphTrainer):
             # val_scheduler.step()
 
             # print(f"Val batch_idx: {batch_idx}")
-            if self.hparams['val_batches'] == (batch_idx + 1):
+            if self.hparams.other_params['val_batches'] == (batch_idx + 1):
                 # print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
                 # print("Reducing Val LR")
                 # print(f"Val LR before: {val_scheduler.get_last_lr()}")
