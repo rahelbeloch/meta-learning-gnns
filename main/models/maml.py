@@ -35,11 +35,13 @@ class Maml(GraphTrainer):
         self.lr_inner = self.hparams.optimizer_hparams['lr_inner']
         self.k_shot_support = other_params['k_shot_support']
 
-        # train_weight = get_loss_weight(model_params["class_weight"], 'train')
-        self.train_loss_module = nn.BCEWithLogitsLoss(pos_weight=get_or_none(other_params, 'train_loss_weight'))
+        train_weight = get_or_none(other_params, 'train_loss_weight')
+        print(f"Positive train weight: {train_weight}")
+        self.train_loss_module = nn.BCEWithLogitsLoss(pos_weight=train_weight)
 
-        # val_weight = get_loss_weight(model_params["class_weight"], 'val')
-        self.val_loss_module = nn.BCEWithLogitsLoss(pos_weight=get_or_none(other_params, 'val_loss_weight'))
+        val_weight = get_or_none(other_params, 'val_loss_weight')
+        print(f"Positive val weight: {val_weight}")
+        self.val_loss_module = nn.BCEWithLogitsLoss(pos_weight=val_weight)
 
         self.model = GatNet(model_params)
 
