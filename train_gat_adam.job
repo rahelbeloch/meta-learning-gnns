@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=meta-gnn-job
-#SBATCH --time=00:20:00
-#SBATCH --array=1-18
+#SBATCH --time=01:00:00
+#SBATCH --array=1-14
 #SBATCH --output=logs/job_outputs/meta_gnn_%A_%a.out
 
 # GPU Settings
