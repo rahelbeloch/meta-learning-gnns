@@ -2,12 +2,12 @@
 
 #SBATCH --job-name=meta-gnn-job
 #SBATCH --time=02:00:00
-#SBATCH --array=1,2,3,4,6,7,8,11,18,19,20,21,22,23,24,26,27,29,30,32,33,35,36
+#SBATCH --array=1-24
 #SBATCH --output=logs/job_outputs/meta_gnn_%A_%a.out
 
 # GPU Settings
-#SBATCH --partition=gpu_shared
-#SBATCH --gres=gpu:1
+#SBATCH --partition=gpu_titanrtx_shared
+#SBATCH --gres=gpu:titanrtx:1
 #SBATCH --ntasks=1
 
 # CPU Settings
