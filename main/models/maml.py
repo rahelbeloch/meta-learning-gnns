@@ -61,10 +61,12 @@ class Maml(GraphTrainer):
         local_optim = optim.SGD(local_model.parameters(), lr=self.lr_inner)
         local_optim.zero_grad()
 
+        updates = self.n_inner_updates if mode == 'train' else self.n_inner_updates_test
+
         # Optimize inner loop model on support set
-        for _ in range(self.n_inner_updates):
+        for _ in range(updates):
             # Determine loss on the support set
-            loss, logits = run_model(local_model, x, edge_index, cl_mask, support_targets, mode, loss_module)
+            loss, _ = run_model(local_model, x, edge_index, cl_mask, support_targets, mode, loss_module)
 
             # Calculate gradients and perform inner loop update
             loss.backward()
@@ -80,8 +82,9 @@ class Maml(GraphTrainer):
         # Determine gradients for batch of tasks
         for graphs, targets in batch:
 
-            support_graphs, query_graphs = split_list(graphs, self.k_shot_support)
-            support_targets, query_targets = split_list(targets, self.k_shot_support)
+            # This should be done in the graph sampler: *2 because for both classes!!
+            support_graphs, query_graphs = split_list(graphs, self.k_shot_support * 2)
+            support_targets, query_targets = split_list(targets, self.k_shot_support * 2)
 
             # Perform inner loop adaptation
             local_model = self.adapt_few_shot(*get_subgraph_batch(support_graphs), support_targets, mode, loss_module)
@@ -101,10 +104,11 @@ class Maml(GraphTrainer):
                         continue
 
                     # First-order approx. -> add gradients of fine-tuned and base model
-                    if p_global.grad is None:
-                        p_global.grad = p_local.grad
-                    else:
-                        p_global.grad += p_local.grad
+                    # if p_global.grad is None:
+                    #     p_global.grad = p_local.grad
+                    # else:
+                    # TODO: check if this works
+                    p_global.grad += p_local.grad
 
             losses.append(loss.detach())
 
@@ -169,6 +173,7 @@ def test_maml(model, test_loader, num_classes=1):
     f1_fakes = []
 
     for support_batch_idx, batch in tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing"):
+        # TODO: Check if correct here
         support_graphs, _, support_targets, _ = batch
 
         # graphs are automatically put to device in adapt few shot

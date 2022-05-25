@@ -106,7 +106,8 @@ class ProtoMAML(GraphTrainer):
 
         # Determine gradients for batch of tasks
         for graphs, targets in batch:
-            # This should be done in the graph sampler
+
+            # This should be done in the graph sampler: *2 because for both classes!!
             support_graphs, query_graphs = split_list(graphs, self.k_shot_support * 2)
             support_targets, query_targets = split_list(targets, self.k_shot_support * 2)
 
@@ -139,6 +140,10 @@ class ProtoMAML(GraphTrainer):
             opt.step()
             # noinspection PyUnresolvedReferences
             opt.zero_grad()
+
+            train_scheduler = self.lr_schedulers()
+            if self.trainer.current_epoch != 0 and (self.trainer.current_epoch + 1) % train_scheduler.step_size == 0:
+                train_scheduler.step()
 
         self.log_on_epoch(f"{mode}/loss", sum(losses) / len(losses))
 
