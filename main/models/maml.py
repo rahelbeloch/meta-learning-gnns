@@ -104,11 +104,11 @@ class Maml(GraphTrainer):
                         continue
 
                     # First-order approx. -> add gradients of fine-tuned and base model
-                    # if p_global.grad is None:
-                    #     p_global.grad = p_local.grad
-                    # else:
-                    # TODO: check if this works
-                    p_global.grad += p_local.grad
+                    if p_global.grad is None:
+                        p_global.grad = p_local.grad
+                    else:
+                        # TODO: check why this works with proto maml but not with maml
+                        p_global.grad += p_local.grad
 
             losses.append(loss.detach())
 
