@@ -35,7 +35,6 @@ class ProtoMAML(GraphTrainer):
         self.n_inner_updates_test = model_params['n_inner_updates_test']
 
         self.lr_inner = self.hparams.optimizer_hparams['lr_inner']
-
         self.k_shot_support = other_params['k_shot_support']
 
         train_weight = get_or_none(other_params, 'train_loss_weight')
