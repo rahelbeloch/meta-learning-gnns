@@ -25,7 +25,7 @@ WORKING WELL
 - task numbers train / task batch size: 43 (all tasks we can create into 1 batch)
 - local batch size / number of samples in 1 batch: 160
 
-- LR: 0.0005, 0.001
+- LR: 0.0005, 0.001 TODO: 0.0001
 - inner LR: 0.005, 0.01
 
 - hidden dimension, gat heads: (16, 8), (64, 2)
