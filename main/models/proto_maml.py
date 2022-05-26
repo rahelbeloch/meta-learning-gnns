@@ -48,8 +48,12 @@ class ProtoMAML(GraphTrainer):
         self.model = GatNet(model_params)
 
     def configure_optimizers(self):
-        optimizer = optim.AdamW(self.parameters(), lr=self.hparams.optimizer_hparams['lr'])
-        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[140, 180], gamma=0.1)
+        opt_params = self.hparams.optimizer_hparams
+
+        # scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[140, 180], gamma=0.1)
+        optimizer, scheduler = self.get_optimizer(opt_params['lr'], opt_params['lr_decay_epochs'],
+                                                  milestones=[140, 180])
+
         return [optimizer], [scheduler]
 
     def adapt_few_shot(self, x, edge_index, cl_mask, support_targets, mode, loss_module):
