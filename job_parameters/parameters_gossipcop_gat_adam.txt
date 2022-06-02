@@ -79,3 +79,7 @@
 --model gat --seed 9999 --lr 5e-4 --lr-val 1e-4 --hidden-dim 16 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --gat-heads 16 --no-progress-bar --wb-mode online --k-shot 40 --batch-size 8442 --n-workers 0 --patience 20 --suffix val_query_support_loss --train-loss-weight 4 --val-loss-weight 4
 --model gat --seed 9999 --lr 1e-4 --lr-val 1e-4 --hidden-dim 64 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --gat-heads 16 --no-progress-bar --wb-mode online --k-shot 40 --batch-size 8442 --n-workers 0 --patience 20 --suffix val_query_support_loss --train-loss-weight 4 --val-loss-weight 4
 --model gat --seed 9999 --lr 5e-4 --lr-val 1e-4 --hidden-dim 64 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --gat-heads 16 --no-progress-bar --wb-mode online --k-shot 40 --batch-size 8442 --n-workers 0 --patience 20 --suffix val_query_support_loss --train-loss-weight 4 --val-loss-weight 4
+
+Pycharm Args
+
+--model gat --seed 9999 --lr 1e-4 --lr-val 1e-4 --hidden-dim 64 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --gat-heads 2 --k-shot 40 --batch-size 8442 --n-workers 0 --patience 20 --suffix val_query_support_loss --train-loss-weight 3 --val-loss-weight 2

@@ -205,6 +205,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
           f'{round_format(val_f1_fake)}\n')
 
 
+
 def get_output_dim(model_name, proto_dim):
     if model_name in ['gat', 'maml']:
         return 1  # with binary classification, we just use one output dimension

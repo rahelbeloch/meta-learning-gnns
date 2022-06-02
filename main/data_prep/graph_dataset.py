@@ -302,7 +302,6 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
         return node_degrees, probs
 
     def initialize_graph(self):
-
         self.print_step("Initializing TorchGeom graph")
 
         # x_data should be float, edge_index should be long
@@ -312,7 +311,7 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
 
         self._data.train_mask = self.split_masks['train_mask']
         self._data.val_mask = self.split_masks['val_mask']
-        self._data.test_mask = self.split_masks['val_mask']
+        self._data.test_mask = self.split_masks['test_mask']
 
         if self._verbose:
             print(f"No. of edges in graph = {self._data.num_edges}")

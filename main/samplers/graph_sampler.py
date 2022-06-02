@@ -145,8 +145,8 @@ class KHopSampler(GraphSAINTSampler):
 
         data.orig_center_idx, data.new_center_idx = center_indices
 
-        # VERY IMPORTANT: batch sampler works with indices based on the mask --> have to get the masked y here first!
-        target = self.data.y[self.mask][data.orig_center_idx].item()
+        # We can assume the 'orig_center_idx' always is the node idx from the big graph!
+        target = self.data.y[data.orig_center_idx].item()
 
         for s in self.b_sampler.sets:
             # TODO: fix this, must be the target class!!

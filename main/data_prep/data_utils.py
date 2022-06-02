@@ -118,18 +118,19 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
     n_classes = len(graph_data.labels)
 
     mask = graph_data.mask(f"{mode}_mask")
-
+    indices = torch.where(mask == True)[0]
     targets = graph_data.data.y[mask]
+    assert indices.shape == targets.shape
     max_n_query = n_queries[mode]
 
     if model_name == 'gat' and mode == 'train':
-        batch_sampler = NonMetaFewShotEpisodeSampler(targets, max_n_query, mode, batch_size, n_classes, k_shot)
+        batch_sampler = NonMetaFewShotEpisodeSampler(indices, targets, max_n_query, mode, batch_size, n_classes, k_shot)
     elif model_name == 'prototypical' or (model_name == 'gat' and mode != 'train'):
-        batch_sampler = FewShotEpisodeSampler(targets, max_n_query, mode, n_classes, k_shot)
+        batch_sampler = FewShotEpisodeSampler(indices, targets, max_n_query, mode, n_classes, k_shot)
     elif model_name in META_MODELS:
         batch_size = None if mode == 'train' else 2
 
-        batch_sampler = MetaFewShotEpisodeSampler(targets, max_n_query, mode, n_classes, k_shot, batch_size)
+        batch_sampler = MetaFewShotEpisodeSampler(indices, targets, max_n_query, mode, n_classes, k_shot, batch_size)
     else:
         raise ValueError(f"Model with name '{model_name}' is not supported.")
 
