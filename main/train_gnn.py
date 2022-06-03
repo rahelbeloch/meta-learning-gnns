@@ -317,12 +317,12 @@ if __name__ == "__main__":
     parser.add_argument('--wb-mode', dest='wb_mode', type=str, default='offline')
 
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
-    parser.add_argument('--epochs', dest='epochs', type=int, default=1)
+    parser.add_argument('--epochs', dest='epochs', type=int, default=100)
     parser.add_argument('--patience-metric', dest='patience_metric', type=str, default='loss')
     parser.add_argument('--patience', dest='patience', type=int, default=20)
-    parser.add_argument('--gat-dropout', dest='gat_dropout', type=float, default=0.6)
+    parser.add_argument('--gat-dropout', dest='gat_dropout', type=float, default=0.4)
     parser.add_argument('--lin-dropout', dest='lin_dropout', type=float, default=0.5)
-    parser.add_argument('--attn-dropout', dest='attn_dropout', type=float, default=0.6)
+    parser.add_argument('--attn-dropout', dest='attn_dropout', type=float, default=0.4)
     parser.add_argument('--k-shot', dest='k_shot', type=int, default=5, help="Number of examples per task/batch.",
                         choices=SHOTS)
 
@@ -338,7 +338,7 @@ if __name__ == "__main__":
                         help='No. of epochs after which learning rate should be decreased')
     parser.add_argument('--lr-decay-epochs-val', dest='lr_decay_epochs_val', type=float, default=2,
                         help='No. of epochs after which learning rate should be decreased')
-    parser.add_argument('--lr-decay-factor', dest='lr_decay_factor', type=float, default=0.8,
+    parser.add_argument('--lr-decay-factor', dest='lr_decay_factor', type=float, default=0.1,
                         help='Decay the learning rate of the optimizer by this multiplicative amount')
     parser.add_argument('--scheduler', type=str, default='step',
                         help='The type of lr scheduler to use anneal learning rate: step/multi_step')
