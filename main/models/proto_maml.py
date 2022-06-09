@@ -28,7 +28,7 @@ class ProtoMAML(GraphTrainer):
             lr_output - Learning rate for the output layer in the inner loop
             n_inner_updates - Number of inner loop updates to perform
         """
-        super().__init__(validation_sets=['val'])
+        super().__init__(validation_sets=['val'], query_and_support=True)
         self.save_hyperparameters()
 
         self.n_inner_updates = model_params['n_inner_updates']
@@ -80,8 +80,10 @@ class ProtoMAML(GraphTrainer):
         # Optimize inner loop model on support set
         for _ in range(updates):
             # Determine loss on the support set
-            loss, _ = run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask, support_targets, mode,
-                                loss_module)
+            loss, support_predictions = run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask,
+                                                  support_targets, mode, loss_module)
+
+            self.update_support(mode, support_predictions, support_targets)
 
             # Calculate gradients and perform inner loop update
             loss.backward()
@@ -122,7 +124,7 @@ class ProtoMAML(GraphTrainer):
             loss, query_predictions = run_model(local_model, output_weight, output_bias,
                                                 *get_subgraph_batch(query_graphs), query_targets, mode, loss_module)
 
-            self.update_metrics(mode, query_predictions, query_targets)
+            self.update_query(mode, query_predictions, query_targets)
 
             # Calculate gradients for query set loss
             if mode == "train":

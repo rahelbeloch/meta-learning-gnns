@@ -7,16 +7,18 @@ from torch.optim.lr_scheduler import MultiStepLR, StepLR
 
 class GraphTrainer(pl.LightningModule):
 
-    def __init__(self, validation_sets):
+    def __init__(self, validation_sets, query_and_support=False):
         super().__init__()
 
         self._device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
-        self.metrics = {'f1_target': ({}, 'none')}
+        self.metrics = {'f1_target': ({}, 'none')} if query_and_support is False else \
+            {'f1_target_query': ({}, 'none'), 'f1_target_support': ({}, 'none')}
 
         # we have a binary problem
         n_classes = 1
         self.validation_sets = validation_sets
+        self.query_and_support = query_and_support
 
         splits = ['train', 'test'] + validation_sets
 
@@ -52,16 +54,28 @@ class GraphTrainer(pl.LightningModule):
         for mode_dict, _ in self.metrics.values():
             mode_dict[mode].update(predictions, targets)
 
-    def compute_and_log_metrics(self, mode, verbose=True):
-        f1_fake = self.metrics['f1_target'][0][mode].compute()
+    def update_query(self, mode, predictions, targets):
+        self.metrics['f1_target_query'][0][mode].update(predictions, targets)
 
-        if verbose:
-            label_names = self.hparams["model_params"]["label_names"]
+    def update_support(self, mode, predictions, targets):
+        self.metrics['f1_target_support'][0][mode].update(predictions, targets)
 
-            # we are at the end of an epoch, so log now on step
+    def compute_and_log_metrics(self, mode):
+        label_names = self.hparams["model_params"]["label_names"]
+
+        # we are at the end of an epoch, so log now on step
+        if not self.query_and_support:
+            f1_fake = self.metrics['f1_target'][0][mode].compute()
             self.log_on_epoch(f'{mode}/f1_{label_names[1]}', f1_fake)
+            self.metrics['f1_target'][0][mode].reset()
+        else:
+            f1_fake_support = self.metrics['f1_target_support'][0][mode].compute()
+            self.log_on_epoch(f'{mode}/f1_{label_names[1]}_support', f1_fake_support)
+            self.metrics['f1_target_support'][0][mode].reset()
 
-        self.metrics['f1_target'][0][mode].reset()
+            f1_fake_query = self.metrics['f1_target_query'][0][mode].compute()
+            self.log_on_epoch(f'{mode}/f1_{label_names[1]}_query', f1_fake_query)
+            self.metrics['f1_target_query'][0][mode].reset()
 
     def get_optimizer(self, lr, step_size, model=None, milestones=None):
         opt_params = self.hparams.optimizer_hparams
