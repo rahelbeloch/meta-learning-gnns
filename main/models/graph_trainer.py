@@ -15,8 +15,11 @@ class GraphTrainer(pl.LightningModule):
         self.metrics = {'f1_target': ({}, 'none')} if query_and_support is False else \
             {'f1_target_query': ({}, 'none'), 'f1_target_support': ({}, 'none')}
 
-        # we have a binary problem
-        n_classes = 1
+        # used during testing
+        self.label_names, self.target_label = None, 1
+
+        n_classes = 1  # per default, we have a binary problem
+
         self.validation_sets = validation_sets
         self.query_and_support = query_and_support
 
@@ -24,11 +27,23 @@ class GraphTrainer(pl.LightningModule):
 
         # Metrics from torchmetrics
         for s in splits:
-            for name, (split_dict, avg) in self.metrics.items():
-                metric = tm.F1 if name.startswith('f1') else None
-                if metric is None:
-                    raise ValueError(f"Metric with key '{name}' not supported.")
-                split_dict[s] = metric(num_classes=n_classes, average=avg).to(self._device)
+            self.initialize_metrics(s, n_classes)
+
+    def initialize_metrics(self, split_name, n_classes):
+        """
+        Browses the dictionary of metrics and creates the new respective metric (currently only F1 supported)
+        for the split with given name for the number of classes provided.
+        """
+        for name, (split_dict, avg) in self.metrics.items():
+            metric = tm.F1 if name.startswith('f1') else None
+            if metric is None:
+                raise ValueError(f"Metric with key '{name}' not supported.")
+            split_dict[split_name] = metric(num_classes=n_classes, average=avg).to(self._device)
+
+    def reset_test_metric(self, n_classes, label_names, target_label):
+        self.initialize_metrics('test', n_classes)
+        self.label_names = label_names
+        self.target_label = target_label
 
     def log_on_epoch(self, metric, value):
         self.log(metric, value, on_step=False, on_epoch=True)
@@ -61,21 +76,31 @@ class GraphTrainer(pl.LightningModule):
         self.metrics['f1_target_support'][0][mode].update(predictions, targets)
 
     def compute_and_log_metrics(self, mode):
-        label_names = self.hparams["model_params"]["label_names"]
+
+        label_names = self.hparams["model_params"]["label_names"] if self.label_names is None else self.label_names
 
         # we are at the end of an epoch, so log now on step
         if not self.query_and_support:
-            f1_fake = self.metrics['f1_target'][0][mode].compute()
-            self.log_on_epoch(f'{mode}/f1_{label_names[1]}', f1_fake)
-            self.metrics['f1_target'][0][mode].reset()
-        else:
-            f1_fake_support = self.metrics['f1_target_support'][0][mode].compute()
-            self.log_on_epoch(f'{mode}/f1_{label_names[1]}_support', f1_fake_support)
-            self.metrics['f1_target_support'][0][mode].reset()
+            metric = self.metrics['f1_target'][0][mode]
+            f1 = metric.compute()
 
-            f1_fake_query = self.metrics['f1_target_query'][0][mode].compute()
-            self.log_on_epoch(f'{mode}/f1_{label_names[1]}_query', f1_fake_query)
-            self.metrics['f1_target_query'][0][mode].reset()
+            if f1.shape[0] > 1:
+                # the metric returned scores for each class
+                if self.target_label is None:
+                    raise ValueError(f"Metric computation for metric {metric} returned scores for multiple classes, "
+                                     "but we don't know which one to log!")
+                f1 = f1[self.target_label]
+
+            self.log_on_epoch(f'{mode}/f1_{label_names[self.target_label]}', f1)
+            metric.reset()
+        else:
+            support_metric = self.metrics['f1_target_support'][0][mode]
+            self.log_on_epoch(f'{mode}/f1_{label_names[self.target_label]}_support', support_metric.compute())
+            support_metric.reset()
+
+            query_metric = self.metrics['f1_target_query'][0][mode]
+            self.log_on_epoch(f'{mode}/f1_{label_names[self.target_label]}_query', query_metric.compute())
+            query_metric.reset()
 
     def get_optimizer(self, lr, step_size, model=None, milestones=None):
         opt_params = self.hparams.optimizer_hparams

@@ -16,7 +16,7 @@ def get_random_oversampled(majority_class_idx, minority_class_idx, indices):
 
 class FewShotEpisodeSampler(Sampler):
 
-    def __init__(self, indices, targets, max_n_query, mode, n_way=2, k_shot=5, verbose=True):
+    def __init__(self, indices, targets, max_n_query, mode, n_way=2, k_shot=5, verbose=True, oversample=False):
         """
         Support sets should contain n_way * k_shot examples. So, e.g. 2 * 5 = 10 sub graphs.
         Query set is of same size ...
@@ -59,7 +59,8 @@ class FewShotEpisodeSampler(Sampler):
             n_class = len(class_indices)
 
             # calculate how many query samples to take from this class
-            c_max_n_query = int(round(n_class / self.total_samples, 1) * self.max_n_query)
+            c_max_n_query = int((n_class / self.total_samples) * self.max_n_query)
+            # c_max_n_query = int(round(n_class / self.total_samples, 1) * self.max_n_query)
             n_query_class = get_max_nr_for_shots(c_max_n_query, self.n_way)
 
             # divide the samples we have for this class into support and query samples
@@ -75,8 +76,9 @@ class FewShotEpisodeSampler(Sampler):
                 print(f" samples for shot '{self.k_shot_support}' and class '{c}': {n_support_class} (support),"
                       f" {n_query_class} (query).")
 
-        # random oversampling for the support sets for both classes
-        self.indices_per_class['support'][1] = get_random_oversampled(0, 1, self.indices_per_class['support'])
+        if oversample:
+            # random oversampling for the support sets for both classes
+            self.indices_per_class['support'][1] = get_random_oversampled(0, 1, self.indices_per_class['support'])
 
         # assert 1 not in self.data_targets[self.indices_per_class['support'][0]] \
         #        and 0 not in self.data_targets[self.indices_per_class['support'][1]] \
@@ -189,8 +191,9 @@ class NonMetaFewShotEpisodeSampler(FewShotEpisodeSampler):
     Useful for non-meta baselines for more stable training with bigger batches.
     """
 
-    def __init__(self, indices, targets, max_n_query, mode, batch_size, n_way=2, k_shot=5, verbose=False):
-        super().__init__(indices, targets, max_n_query, mode, n_way, k_shot, verbose)
+    def __init__(self, indices, targets, max_n_query, mode, batch_size, n_way=2, k_shot=5, verbose=False,
+                 oversample=False):
+        super().__init__(indices, targets, max_n_query, mode, n_way, k_shot, verbose, oversample)
 
         # different shot sizes change the number of samples which can be used.
         # For comparability, GAT should be trained with 3 batches for each shot size...
@@ -266,7 +269,7 @@ class NonMetaFewShotEpisodeSampler(FewShotEpisodeSampler):
 
 class MetaFewShotEpisodeSampler(FewShotEpisodeSampler):
 
-    def __init__(self, indices, targets, max_n_query, mode, n_way, k_shot, batch_size=None):
+    def __init__(self, indices, targets, max_n_query, mode, n_way, k_shot, batch_size=None, oversample=False):
         """
         Inputs:
             dataset_targets - PyTorch tensor of the labels of the data elements.
@@ -274,7 +277,7 @@ class MetaFewShotEpisodeSampler(FewShotEpisodeSampler):
             n_way - Number of classes to sample per batch.
             k_shot - Number of examples to sample per class in the batch.
         """
-        super().__init__(indices, targets, max_n_query, mode, n_way, k_shot)
+        super().__init__(indices, targets, max_n_query, mode, n_way, k_shot, oversample)
 
         # for training, we want to pass the whole data as 1 batch
         self.task_batch_size = batch_size if batch_size is not None else self.num_batches

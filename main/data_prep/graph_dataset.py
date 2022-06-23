@@ -160,8 +160,18 @@ class TorchGeomGraphDataset(GraphIO, GeometricDataset):
             'test_mask': torch.BoolTensor(split_masks['test_mask'])
         }
 
-        true_values = [torch.unique(self.split_masks[key], return_counts=True)[1][1].item() for key in self.split_masks]
-        assert sum(true_values) == self.y_data.shape[0], "Split masks have more True values than there are labels!"
+        used_data_points = 0
+        for key in self.split_masks:
+            split_mask = self.split_masks[key]
+            split_mask_unique = torch.unique(split_mask, return_counts=True)
+
+            if True not in split_mask_unique[0]:
+                continue
+
+            true_idx = torch.where(split_mask_unique[0])[0]
+            used_data_points += split_mask_unique[1][true_idx].item()
+
+        assert used_data_points == self.y_data.shape[0], "Split masks use more data points, than we have labels for!"
 
         # calculate class imbalance for the loss function
         self.compute_class_ratio()

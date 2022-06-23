@@ -55,14 +55,14 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
     n_query_train = get_max_n_query(graph_data_train)
     print(f"\nUsing max query samples for episode creation: {n_query_train}\n")
 
-    train_mode = 'train'
+    train_mode, oversample = 'train', True
 
     train_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, train_mode, n_query_train,
-                              batch_size)
+                              batch_size, oversample)
     # val_split = 'train'
     val_split = 'val'
     train_val_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, val_split, n_query_train,
-                                  batch_size)
+                                  batch_size, oversample)
 
     print(f"\nTrain graph size: \n num_features: {graph_data_train.size[1]}\n total_nodes: {graph_data_train.size[0]}")
 
@@ -81,13 +81,15 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
         graph_data_eval = TorchGeomGraphDataset(eval_config, eval_split_size, *dirs)
         n_query_eval = get_max_n_query(graph_data_eval)
 
+        oversample = False
+
         print(f"\nTest graph size: \n num_features: {graph_data_eval.size[1]}\n total_nodes: {graph_data_eval.size[0]}")
 
         test_val_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'val', n_query_eval,
-                                     batch_size)
+                                     batch_size, oversample)
 
     test_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'test', n_query_eval,
-                             batch_size)
+                             batch_size, oversample)
 
     # verify_not_overlapping_samples(train_loader)
     # verify_not_overlapping_samples(train_val_loader)
@@ -114,7 +116,7 @@ def get_num_workers(sampler, num_workers):
     return 0
 
 
-def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_queries, batch_size):
+def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_queries, batch_size, oversample):
     n_classes = len(graph_data.labels)
 
     mask = graph_data.mask(f"{mode}_mask")
@@ -124,13 +126,16 @@ def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_qu
     max_n_query = n_queries[mode]
 
     if model_name == 'gat' and mode == 'train':
-        batch_sampler = NonMetaFewShotEpisodeSampler(indices, targets, max_n_query, mode, batch_size, n_classes, k_shot)
+        batch_sampler = NonMetaFewShotEpisodeSampler(indices, targets, max_n_query, mode, batch_size, n_classes, k_shot,
+                                                     oversample=oversample)
     elif model_name == 'prototypical' or (model_name == 'gat' and mode != 'train'):
-        batch_sampler = FewShotEpisodeSampler(indices, targets, max_n_query, mode, n_classes, k_shot)
+        batch_sampler = FewShotEpisodeSampler(indices, targets, max_n_query, mode, n_classes, k_shot,
+                                              oversample=oversample)
     elif model_name in META_MODELS:
         batch_size = None if mode == 'train' else 2
 
-        batch_sampler = MetaFewShotEpisodeSampler(indices, targets, max_n_query, mode, n_classes, k_shot, batch_size)
+        batch_sampler = MetaFewShotEpisodeSampler(indices, targets, max_n_query, mode, n_classes, k_shot, batch_size,
+                                                  oversample=oversample)
     else:
         raise ValueError(f"Model with name '{model_name}' is not supported.")
 

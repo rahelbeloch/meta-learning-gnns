@@ -27,3 +27,5 @@ UNBALANCED DATA - more heads - ADAM
 --model gat --seed 9999 --lr 5e-4 --hidden-dim 16 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --no-progress-bar --wb-mode online --batch-size 344 --n-workers 2 --suffix more_heads --gat-heads 8
 --model gat --seed 9999 --lr 1e-3 --hidden-dim 16 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --no-progress-bar --wb-mode online --batch-size 344 --n-workers 2 --suffix more_heads --gat-heads 8
 --model gat --seed 9999 --lr 5e-3 --hidden-dim 16 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --no-progress-bar --wb-mode online --batch-size 344 --n-workers 2 --suffix more_heads --gat-heads 8
+
+--model gat --seed 9999 --lr 5e-3 --hidden-dim 16 --epochs 100 --gat-dropout 0.4 --attn-dropout 0.4 --optimizer Adam --no-progress-bar --wb-mode online --batch-size 344 --n-workers 2 --suffix more_heads --gat-heads 8 --dataset-eval twitterHateSpeech

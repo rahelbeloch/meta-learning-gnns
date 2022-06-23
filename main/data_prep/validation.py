@@ -38,12 +38,20 @@ def sub_graphs_loader_validation():
                     'Center idx stored in wrong index per class!'
 
 
+shot_batch_size_map = {
+    5: 8112,
+    10: 8349,
+    20: 4221,
+    40: 8442
+}
+
+
 def validate_query_set_equal():
     query_shot_nodes = dict()
     for k in SHOTS:
         loaders, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
                                                     top_users_excluded, k, train_split_size, eval_split_size,
-                                                    feature_type, vocab_size, dirs, 8112, num_workers)
+                                                    feature_type, vocab_size, dirs, shot_batch_size_map[k], num_workers)
 
         train_loader, train_val_loader, test_loader, test_val_loader = loaders
 
@@ -193,7 +201,7 @@ def node_indices_belong_to_split():
 if __name__ == '__main__':
     # check_train_loader_query_samples()
 
-    validate_query_set_equal()
+    # validate_query_set_equal()
 
     # data_config = {'top_users': top_users, 'top_users_excluded': top_users_excluded, 'feature_type': feature_type,
     #                'vocab_size': vocab_size}
@@ -209,4 +217,4 @@ if __name__ == '__main__':
 
     # visualize_subgraphs()
 
-    # node_indices_belong_to_split()
+    node_indices_belong_to_split()

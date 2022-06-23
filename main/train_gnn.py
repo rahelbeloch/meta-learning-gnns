@@ -24,12 +24,11 @@ if torch.cuda.is_available():
 
 
 def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_name, seed, epochs, patience,
-          patience_metric, h_size, top_users,
-          top_users_excluded, k_shot, lr, lr_val, lr_inner, lr_output, hidden_dim, feat_reduce_dim,
-          proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size, feature_type, vocab_size,
-          n_inner_updates, n_inner_updates_test, num_workers, gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup,
-          max_iters, gat_heads, batch_size, lr_decay_epochs, lr_decay_epochs_val, lr_decay_factor, scheduler,
-          weight_decay, momentum, optimizer, suffix):
+          patience_metric, h_size, top_users, top_users_excluded, k_shot, lr, lr_val, lr_inner, lr_output,
+          hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size,
+          feature_type, vocab_size, n_inner_updates, n_inner_updates_test, num_workers, gat_dropout, lin_dropout,
+          attn_dropout, wb_mode, warmup, max_iters, gat_heads, batch_size, lr_decay_epochs, lr_decay_epochs_val,
+          lr_decay_factor, scheduler, weight_decay, momentum, optimizer, suffix):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     eval_split_size = (0.0, 0.25, 0.75) if data_eval != data_train else None
@@ -171,18 +170,16 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     # Evaluation
     model = model.load_from_checkpoint(model_path)
 
-    # model was trained on another dataset --> reinitialize gat classifier
+    target_label = 1
+
     if model_name == 'gat' and data_eval is not None and data_eval != data_train:
-        # TODO: this is completely newly setting the output layer, erases all pretrained weights!
-        model.reset_classifier_dimensions(len(eval_graph.labels))
-        # f1_train_label, _ = train_graph.f1_target_label, eval_graph.f1_target_label
-        # TODO: set also the target label for f1 score
-        # f1_targets[1]
+        # model was trained on another dataset --> reinitialize some things, like classifier output or target label
+        model.evaluation(len(eval_graph.labels), eval_graph.label_names, target_label=target_label)
 
     val_f1_fake = 0.0
 
     if model_name == 'gat':
-        test_f1_fake, val_f1_fake, elapsed = evaluate(trainer, model, test_loader, test_val_loader)
+        test_f1_fake, elapsed = evaluate(trainer, model, test_loader, eval_graph.label_names[target_label])
     elif model_name == 'prototypical':
         (test_f1_fake, _), elapsed, _ = test_proto_net(model, eval_graph, k_shot=k_shot)
     elif model_name == 'proto-maml':
@@ -194,7 +191,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     else:
         raise ValueError(f"Model type {model_name} not supported!")
 
-    wandb.log({"test/f1_fake": test_f1_fake, "test_val/f1_fake": val_f1_fake})
+    wandb.log({"test/f1_fake": test_f1_fake})
 
     print(f'\nRequired time for testing: {int(elapsed / 60)} minutes.\n')
     print(f'Test Results:\n test f1 fake: {round(test_f1_fake, 3)} ({test_f1_fake})\n '
@@ -203,7 +200,6 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
 
     print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}\n{round_format(test_f1_fake)}\n'
           f'{round_format(val_f1_fake)}\n')
-
 
 
 def get_output_dim(model_name, proto_dim):
@@ -287,24 +283,15 @@ def round_format(metric):
 
 
 if __name__ == "__main__":
+    # Small part of the dataset
     # tsv_dir = TSV_small_DIR
     # complete_dir = COMPLETE_small_DIR
     # num_nodes = int(COMPLETE_small_DIR.split('-')[1])
 
-    # model_checkpoint = '../logs/prototypical/dtrain=gossipcop_deval=gossipcop_seed=1234_shots=5_hops=2_ftype=one-hot_lr=0.0001/checkpoints/epoch=1-step=709-v1.ckpt'
-    # model_checkpoint = '../logs/gat/dtrain=gossipcop_deval=None_seed=82_shots=2_hops=2_ftype=one-hot_lr=0.0001_lr-cl=0.001/checkpoints/epoch=16-step=27488.ckpt'
-    # model_checkpoint = '../logs/prototypical/dname=gossipcop_seed=1234_lr=0.01/checkpoints/epoch=0-step=8-v4.ckpt'
-    model_checkpoint = None
-
+    # Whole dataset
     tsv_dir = TSV_DIR
     complete_dir = COMPLETE_DIR
     num_nodes = -1
-
-    # MAML setup
-    # proto_dim = 64,
-    # lr = 1e-3,
-    # lr_inner = 0.1,
-    # lr_output = 0.1
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -354,7 +341,7 @@ if __name__ == "__main__":
     parser.add_argument('--hidden-dim', dest='hidden_dim', type=int, default=512)
     parser.add_argument('--gat-heads', dest='gat_heads', type=int, default=2)
     parser.add_argument('--feature-reduce-dim', dest='feat_reduce_dim', type=int, default=256)
-    parser.add_argument('--checkpoint', default=model_checkpoint, type=str, metavar='PATH',
+    parser.add_argument('--checkpoint', default=None, type=str, metavar='PATH',
                         help='Path to latest checkpoint (default: None)')
 
     # META PARAMETERS
@@ -414,8 +401,6 @@ if __name__ == "__main__":
     params = vars(parser.parse_args())
 
     os.environ["WANDB_MODE"] = params['wb_mode']
-
-    # wandb.init(settings=wandb.Settings(start_method="fork"))
 
     train(balance_data=not params['no_balance_data'],
           val_loss_weight=params['val_loss_weight'],

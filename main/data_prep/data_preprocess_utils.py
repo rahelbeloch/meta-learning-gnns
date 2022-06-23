@@ -28,18 +28,6 @@ def split_data(splits, size, data):
     return split1, split2
 
 
-def get_label_distribution(labels):
-    fake, real = (labels == 0).sum(), (labels == 1).sum()
-    denom = fake + real
-    return fake / denom, real / denom
-
-
-def print_label_distribution(labels, split):
-    fake, real = get_label_distribution(labels)
-    print(f"\nFake labels in {split} split  = {fake * 100:.2f} %")
-    print(f"Real labels in {split} split  = {real * 100:.2f} %")
-
-
 def load_json_file(file_name):
     if file_name.exists():
         return json.load(open(file_name, 'r'))

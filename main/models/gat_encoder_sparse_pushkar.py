@@ -43,13 +43,13 @@ class GatNet(torch.nn.Module):
         for i, attention in enumerate(self.attentions):
             self.add_module("attention_{}".format(i), attention)
 
-        self.classifier = self.get_classifier()
+        self.classifier = self.get_classifier(self.output_dim)
 
-    # def reset_classifier_dimensions(self, num_classes):
-    #     # adapting the classifier dimensions
-    #     self.classifier = self.get_classifier()
+    def reset_classifier_dimensions(self, num_classes):
+        # adapting the classifier dimensions
+        self.classifier = self.get_classifier(num_classes)
 
-    def get_classifier(self):
+    def get_classifier(self, output_dim):
         # Phillips implementation
         # return nn.Sequential(
         #     nn.Dropout(self.lin_dropout),
@@ -63,7 +63,7 @@ class GatNet(torch.nn.Module):
         #                      nn.Linear(self.feat_reduce_dim, num_classes))
 
         # Pushkar implementation
-        return SparseGATLayer(self.hid_dim * self.n_heads, self.output_dim, self.feat_reduce_dim,
+        return SparseGATLayer(self.hid_dim * self.n_heads, output_dim, self.feat_reduce_dim,
                               dropout=self.gat_dropout, attn_drop=self.attn_dropout, concat=False)
 
     def forward(self, x, edge_index, mode):
