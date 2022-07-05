@@ -18,14 +18,14 @@ class GraphTrainer(pl.LightningModule):
         # used during testing
         self.label_names, self.target_label = None, 1
 
-        n_classes = 1  # per default, we have a binary problem
+        # we have a binary problem per default; will be adapted for testing purposes depending on dataset
+        n_classes = 1
 
         self.validation_sets = validation_sets
         self.query_and_support = query_and_support
 
         splits = ['train', 'test'] + validation_sets
 
-        # Metrics from torchmetrics
         for s in splits:
             self.initialize_metrics(s, n_classes)
 
@@ -123,13 +123,6 @@ class GraphTrainer(pl.LightningModule):
             scheduler = MultiStepLR(optimizer, milestones=milestones, gamma=opt_params['lr_decay_factor'])
 
         return optimizer, scheduler
-
-
-# noinspection PyAbstractClass
-def get_loss_weight(class_weights, split):
-    pos_weight = class_weights[split][0] // class_weights[split][1]
-    print(f"Positive {split} weight: {pos_weight}")
-    return pos_weight if pos_weight > 0 else None
 
 
 def get_or_none(dikt, key):

@@ -277,7 +277,7 @@ class MetaFewShotEpisodeSampler(FewShotEpisodeSampler):
             n_way - Number of classes to sample per batch.
             k_shot - Number of examples to sample per class in the batch.
         """
-        super().__init__(indices, targets, max_n_query, mode, n_way, k_shot, oversample)
+        super().__init__(indices, targets, max_n_query, mode, n_way, k_shot, oversample=oversample)
 
         # for training, we want to pass the whole data as 1 batch
         self.task_batch_size = batch_size if batch_size is not None else self.num_batches
