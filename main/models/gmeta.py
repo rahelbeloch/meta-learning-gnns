@@ -14,13 +14,13 @@ from models.gat_encoder_sparse_pushkar import GatNet
 from models.graph_trainer import GraphTrainer
 from models.proto_net import ProtoNet
 from models.train_utils import get_subgraph_batch
-from samplers.batch_sampler import split_list
+from samplers.episode_sampler import split_list
 
 
 class GMeta(GraphTrainer):
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, optimizer_hparams):
+    def __init__(self, model_params, optimizer_hparams, other_params):
         super(GMeta, self).__init__(validation_sets=['val'])
         self.save_hyperparameters()
 
@@ -29,9 +29,10 @@ class GMeta(GraphTrainer):
         self.n_inner_updates = model_params['n_inner_updates']
         self.n_inner_updates_test = model_params['n_inner_updates_test']
 
-        pos_weight = 1 // model_params["class_weight"]['train'][1]
-        print(f"Using positive weight: {pos_weight}")
-        self.loss_module = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        # train_weight = 1 // model_params["class_weight"]['train'][1]
+        # print(f"Using train weight: {train_weight}")
+        train_weight = other_params['train_loss_weight'] if 'train_loss_weight' in other_params else None
+        self.loss_module = torch.nn.BCEWithLogitsLoss(pos_weight=train_weight)
 
         self.model = GatNet(model_params)
 

@@ -7,9 +7,9 @@ from torchmetrics import F1
 from tqdm.auto import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
-from models.graph_trainer import GraphTrainer, get_loss_weight
+from models.graph_trainer import GraphTrainer, get_or_none
 from models.train_utils import *
-from samplers.batch_sampler import split_list
+from samplers.episode_sampler import split_list
 
 
 # noinspection PyAbstractClass
@@ -19,7 +19,7 @@ class Maml(GraphTrainer):
     """
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, optimizer_hparams):
+    def __init__(self, model_params, optimizer_hparams, other_params):
         """
         Inputs
             lr - Learning rate of the outer loop Adam optimizer
@@ -33,14 +33,15 @@ class Maml(GraphTrainer):
         self.n_inner_updates_test = model_params['n_inner_updates_test']
 
         self.lr_inner = self.hparams.optimizer_hparams['lr_inner']
+        self.k_shot_support = other_params['k_shot_support']
 
-        train_weight = get_loss_weight(model_params["class_weight"], 'train')
+        train_weight = get_or_none(other_params, 'train_loss_weight')
+        print(f"Positive train weight: {train_weight}")
         self.train_loss_module = nn.BCEWithLogitsLoss(pos_weight=train_weight)
-        # self.train_loss_module = nn.BCEWithLogitsLoss()
 
-        # val_weight = get_loss_weight(model_params["class_weight"], 'val')
-        # self.val_loss_module = nn.BCEWithLogitsLoss(pos_weight=val_weight)
-        self.val_loss_module = nn.BCEWithLogitsLoss()
+        val_weight = get_or_none(other_params, 'val_loss_weight')
+        print(f"Positive val weight: {val_weight}")
+        self.val_loss_module = nn.BCEWithLogitsLoss(pos_weight=val_weight)
 
         self.model = GatNet(model_params)
 
@@ -60,10 +61,12 @@ class Maml(GraphTrainer):
         local_optim = optim.SGD(local_model.parameters(), lr=self.lr_inner)
         local_optim.zero_grad()
 
+        updates = self.n_inner_updates if mode == 'train' else self.n_inner_updates_test
+
         # Optimize inner loop model on support set
-        for _ in range(self.n_inner_updates):
+        for _ in range(updates):
             # Determine loss on the support set
-            loss, logits = run_model(local_model, x, edge_index, cl_mask, support_targets, mode, loss_module)
+            loss, _ = run_model(local_model, x, edge_index, cl_mask, support_targets, mode, loss_module)
 
             # Calculate gradients and perform inner loop update
             loss.backward()
@@ -79,8 +82,9 @@ class Maml(GraphTrainer):
         # Determine gradients for batch of tasks
         for graphs, targets in batch:
 
-            support_graphs, query_graphs = split_list(graphs)
-            support_targets, query_targets = split_list(targets)
+            # This should be done in the graph sampler: *2 because for both classes!!
+            support_graphs, query_graphs = split_list(graphs, self.k_shot_support * 2)
+            support_targets, query_targets = split_list(targets, self.k_shot_support * 2)
 
             # Perform inner loop adaptation
             local_model = self.adapt_few_shot(*get_subgraph_batch(support_graphs), support_targets, mode, loss_module)
@@ -103,6 +107,7 @@ class Maml(GraphTrainer):
                     if p_global.grad is None:
                         p_global.grad = p_local.grad
                     else:
+                        # TODO: check why this works with proto maml but not with maml
                         p_global.grad += p_local.grad
 
             losses.append(loss.detach())
@@ -162,17 +167,20 @@ def test_maml(model, test_loader, num_classes=1):
 
     # Iterate through the full dataset in two manners:
     # First, to select the k-shot batch. Second, to evaluate the model on all other batches.
+    test_loss_weight = None
+    loss_module = nn.BCEWithLogitsLoss(pos_weight=test_loss_weight)
 
     f1_fakes = []
 
     for support_batch_idx, batch in tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing"):
+        # TODO: Check if correct here
         support_graphs, _, support_targets, _ = batch
 
         # graphs are automatically put to device in adapt few shot
         support_targets = support_targets.to(DEVICE)
 
         # Finetune new model on support set
-        local_model = model.adapt_few_shot(*get_subgraph_batch(support_graphs), support_targets, mode)
+        local_model = model.adapt_few_shot(*get_subgraph_batch(support_graphs), support_targets, mode, loss_module)
 
         f1_target = F1(num_classes=num_classes, average='none').to(DEVICE)
 

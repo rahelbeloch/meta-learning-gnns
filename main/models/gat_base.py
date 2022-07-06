@@ -1,12 +1,13 @@
 import time
 
-from torch import nn
-import torch.nn.functional as func
+from torch.nn import BCEWithLogitsLoss
+
 from models.gat_encoder_sparse_pushkar import GatNet
-from models.graph_trainer import GraphTrainer, get_loss_weight
+from models.graph_trainer import GraphTrainer, get_or_none
 from models.train_utils import *
 
 
+# noinspection PyAbstractClass
 class GatBase(GraphTrainer):
     """
     PyTorch Lightning module containing all model setup: Picking the correct encoder, initializing the classifier,
@@ -14,7 +15,7 @@ class GatBase(GraphTrainer):
     """
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, optimizer_hparams, val_batches):
+    def __init__(self, model_params, optimizer_hparams, other_params):
         """
         Args:
             model_params - Hyperparameters for the whole model, as dictionary.
@@ -28,13 +29,13 @@ class GatBase(GraphTrainer):
 
         self.model = GatNet(model_params)
 
-        class_weights = model_params["class_weight"]
-        train_weight = get_loss_weight(class_weights, 'train')
-        self.loss_module = nn.BCEWithLogitsLoss(pos_weight=train_weight)
+        train_weight = get_or_none(other_params, 'train_loss_weight')
+        print(f"Positive train weight: {train_weight}")
+        self.train_loss = BCEWithLogitsLoss(pos_weight=train_weight)
 
-        # val_weight = get_loss_weight(class_weights, 'val')
-        # self.validation_loss = nn.BCEWithLogitsLoss(pos_weight=val_weight)
-        self.validation_loss = nn.BCEWithLogitsLoss()
+        val_weight = get_or_none(other_params, 'val_loss_weight')
+        print(f"Positive val weight: {val_weight}")
+        self.validation_loss = BCEWithLogitsLoss(pos_weight=val_weight)
 
         # Deep copy of the model: one for train, one for val --> update validation model with weights from train model
         # validation fine-tuning should happen on a copy of the model NOT on the model which is trained
@@ -61,20 +62,21 @@ class GatBase(GraphTrainer):
 
     def forward(self, graphs, targets, mode=None):
 
-        # make a batch out of all sub graphs and push the batch through the model
+        # batch all sub graphs and push the batch through the model
         x, edge_index, cl_mask = get_subgraph_batch(graphs)
 
         logits = self.model(x, edge_index, mode)[cl_mask].squeeze()
 
-        # for param in self.model.named_parameters():
-        #     print(f"Param with name {param[0]} requires grad: {param[1].requires_grad}")
-
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
-        predictions = (logits.sigmoid() > 0.5).float()
+        if logits.ndim == 1:
+            # binary classification
+            predictions = (logits.sigmoid() > 0.5).float()
+        else:
+            # multiclass classification
+            predictions = torch.softmax(logits, dim=1).argmax(dim=1)
 
         self.update_metrics(mode, predictions, targets)
 
-        # logits are not yet put into a sigmoid layer, because the loss module does this combined
         return logits
 
     def training_step(self, batch, batch_idx):
@@ -84,10 +86,8 @@ class GatBase(GraphTrainer):
 
         train_opt, _ = self.optimizers()
 
-        # collapse support and query set and train on whole
-        support_graphs, query_graphs, support_targets, query_targets = batch
-        sub_graphs = support_graphs + query_graphs
-        targets = torch.cat([support_targets, query_targets])
+        # use support and query collapsed and train on whole
+        sub_graphs, targets = batch
 
         logits = self.forward(sub_graphs, targets, mode='train')
 
@@ -103,11 +103,7 @@ class GatBase(GraphTrainer):
         # BCE with logits loss
         # BCE with Sigmoid and 1 output of the model
 
-        # 1. Multi label loss fixing
-        # 2. Loss weighting
-        # 3. Sanity Check with train and val on the same split
-
-        loss = self.loss_module(logits, targets.float())
+        loss = self.train_loss(logits, targets.float())
 
         train_opt.zero_grad()
         self.manual_backward(loss)
@@ -123,13 +119,8 @@ class GatBase(GraphTrainer):
 
         # step every N epochs
         train_scheduler, _ = self.lr_schedulers()
-        # print(f"Train SD, step size: {train_scheduler.step_size}")
         if self.trainer.current_epoch != 0 and (self.trainer.current_epoch + 1) % train_scheduler.step_size == 0:
-            # print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
-            # print("Reducing Train LR")
-            # print(f"LR before: {train_scheduler.get_last_lr()}")
             train_scheduler.step()
-            # print(f"LR after: {train_scheduler.get_last_lr()}")
 
         # only log this once in the end of an epoch (averaged over steps)
         self.log_on_epoch(f"train/loss", loss)
@@ -139,11 +130,6 @@ class GatBase(GraphTrainer):
         return dict(loss=loss)
 
     def validation_step(self, batch, batch_idx, dataloader_idx):
-
-        # if batch_idx == 0:
-        #     train_scheduler, val_scheduler = self.lr_schedulers()
-        #     print(f"\nTrain Scheduler LR: {train_scheduler.state_dict()}")
-        #     print(f"Val Scheduler LR: {val_scheduler.state_dict()}\n")
 
         # update the weights of the validation model with weights from trained model
         self.validation_model.load_state_dict(self.model.state_dict())
@@ -168,7 +154,6 @@ class GatBase(GraphTrainer):
             self.update_metrics(mode, support_predictions, support_targets)
 
             loss = self.validation_loss(logits, support_targets.float())
-            # loss = func.binary_cross_entropy_with_logits(logits, support_targets.float())
 
             self.log_on_epoch(f"{mode}/loss", loss)
 
@@ -179,19 +164,8 @@ class GatBase(GraphTrainer):
 
             # step every N epochs
             _, val_scheduler = self.lr_schedulers()
-            # print(f"Val SD, step size: {val_scheduler.step_size}")
-            # if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % val_scheduler.step_size == 0:
-            #     print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
-            #     print("Reducing Val LR")
-            # val_scheduler.step()
-
-            # print(f"Val batch_idx: {batch_idx}")
-            if self.hparams['val_batches'] == (batch_idx + 1):
-                # print(f"Trainer epoch: {self.trainer.current_epoch + 1}")
-                # print("Reducing Val LR")
-                # print(f"Val LR before: {val_scheduler.get_last_lr()}")
+            if self.hparams.other_params['val_batches'] == (batch_idx + 1):
                 val_scheduler.step()
-                # print(f"Val LR after: {val_scheduler.get_last_lr()}")
 
             # SGD does not keep any state --> Create an SGD optimizer again every time
             # I enter the validation epoch; global or local should not be a difference
@@ -212,8 +186,7 @@ class GatBase(GraphTrainer):
             x, edge_index, cl_mask = get_subgraph_batch(query_graphs)
             logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
 
-            loss = func.binary_cross_entropy_with_logits(logits, query_targets.float())
-            # loss = self.validation_loss(logits, query_targets.float())
+            loss = self.validation_loss(logits, query_targets.float())
 
             query_predictions = (logits.sigmoid() > 0.5).float()
             self.update_metrics(mode, query_predictions, query_targets)
@@ -221,7 +194,7 @@ class GatBase(GraphTrainer):
             # only log this once in the end of an epoch (averaged over steps)
             self.log_on_epoch(f"{mode}/loss", loss)
 
-    def test_step(self, batch, batch_idx1, batch_idx2):
+    def test_step(self, batch, batch_idx):
         """
         By default, logs it per epoch (weighted average over batches). Only validates on the query set of each batch to
         keep comparability with the meta learners.
@@ -230,8 +203,16 @@ class GatBase(GraphTrainer):
         _, sub_graphs, _, targets = batch
         self.forward(sub_graphs, targets, mode='test')
 
+    def evaluation(self, n_classes, label_names, target_label):
 
-def evaluate(trainer, model, test_dataloader, val_dataloader):
+        # Completely newly setting the output layer, erases all pretrained weights!
+        self.model.reset_classifier_dimensions(n_classes)
+
+        # reset the test metric with number of classes
+        self.reset_test_metric(n_classes, label_names, target_label)
+
+
+def evaluate(trainer, model, test_dataloader, target_label_name):
     """
     Tests a model on test and validation set.
 
@@ -239,22 +220,16 @@ def evaluate(trainer, model, test_dataloader, val_dataloader):
         trainer (pl.Trainer) - Lightning trainer to use.
         model (pl.LightningModule) - The Lightning Module which should be used.
         test_dataloader (DataLoader) - Data loader for the test split.
-        val_dataloader (DataLoader) - Data loader for the validation split.
     """
 
     print('\nTesting model on validation and test ..........\n')
 
     test_start = time.time()
 
-    results = trainer.test(model, dataloaders=[test_dataloader, val_dataloader], verbose=False)
-
-    test_results = results[0]
-    val_results = results[1]
-
-    test_f1_fake = test_results['test/f1_fake']
-    val_f1_fake = val_results['test/f1_fake']
+    results = trainer.test(model, dataloaders=[test_dataloader], verbose=False)
+    test_f1_target = results[0][f'test/f1_{target_label_name}']
 
     test_end = time.time()
     elapsed = test_end - test_start
 
-    return test_f1_fake, val_f1_fake, elapsed
+    return test_f1_target, elapsed

@@ -7,7 +7,8 @@ from torch_geometric.utils import to_networkx
 
 from data_prep.data_utils import get_data, get_loader, get_max_n_query
 from data_prep.graph_dataset import TorchGeomGraphDataset
-from samplers.batch_sampler import SHOTS
+from samplers.episode_sampler import NonMetaFewShotEpisodeSampler, FewShotEpisodeSampler
+from train_config import SHOTS
 
 data_train = 'gossipcop'
 data_eval = 'gossipcop'
@@ -37,12 +38,20 @@ def sub_graphs_loader_validation():
                     'Center idx stored in wrong index per class!'
 
 
+shot_batch_size_map = {
+    5: 8112,
+    10: 8349,
+    20: 4221,
+    40: 8442
+}
+
+
 def validate_query_set_equal():
     query_shot_nodes = dict()
     for k in SHOTS:
         loaders, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
                                                     top_users_excluded, k, train_split_size, eval_split_size,
-                                                    feature_type, vocab_size, dirs, num_workers)
+                                                    feature_type, vocab_size, dirs, shot_batch_size_map[k], num_workers)
 
         train_loader, train_val_loader, test_loader, test_val_loader = loaders
 
@@ -84,13 +93,13 @@ def check_train_loader_query_samples():
 
     n_queries = get_max_n_query(graph_data_train)
 
-    train_loader_5_shot = get_loader(graph_data_train, model_name, h_size, 5, num_workers, 'train', n_queries)
+    train_loader_5_shot = get_loader(graph_data_train, model_name, h_size, 5, num_workers, 'train', n_queries, 8112)
     concatenated_5 = get_query_indices(train_loader_5_shot)
 
-    train_loader_10_shot = get_loader(graph_data_train, model_name, h_size, 10, num_workers, 'train', n_queries)
+    train_loader_10_shot = get_loader(graph_data_train, model_name, h_size, 10, num_workers, 'train', n_queries, 8349)
     concatenated_10 = get_query_indices(train_loader_10_shot)
 
-    train_loader_20_shot = get_loader(graph_data_train, model_name, h_size, 20, num_workers, 'train', n_queries)
+    train_loader_20_shot = get_loader(graph_data_train, model_name, h_size, 20, num_workers, 'train', n_queries, 4221)
     concatenated_20 = get_query_indices(train_loader_20_shot)
 
     difference_5_10 = set(concatenated_5).symmetric_difference(set(concatenated_10))
@@ -137,18 +146,56 @@ def visualize_subgraphs():
     loaders, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
                                                 top_users_excluded, 5, train_split_size, eval_split_size,
                                                 feature_type, vocab_size, dirs, num_workers=num_workers,
-                                                batch_size=344, balance_data=True)
+                                                batch_size=344)
 
     for loader in loaders:
         for episode in iter(loader):
             support_graphs, query_graphs, support_targets, query_targets = episode
 
             for i, graph in enumerate(support_graphs):
-
                 print(f"Label: {support_targets[i]}")
                 nx_graph = to_networkx(graph)
                 nx.draw_networkx(nx_graph)
                 plt.show()
+
+
+def verify_node_indices(loader):
+    """
+    Verifies, that all node indices which a sampler has, are indeed from the correct data split.
+    """
+    expected_indices = torch.where(loader.mask == True)[0]
+    start_idx, end_idx = expected_indices[0], expected_indices[-1]
+
+    for batch in loader:
+        if loader.mode == 'test' or (type(loader.b_sampler) == FewShotEpisodeSampler and model_name == 'gat'):
+            support_graphs, query_graphs, _, _ = batch
+            center_indices_in_split(start_idx, end_idx, support_graphs + query_graphs, loader.mode)
+        elif type(loader.b_sampler) == NonMetaFewShotEpisodeSampler:
+            center_indices_in_split(start_idx, end_idx, batch[0], loader.mode)
+        else:
+            for graphs, _ in batch:
+                center_indices_in_split(start_idx, end_idx, graphs, loader.mode)
+
+
+def center_indices_in_split(start_idx, end_idx, graphs, mode):
+    center_indices = [graph.orig_center_idx for graph in graphs]
+    all_in = all(start_idx <= x <= end_idx for x in center_indices)
+    assert all_in, f"Not all node indices for this loader are from the correct split for loader {mode}!!"
+
+
+def node_indices_belong_to_split():
+    settings = [('gat', 5, 2704), ('gat', 10, 759), ('gat', 20, 1407), ('gat', 40, 2814),
+                ('maml', 5, None), ('maml', 10, None), ('maml', 20, None), ('maml', 40, None),
+                ('proto-maml', 5, None), ('proto-maml', 10, None), ('proto-maml', 20, None), ('proto-maml', 40, None), ]
+
+    for s in settings:
+        model, shots, batch_size = s
+        loaders, train_graph, eval_graph = get_data(data_train, data_eval, model, h_size, top_users,
+                                                    top_users_excluded, shots, train_split_size, eval_split_size,
+                                                    feature_type, vocab_size, dirs, num_workers=num_workers,
+                                                    batch_size=batch_size)
+        for loader in loaders:
+            verify_node_indices(loader)
 
 
 if __name__ == '__main__':
@@ -161,8 +208,6 @@ if __name__ == '__main__':
     # train_config = {**data_config, **{'data_set': data_train, 'train_size': train_split_size[0],
     #                                   'val_size': train_split_size[1], 'test_size': train_split_size[2]}}
     # graph_data_train = TorchGeomGraphDataset(train_config, train_split_size, *dirs)
-    #
-    # print(f"\n{get_max_n_query(graph_data_train)}")
 
     # sub_graphs_loader_validation()
 
@@ -170,4 +215,6 @@ if __name__ == '__main__':
 
     # get_max_n()
 
-    visualize_subgraphs()
+    # visualize_subgraphs()
+
+    node_indices_belong_to_split()

@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=meta-gnn-job
-#SBATCH --time=01:00:00
-#SBATCH --array=1-96
+#SBATCH --time=02:00:00
+#SBATCH --array=1-60
 #SBATCH --output=logs/job_outputs/meta_gnn_%A_%a.out
 
 # GPU Settings
@@ -24,6 +24,6 @@ cd $HOME/meta-learning-gnns/main
 # Activate your environment
 source activate meta-gnn-env
 
-PARAMETERS_FILE=../job_parameters/maml/40shots_adam.txt
+PARAMETERS_FILE=../job_parameters/prot0_maml/20shots_adam.txt
 
 srun python -u train_gnn.py $(head -$SLURM_ARRAY_TASK_ID $PARAMETERS_FILE | tail -1)

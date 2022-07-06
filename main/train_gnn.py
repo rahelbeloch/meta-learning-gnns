@@ -17,19 +17,18 @@ from models.gmeta import GMeta, test_gmeta
 from models.maml import Maml, test_maml
 from models.proto_maml import ProtoMAML, test_protomaml
 from models.proto_net import ProtoNet, test_proto_net
-from samplers.batch_sampler import SHOTS
-from train_config import LOG_PATH, SUPPORTED_MODELS, META_MODELS
+from train_config import LOG_PATH, SUPPORTED_MODELS, META_MODELS, SHOTS
 
 if torch.cuda.is_available():
     torch.cuda.empty_cache()
 
 
-def train(balance_data, progress_bar, model_name, seed, epochs, patience, patience_metric, h_size, top_users,
-          top_users_excluded, k_shot, lr, lr_val, lr_inner, lr_output, hidden_dim, feat_reduce_dim,
-          proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size, feature_type, vocab_size,
-          n_inner_updates, n_inner_updates_test, num_workers, gat_dropout, lin_dropout, attn_dropout, wb_mode, warmup,
-          max_iters, gat_heads, batch_size, lr_decay_epochs, lr_decay_epochs_val, lr_decay_factor, scheduler,
-          weight_decay, momentum, optimizer, suffix):
+def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_name, seed, epochs, patience,
+          patience_metric, h_size, top_users, top_users_excluded, k_shot, lr, lr_val, lr_inner, lr_output,
+          hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size,
+          feature_type, vocab_size, n_inner_updates, n_inner_updates_test, num_workers, gat_dropout, lin_dropout,
+          attn_dropout, wb_mode, warmup, max_iters, gat_heads, batch_size, lr_decay_epochs, lr_decay_epochs_val,
+          lr_decay_factor, scheduler, weight_decay, momentum, optimizer, suffix):
     os.makedirs(LOG_PATH, exist_ok=True)
 
     eval_split_size = (0.0, 0.25, 0.75) if data_eval != data_train else None
@@ -46,7 +45,8 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
     # if we only want to evaluate, model should be initialized with nr of labels from evaluation data
     evaluation = checkpoint is not None and Path(checkpoint).exists()
 
-    print(f'\nConfiguration:\n\n balance_data: {balance_data}\n mode: {"TEST" if evaluation else "TRAIN"}\n '
+    print(f'\nConfiguration:\n\n balance_data: {balance_data}\n train_loss_weight: {train_loss_weight}\n '
+          f'val_loss_weight: {val_loss_weight}\n mode: {"TEST" if evaluation else "TRAIN"}\n '
           f'seed: {seed}\n max epochs: {epochs}\n patience: {patience}\n patience metric: {patience_metric}\n '
           f'k_shot: {k_shot}\n\n model_name: {model_name}\n hidden_dim: {hidden_dim}\n '
           f' feat_reduce_dim: {feat_reduce_dim}\n checkpoint: {checkpoint}\n gat heads: {gat_heads}\n\n'
@@ -71,11 +71,11 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
 
     train_loader, train_val_loader, test_loader, test_val_loader = loaders
 
-    optimizer_hparams = {"lr": lr, "warmup": warmup,
-                         "max_iters": len(train_loader) * epochs if max_iters < 0 else max_iters,
-                         "lr_decay_epochs": lr_decay_epochs, "lr_decay_factor": lr_decay_factor,
-                         "scheduler": scheduler, "weight_decay": weight_decay, "momentum": momentum,
-                         "optimizer": optimizer}
+    optimizer_params = {"lr": lr, "warmup": warmup,
+                        "max_iters": len(train_loader) * epochs if max_iters < 0 else max_iters,
+                        "lr_decay_epochs": lr_decay_epochs, "lr_decay_factor": lr_decay_factor,
+                        "scheduler": scheduler, "weight_decay": weight_decay, "momentum": momentum,
+                        "optimizer": optimizer}
 
     model_params = {
         'model': model_name,
@@ -93,23 +93,28 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
         'label_names': train_graph.label_names,
     }
 
-    if model_name == 'gat':
-        optimizer_hparams.update(lr_val=lr_val, lr_decay_epochs_val=lr_decay_epochs_val)
+    other_params = {'train_loss_weight': torch.tensor(train_loss_weight) if train_loss_weight is not None else None,
+                    'val_loss_weight': torch.tensor(val_loss_weight) if val_loss_weight is not None else None}
 
-        model = GatBase(model_params, optimizer_hparams, val_batches=len(train_val_loader))
+    if model_name == 'gat':
+        optimizer_params.update(lr_val=lr_val, lr_decay_epochs_val=lr_decay_epochs_val)
+        other_params.update(val_batches=len(train_val_loader))
+
+        model = GatBase(model_params, optimizer_params, other_params)
     elif model_name == 'prototypical':
-        model = ProtoNet(model_params, optimizer_hparams)
+        model = ProtoNet(model_params, optimizer_params, other_params)
     elif model_name in META_MODELS:
         model_params.update(n_inner_updates=n_inner_updates, n_inner_updates_test=n_inner_updates_test)
-        optimizer_hparams.update(lr_inner=lr_inner)
+        optimizer_params.update(lr_inner=lr_inner)
+        other_params.update(k_shot_support=k_shot)
 
         if model_name == 'proto-maml':
-            optimizer_hparams.update(lr_output=lr_output)
-            model = ProtoMAML(model_params, optimizer_hparams)
+            optimizer_params.update(lr_output=lr_output)
+            model = ProtoMAML(model_params, optimizer_params, other_params)
         elif model_name == 'gmeta':
-            model = GMeta(model_params, optimizer_hparams)
+            model = GMeta(model_params, optimizer_params, other_params)
         elif model_name == 'maml':
-            model = Maml(model_params, optimizer_hparams)
+            model = Maml(model_params, optimizer_params, other_params)
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 
@@ -165,18 +170,16 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
     # Evaluation
     model = model.load_from_checkpoint(model_path)
 
-    # model was trained on another dataset --> reinitialize gat classifier
+    target_label = 1
+
     if model_name == 'gat' and data_eval is not None and data_eval != data_train:
-        # TODO: this is completely newly setting the output layer, erases all pretrained weights!
-        model.reset_classifier_dimensions(len(eval_graph.labels))
-        # f1_train_label, _ = train_graph.f1_target_label, eval_graph.f1_target_label
-        # TODO: set also the target label for f1 score
-        # f1_targets[1]
+        # model was trained on another dataset --> reinitialize some things, like classifier output or target label
+        model.evaluation(len(eval_graph.labels), eval_graph.label_names, target_label=target_label)
 
     val_f1_fake = 0.0
 
     if model_name == 'gat':
-        test_f1_fake, val_f1_fake, elapsed = evaluate(trainer, model, test_loader, test_val_loader)
+        test_f1_fake, elapsed = evaluate(trainer, model, test_loader, eval_graph.label_names[target_label])
     elif model_name == 'prototypical':
         (test_f1_fake, _), elapsed, _ = test_proto_net(model, eval_graph, k_shot=k_shot)
     elif model_name == 'proto-maml':
@@ -188,7 +191,7 @@ def train(balance_data, progress_bar, model_name, seed, epochs, patience, patien
     else:
         raise ValueError(f"Model type {model_name} not supported!")
 
-    wandb.log({"test/f1_fake": test_f1_fake, "test_val/f1_fake": val_f1_fake})
+    wandb.log({"test/f1_fake": test_f1_fake})
 
     print(f'\nRequired time for testing: {int(elapsed / 60)} minutes.\n')
     print(f'Test Results:\n test f1 fake: {round(test_f1_fake, 3)} ({test_f1_fake})\n '
@@ -280,24 +283,15 @@ def round_format(metric):
 
 
 if __name__ == "__main__":
+    # Small part of the dataset
     # tsv_dir = TSV_small_DIR
     # complete_dir = COMPLETE_small_DIR
     # num_nodes = int(COMPLETE_small_DIR.split('-')[1])
 
-    # model_checkpoint = '../logs/prototypical/dtrain=gossipcop_deval=gossipcop_seed=1234_shots=5_hops=2_ftype=one-hot_lr=0.0001/checkpoints/epoch=1-step=709-v1.ckpt'
-    # model_checkpoint = '../logs/gat/dtrain=gossipcop_deval=None_seed=82_shots=2_hops=2_ftype=one-hot_lr=0.0001_lr-cl=0.001/checkpoints/epoch=16-step=27488.ckpt'
-    # model_checkpoint = '../logs/prototypical/dname=gossipcop_seed=1234_lr=0.01/checkpoints/epoch=0-step=8-v4.ckpt'
-    model_checkpoint = None
-
+    # Whole dataset
     tsv_dir = TSV_DIR
     complete_dir = COMPLETE_DIR
     num_nodes = -1
-
-    # MAML setup
-    # proto_dim = 64,
-    # lr = 1e-3,
-    # lr_inner = 0.1,
-    # lr_output = 0.1
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -310,12 +304,12 @@ if __name__ == "__main__":
     parser.add_argument('--wb-mode', dest='wb_mode', type=str, default='offline')
 
     parser.add_argument('--seed', dest='seed', type=int, default=1234)
-    parser.add_argument('--epochs', dest='epochs', type=int, default=1)
+    parser.add_argument('--epochs', dest='epochs', type=int, default=100)
     parser.add_argument('--patience-metric', dest='patience_metric', type=str, default='loss')
     parser.add_argument('--patience', dest='patience', type=int, default=20)
-    parser.add_argument('--gat-dropout', dest='gat_dropout', type=float, default=0.6)
+    parser.add_argument('--gat-dropout', dest='gat_dropout', type=float, default=0.4)
     parser.add_argument('--lin-dropout', dest='lin_dropout', type=float, default=0.5)
-    parser.add_argument('--attn-dropout', dest='attn_dropout', type=float, default=0.6)
+    parser.add_argument('--attn-dropout', dest='attn_dropout', type=float, default=0.4)
     parser.add_argument('--k-shot', dest='k_shot', type=int, default=5, help="Number of examples per task/batch.",
                         choices=SHOTS)
 
@@ -331,7 +325,7 @@ if __name__ == "__main__":
                         help='No. of epochs after which learning rate should be decreased')
     parser.add_argument('--lr-decay-epochs-val', dest='lr_decay_epochs_val', type=float, default=2,
                         help='No. of epochs after which learning rate should be decreased')
-    parser.add_argument('--lr-decay-factor', dest='lr_decay_factor', type=float, default=0.8,
+    parser.add_argument('--lr-decay-factor', dest='lr_decay_factor', type=float, default=0.1,
                         help='Decay the learning rate of the optimizer by this multiplicative amount')
     parser.add_argument('--scheduler', type=str, default='step',
                         help='The type of lr scheduler to use anneal learning rate: step/multi_step')
@@ -347,7 +341,7 @@ if __name__ == "__main__":
     parser.add_argument('--hidden-dim', dest='hidden_dim', type=int, default=512)
     parser.add_argument('--gat-heads', dest='gat_heads', type=int, default=2)
     parser.add_argument('--feature-reduce-dim', dest='feat_reduce_dim', type=int, default=256)
-    parser.add_argument('--checkpoint', default=model_checkpoint, type=str, metavar='PATH',
+    parser.add_argument('--checkpoint', default=None, type=str, metavar='PATH',
                         help='Path to latest checkpoint (default: None)')
 
     # META PARAMETERS
@@ -383,6 +377,12 @@ if __name__ == "__main__":
     parser.add_argument('--no-balance-data', dest='no_balance_data', action='store_true')
     parser.set_defaults(no_balance_data=True)
 
+    parser.add_argument('--val-loss-weight', dest='val_loss_weight', type=int, default=None,
+                        help="Weight of the minority class for the validation loss function.")
+
+    parser.add_argument('--train-loss-weight', dest='train_loss_weight', type=int, default=None,
+                        help="Weight of the minority class for the training loss function.")
+
     # parser.add_argument('--train-size', dest='train_size', type=float, default=0.875)
     # parser.add_argument('--val-size', dest='val_size', type=float, default=0.125)
     # parser.add_argument('--test-size', dest='test_size', type=float, default=0.0)
@@ -402,51 +402,49 @@ if __name__ == "__main__":
 
     os.environ["WANDB_MODE"] = params['wb_mode']
 
-    # wandb.init(settings=wandb.Settings(start_method="fork"))
-
-    train(
-        balance_data=not params['no_balance_data'],
-        progress_bar=params['progress_bar'],
-        model_name=params['model'],
-        seed=params['seed'],
-        epochs=params['epochs'],
-        patience=params['patience'],
-        patience_metric=params['patience_metric'],
-        h_size=params["hop_size"],
-        top_users=params["top_users"],
-        top_users_excluded=params["top_users_excluded"],
-        k_shot=params["k_shot"],
-        lr=params["lr"],
-        lr_val=params["lr_val"],
-        lr_inner=params["lr_inner"],
-        lr_output=params["lr_output"],
-        hidden_dim=params["hidden_dim"],
-        feat_reduce_dim=params["feat_reduce_dim"],
-        proto_dim=params["proto_dim"],
-        data_train=params["dataset_train"],
-        data_eval=params["dataset_eval"],
-        dirs=(params["data_dir"], params["tsv_dir"], params["complete_dir"]),
-        checkpoint=params["checkpoint"],
-        train_split_size=(params["train_size"], params["val_size"], params["test_size"]),
-        feature_type=params["feature_type"],
-        vocab_size=params["vocab_size"],
-        n_inner_updates=params["n_updates"],
-        n_inner_updates_test=params["n_updates_test"],
-        num_workers=params["n_workers"],
-        gat_dropout=params["gat_dropout"],
-        lin_dropout=params["lin_dropout"],
-        attn_dropout=params["attn_dropout"],
-        wb_mode=params['wb_mode'],
-        warmup=params['warmup'],
-        max_iters=params['max_iters'],
-        gat_heads=params['gat_heads'],
-        batch_size=params['batch_size'],
-        lr_decay_epochs=params['lr_decay_epochs'],
-        lr_decay_epochs_val=params['lr_decay_epochs_val'],
-        lr_decay_factor=params['lr_decay_factor'],
-        scheduler=params['scheduler'],
-        weight_decay=params['weight_decay'],
-        momentum=params['momentum'],
-        optimizer=params['optimizer'],
-        suffix=params['suffix']
-    )
+    train(balance_data=not params['no_balance_data'],
+          val_loss_weight=params['val_loss_weight'],
+          train_loss_weight=params['train_loss_weight'],
+          progress_bar=params['progress_bar'],
+          model_name=params['model'],
+          seed=params['seed'],
+          epochs=params['epochs'],
+          patience=params['patience'],
+          patience_metric=params['patience_metric'],
+          h_size=params["hop_size"],
+          top_users=params["top_users"],
+          top_users_excluded=params["top_users_excluded"],
+          k_shot=params["k_shot"],
+          lr=params["lr"],
+          lr_val=params["lr_val"],
+          lr_inner=params["lr_inner"],
+          lr_output=params["lr_output"],
+          hidden_dim=params["hidden_dim"],
+          feat_reduce_dim=params["feat_reduce_dim"],
+          proto_dim=params["proto_dim"],
+          data_train=params["dataset_train"],
+          data_eval=params["dataset_eval"],
+          dirs=(params["data_dir"], params["tsv_dir"], params["complete_dir"]),
+          checkpoint=params["checkpoint"],
+          train_split_size=(params["train_size"], params["val_size"], params["test_size"]),
+          feature_type=params["feature_type"],
+          vocab_size=params["vocab_size"],
+          n_inner_updates=params["n_updates"],
+          n_inner_updates_test=params["n_updates_test"],
+          num_workers=params["n_workers"],
+          gat_dropout=params["gat_dropout"],
+          lin_dropout=params["lin_dropout"],
+          attn_dropout=params["attn_dropout"],
+          wb_mode=params['wb_mode'],
+          warmup=params['warmup'],
+          max_iters=params['max_iters'],
+          gat_heads=params['gat_heads'],
+          batch_size=params['batch_size'],
+          lr_decay_epochs=params['lr_decay_epochs'],
+          lr_decay_epochs_val=params['lr_decay_epochs_val'],
+          lr_decay_factor=params['lr_decay_factor'],
+          scheduler=params['scheduler'],
+          weight_decay=params['weight_decay'],
+          momentum=params['momentum'],
+          optimizer=params['optimizer'],
+          suffix=params['suffix'])

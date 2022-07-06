@@ -2,9 +2,9 @@ import torch.cuda
 
 from data_prep.graph_dataset import TorchGeomGraphDataset
 from data_prep.graph_preprocessor import SPLITS
-from samplers.batch_sampler import FewShotSampler, get_n_query_for_samples, BatchSampler
+from samplers.episode_sampler import NonMetaFewShotEpisodeSampler, FewShotEpisodeSampler, MetaFewShotEpisodeSampler, \
+    get_max_nr_for_shots
 from samplers.graph_sampler import KHopSampler
-from samplers.maml_batch_sampler import FewShotMamlSampler
 from train_config import META_MODELS
 
 SUPPORTED_DATASETS = ['gossipcop', 'twitterHateSpeech']
@@ -55,14 +55,14 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
     n_query_train = get_max_n_query(graph_data_train)
     print(f"\nUsing max query samples for episode creation: {n_query_train}\n")
 
-    train_mode = 'train'
+    train_mode, oversample = 'train', True
 
     train_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, train_mode, n_query_train,
-                              batch_size)
+                              batch_size, oversample)
     # val_split = 'train'
     val_split = 'val'
     train_val_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, val_split, n_query_train,
-                                  batch_size)
+                                  batch_size, oversample)
 
     print(f"\nTrain graph size: \n num_features: {graph_data_train.size[1]}\n total_nodes: {graph_data_train.size[0]}")
 
@@ -81,13 +81,15 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
         graph_data_eval = TorchGeomGraphDataset(eval_config, eval_split_size, *dirs)
         n_query_eval = get_max_n_query(graph_data_eval)
 
+        oversample = False
+
         print(f"\nTest graph size: \n num_features: {graph_data_eval.size[1]}\n total_nodes: {graph_data_eval.size[0]}")
 
         test_val_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'val', n_query_eval,
-                                     batch_size)
+                                     batch_size, oversample)
 
     test_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'test', n_query_eval,
-                             batch_size)
+                             batch_size, oversample)
 
     # verify_not_overlapping_samples(train_loader)
     # verify_not_overlapping_samples(train_val_loader)
@@ -103,33 +105,37 @@ def get_num_workers(sampler, num_workers):
     elif not torch.cuda.is_available():
         # mac has 8 CPUs
         return 0
-    elif type(sampler) == BatchSampler:
+    elif type(sampler) == NonMetaFewShotEpisodeSampler:
         for r in reversed(range(2, 11)):
             if (len(sampler) / r) >= 2:
                 return r
-    elif type(sampler) == FewShotSampler:
+    elif type(sampler) == FewShotEpisodeSampler:
         return 4
-    elif type(sampler) == FewShotMamlSampler:
+    elif type(sampler) == MetaFewShotEpisodeSampler:
         return 0
     return 0
 
 
-def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_queries, batch_size):
+def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_queries, batch_size, oversample):
     n_classes = len(graph_data.labels)
 
     mask = graph_data.mask(f"{mode}_mask")
-
+    indices = torch.where(mask == True)[0]
     targets = graph_data.data.y[mask]
+    assert indices.shape == targets.shape
     max_n_query = n_queries[mode]
 
     if model_name == 'gat' and mode == 'train':
-        batch_sampler = BatchSampler(targets, max_n_query, mode, batch_size, n_classes, k_shot)
+        batch_sampler = NonMetaFewShotEpisodeSampler(indices, targets, max_n_query, mode, batch_size, n_classes, k_shot,
+                                                     oversample=oversample)
     elif model_name == 'prototypical' or (model_name == 'gat' and mode != 'train'):
-        batch_sampler = FewShotSampler(targets, max_n_query, mode, n_classes, k_shot)
+        batch_sampler = FewShotEpisodeSampler(indices, targets, max_n_query, mode, n_classes, k_shot,
+                                              oversample=oversample)
     elif model_name in META_MODELS:
         batch_size = None if mode == 'train' else 2
 
-        batch_sampler = FewShotMamlSampler(targets, max_n_query, mode, n_classes, k_shot, batch_size)
+        batch_sampler = MetaFewShotEpisodeSampler(indices, targets, max_n_query, mode, n_classes, k_shot, batch_size,
+                                                  oversample=oversample)
     else:
         raise ValueError(f"Model with name '{model_name}' is not supported.")
 
@@ -157,7 +163,7 @@ def get_max_n_query(graph_data):
     for split in SPLITS:
         # maximum amount of query samples which should be used from the total amount of samples
         samples = len(torch.where(graph_data.split_masks[f"{split}_mask"])[0]) // n_classes
-        n_queries[split] = get_n_query_for_samples(samples, n_classes)
+        n_queries[split] = get_max_nr_for_shots(samples, n_classes)
 
     return n_queries
 
@@ -170,7 +176,7 @@ def verify_not_overlapping_samples(loader):
     n_class1_diff, n_class2_diff, support_duplicates, query_duplicates, num_equals = 0, 0, 0, 0, 0
 
     for batch in iter(loader):
-        if type(loader.b_sampler) != FewShotMamlSampler:
+        if type(loader.b_sampler) != MetaFewShotEpisodeSampler:
             support_graphs, query_graphs, support_targets, query_targets = batch
         else:
             support_graphs, query_graphs, support_targets, query_targets = [], [], [], []

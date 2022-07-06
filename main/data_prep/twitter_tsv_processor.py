@@ -168,6 +168,22 @@ class TSVPreprocessor(DataPreprocessor):
 
         super().store_user_splits(train_users, test_users, val_users)
 
+    def print_label_distribution(self, labels, split):
+        racism, sexism, none = self.get_label_distribution(labels)
+
+        denom = racism + sexism + none
+        racism_avg = racism / denom
+        sexism_avg = sexism / denom
+        none_avg = none / denom
+
+        print(f"\nRacism labels in {split} split  = {racism_avg * 100:.2f}% ({racism} samples)")
+        print(f"Sexism labels in {split} split  = {sexism_avg * 100:.2f}%  ({sexism} samples)")
+        print(f"None labels in {split} split  = {none_avg * 100:.2f}%  ({none} samples)")
+
+    @staticmethod
+    def get_label_distribution(labels):
+        return (labels == 0).sum(), (labels == 1).sum(), (labels == 2).sum()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

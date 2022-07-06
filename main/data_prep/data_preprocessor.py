@@ -1,3 +1,4 @@
+import abc
 import copy
 import csv
 import json
@@ -8,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from data_prep.config import *
-from data_prep.data_preprocess_utils import save_json_file, print_label_distribution, split_data, load_json_file
+from data_prep.data_preprocess_utils import save_json_file, split_data, load_json_file
 from data_prep.graph_io import GraphIO, NIV_IDX
 
 
@@ -338,6 +339,10 @@ class DataPreprocessor(GraphIO):
 
         return data
 
+    @abc.abstractmethod
+    def print_label_distribution(self, labels, split):
+        raise NotImplementedError
+
     def create_document_splits(self, data, splits=1):
         """
         Creates train, val and test splits via random splitting of the dataset in a stratified fashion to ensure
@@ -358,7 +363,7 @@ class DataPreprocessor(GraphIO):
             assert len(set(test_split[2])) == len(test_split[2]), \
                 "Test split contains duplicate doc names!"
 
-            print_label_distribution(test_split[1], 'test')
+            self.print_label_distribution(test_split[1], 'test')
             split_dict['test'] = test_split
         else:
             rest_split = data
@@ -379,7 +384,7 @@ class DataPreprocessor(GraphIO):
 
             assert len(set(val_split[2])) == len(val_split[2]), \
                 "Validation split contains duplicate doc names!"
-            print_label_distribution(val_split[1], 'val')
+            self.print_label_distribution(val_split[1], 'val')
 
             split_dict['val'] = val_split
         else:
@@ -392,7 +397,7 @@ class DataPreprocessor(GraphIO):
         if train_split is not None:
             assert len(set(train_split[2])) == len(train_split[2]), \
                 "Train split contains duplicate doc names!"
-            print_label_distribution(train_split[1], 'train')
+            self.print_label_distribution(train_split[1], 'train')
             split_dict['train'] = train_split
 
         print("\nWriting train, val and test files...\n")
@@ -523,7 +528,6 @@ class DataPreprocessor(GraphIO):
 
 
 def get_balanced(split, labels):
-
     fake_class_idx = None
     for idx, label_name in labels.items():
         if label_name == 'fake':

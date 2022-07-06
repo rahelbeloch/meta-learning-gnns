@@ -149,6 +149,17 @@ class TSVPreprocessor(DataPreprocessor):
         print(f"Writing doc2users JSON in :  {doc2users_file}")
         save_json_file(doc2users, doc2users_file, converter=self.np_converter)
 
+    def print_label_distribution(self, labels, split):
+        fake, real = self.get_label_distribution(labels)
+        print(f"\nFake labels in {split} split  = {fake * 100:.2f} %")
+        print(f"Real labels in {split} split  = {real * 100:.2f} %")
+
+    @staticmethod
+    def get_label_distribution(labels):
+        fake, real = (labels == 0).sum(), (labels == 1).sum()
+        denom = fake + real
+        return fake / denom, real / denom
+
 
 if __name__ == '__main__':
     # tsv_dir = TSV_small_DIR
