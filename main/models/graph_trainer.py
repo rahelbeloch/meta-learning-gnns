@@ -7,24 +7,22 @@ from torch.optim.lr_scheduler import MultiStepLR, StepLR
 
 class GraphTrainer(pl.LightningModule):
 
-    def __init__(self, validation_sets, query_and_support=False):
+    def __init__(self):
         super().__init__()
 
         self._device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
-        self.metrics = {'f1_target': ({}, 'none')} if query_and_support is False else \
-            {'f1_target_query': ({}, 'none'), 'f1_target_support': ({}, 'none')}
+        self.metrics = {'f1_target_query': ({}, 'none'), 'f1_target_support': ({}, 'none'),
+                        'f1_macro_query': ({}, 'macro'), 'f1_macro_support': ({}, 'macro'),
+                        'f1_weighted_query': ({}, 'weighted'), 'f1_weighted_support': ({}, 'weighted')}
 
         # used during testing
-        self.label_names, self.target_label = None, 1
+        self.label_names, self.target_classes = None, [1]
 
         # we have a binary problem per default; will be adapted for testing purposes depending on dataset
         n_classes = 1
 
-        self.validation_sets = validation_sets
-        self.query_and_support = query_and_support
-
-        splits = ['train', 'test'] + validation_sets
+        splits = ['train', 'test', 'val']
 
         for s in splits:
             self.initialize_metrics(s, n_classes)
@@ -40,10 +38,10 @@ class GraphTrainer(pl.LightningModule):
                 raise ValueError(f"Metric with key '{name}' not supported.")
             split_dict[split_name] = metric(num_classes=n_classes, average=avg).to(self._device)
 
-    def reset_test_metric(self, n_classes, label_names, target_label):
+    def reset_test_metric(self, n_classes, label_names, target_classes):
         self.initialize_metrics('test', n_classes)
         self.label_names = label_names
-        self.target_label = target_label
+        self.target_classes = target_classes
 
     def log_on_epoch(self, metric, value):
         self.log(metric, value, on_step=False, on_epoch=True)
@@ -54,8 +52,7 @@ class GraphTrainer(pl.LightningModule):
 
     def validation_epoch_end(self, outputs) -> None:
         super().validation_epoch_end(outputs)
-        for s in self.validation_sets:
-            self.compute_and_log_metrics(s)
+        self.compute_and_log_metrics('val')
 
     def training_epoch_end(self, outputs) -> None:
         super().training_epoch_end(outputs)
@@ -77,30 +74,40 @@ class GraphTrainer(pl.LightningModule):
 
     def compute_and_log_metrics(self, mode):
 
+        # Micro scores
+        self.log_and_reset(mode, 'support')
+        self.log_and_reset(mode, 'query')
+
+        # Macro scores
+        support_metric = self.metrics['f1_macro_support'][0][mode]
+        self.log_on_epoch(f'{mode}/f1_macro_support', support_metric.compute())
+        support_metric.reset()
+
+        query_metric = self.metrics['f1_macro_query'][0][mode]
+        self.log_on_epoch(f'{mode}/f1_macro_query', query_metric.compute())
+        query_metric.reset()
+
+        # Weighted scores
+        support_metric = self.metrics['f1_weighted_support'][0][mode]
+        self.log_on_epoch(f'{mode}/f1_weighted_support', support_metric.compute())
+        support_metric.reset()
+
+        query_metric = self.metrics['f1_weighted_query'][0][mode]
+        self.log_on_epoch(f'{mode}/f1_weighted_query', query_metric.compute())
+        query_metric.reset()
+
+    def log_and_reset(self, mode, set_name):
+        metric = self.metrics[f'f1_target_{set_name}'][0][mode]
         label_names = self.hparams["model_params"]["label_names"] if self.label_names is None else self.label_names
+        f1 = metric.compute()
+        for t in self.target_classes:
+            try:
+                label_metric_value = f1[t] if len(self.target_classes) > 1 else f1[0]
+            except IndexError:
+                raise ValueError(f"Trying to log metric value for target {t}, but we don't have a metric value for it!")
 
-        # we are at the end of an epoch, so log now on step
-        if not self.query_and_support:
-            metric = self.metrics['f1_target'][0][mode]
-            f1 = metric.compute()
-
-            if f1.shape[0] > 1:
-                # the metric returned scores for each class
-                if self.target_label is None:
-                    raise ValueError(f"Metric computation for metric {metric} returned scores for multiple classes, "
-                                     "but we don't know which one to log!")
-                f1 = f1[self.target_label]
-
-            self.log_on_epoch(f'{mode}/f1_{label_names[self.target_label]}', f1)
-            metric.reset()
-        else:
-            support_metric = self.metrics['f1_target_support'][0][mode]
-            self.log_on_epoch(f'{mode}/f1_{label_names[self.target_label]}_support', support_metric.compute())
-            support_metric.reset()
-
-            query_metric = self.metrics['f1_target_query'][0][mode]
-            self.log_on_epoch(f'{mode}/f1_{label_names[self.target_label]}_query', query_metric.compute())
-            query_metric.reset()
+            self.log_on_epoch(f'{mode}/f1_{label_names[t]}_{set_name}', label_metric_value)
+        metric.reset()
 
     def get_optimizer(self, lr, step_size, model=None, milestones=None):
         opt_params = self.hparams.optimizer_hparams

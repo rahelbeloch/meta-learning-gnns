@@ -22,7 +22,7 @@ class GatBase(GraphTrainer):
             optimizer_hparams - Hyperparameters for the optimizer, as dictionary. This includes learning rate,
             weight decay, etc.
         """
-        super().__init__(validation_sets=['val_support', 'val_query'])
+        super().__init__()
 
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace + saves config in wandb
         self.save_hyperparameters()
@@ -68,12 +68,7 @@ class GatBase(GraphTrainer):
         logits = self.model(x, edge_index, mode)[cl_mask].squeeze()
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
-        if logits.ndim == 1:
-            # binary classification
-            predictions = (logits.sigmoid() > 0.5).float()
-        else:
-            # multiclass classification
-            predictions = torch.softmax(logits, dim=1).argmax(dim=1)
+        predictions = get_predictions(logits)
 
         self.update_metrics(mode, predictions, targets)
 
@@ -130,6 +125,7 @@ class GatBase(GraphTrainer):
         return dict(loss=loss)
 
     def validation_step(self, batch, batch_idx, dataloader_idx):
+        mode = "val"
 
         # update the weights of the validation model with weights from trained model
         self.validation_model.load_state_dict(self.model.state_dict())
@@ -137,7 +133,6 @@ class GatBase(GraphTrainer):
         support_graphs, query_graphs, support_targets, query_targets = batch
 
         if dataloader_idx == 0:
-            mode = 'val_support'
 
             # Validation requires to finetune a model, hence we need to enable gradients
             torch.set_grad_enabled(True)
@@ -151,11 +146,11 @@ class GatBase(GraphTrainer):
             logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
 
             support_predictions = (logits.sigmoid() > 0.5).float()
-            self.update_metrics(mode, support_predictions, support_targets)
+            self.update_support(mode, support_predictions, support_targets)
 
             loss = self.validation_loss(logits, support_targets.float())
 
-            self.log_on_epoch(f"{mode}/loss", loss)
+            self.log_on_epoch(f"{mode}/support_loss", loss)
 
             # Calculate gradients and perform finetune update
             val_optimizer.zero_grad()
@@ -178,7 +173,6 @@ class GatBase(GraphTrainer):
 
         elif dataloader_idx == 1:
             # Evaluate on meta test set
-            mode = 'val_query'
 
             # testing on a query set that is oversampled should not be happening --> use original distribution
             # training is using a weighted loss --> validation set should use weighted loss as well
@@ -189,10 +183,10 @@ class GatBase(GraphTrainer):
             loss = self.validation_loss(logits, query_targets.float())
 
             query_predictions = (logits.sigmoid() > 0.5).float()
-            self.update_metrics(mode, query_predictions, query_targets)
+            self.update_query(mode, query_predictions, query_targets)
 
             # only log this once in the end of an epoch (averaged over steps)
-            self.log_on_epoch(f"{mode}/loss", loss)
+            self.log_on_epoch(f"{mode}/query_loss", loss)
 
     def test_step(self, batch, batch_idx):
         """
@@ -203,16 +197,16 @@ class GatBase(GraphTrainer):
         _, sub_graphs, _, targets = batch
         self.forward(sub_graphs, targets, mode='test')
 
-    def evaluation(self, n_classes, label_names, target_label):
+    def evaluation(self, n_classes, label_names, target_classes):
 
         # Completely newly setting the output layer, erases all pretrained weights!
         self.model.reset_classifier_dimensions(n_classes)
 
         # reset the test metric with number of classes
-        self.reset_test_metric(n_classes, label_names, target_label)
+        self.reset_test_metric(n_classes, label_names, target_classes)
 
 
-def evaluate(trainer, model, test_dataloader, target_label_name):
+def evaluate(trainer, model, test_dataloader, label_names):
     """
     Tests a model on test and validation set.
 
@@ -227,9 +221,19 @@ def evaluate(trainer, model, test_dataloader, target_label_name):
     test_start = time.time()
 
     results = trainer.test(model, dataloaders=[test_dataloader], verbose=False)
-    test_f1_target = results[0][f'test/f1_{target_label_name}']
+
+    f1_supports, f1_queries = {}, {}
+    for t in label_names:
+        f1_supports[t] = results[0][f'test/f1_{t}_support']
+        f1_queries[t] = results[0][f'test/f1_{t}_query']
+
+    f1_macro_support = results[0][f'test/f1_macro_support']
+    f1_macro_query = results[0][f'test/f1_macro_query']
+
+    f1_weighted_support = results[0][f'test/f1_weighted_support']
+    f1_weighted_query = results[0][f'test/f1_weighted_query']
 
     test_end = time.time()
     elapsed = test_end - test_start
 
-    return test_f1_target, elapsed
+    return f1_queries, f1_macro_query, f1_weighted_query, elapsed

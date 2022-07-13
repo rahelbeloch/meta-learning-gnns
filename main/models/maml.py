@@ -1,4 +1,5 @@
 import time
+from collections import defaultdict
 from copy import deepcopy
 from statistics import mean, stdev
 
@@ -26,7 +27,7 @@ class Maml(GraphTrainer):
             lr_inner - Learning rate of the inner loop SGD optimizer
             n_inner_updates - Number of inner loop updates to perform
         """
-        super().__init__(validation_sets=['val'])
+        super().__init__()
         self.save_hyperparameters()
 
         self.n_inner_updates = model_params['n_inner_updates']
@@ -63,6 +64,8 @@ class Maml(GraphTrainer):
 
         updates = self.n_inner_updates if mode == 'train' else self.n_inner_updates_test
 
+        losses = []
+
         # Optimize inner loop model on support set
         for _ in range(updates):
             # Determine loss on the support set
@@ -71,11 +74,12 @@ class Maml(GraphTrainer):
             # Calculate gradients and perform inner loop update
             loss.backward()
             local_optim.step()
+            losses.append(loss.detach())
 
-        return local_model
+        return local_model, torch.tensor(losses).mean().item()
 
     def outer_loop(self, batch, loss_module, mode):
-        losses = []
+        support_losses, query_losses = [], []
 
         self.model.zero_grad()
 
@@ -87,17 +91,20 @@ class Maml(GraphTrainer):
             support_targets, query_targets = split_list(targets, self.k_shot_support * 2)
 
             # Perform inner loop adaptation
-            local_model = self.adapt_few_shot(*get_subgraph_batch(support_graphs), support_targets, mode, loss_module)
+            local_model, support_loss = self.adapt_few_shot(*get_subgraph_batch(support_graphs), support_targets, mode,
+                                                            loss_module)
+            support_losses.append(support_loss)
 
             # Determine loss of query set
-            loss, query_predictions = run_model(local_model, *get_subgraph_batch(query_graphs), query_targets, mode,
-                                                loss_module)
+            query_loss, query_predictions = run_model(local_model, *get_subgraph_batch(query_graphs), query_targets,
+                                                      mode,
+                                                      loss_module)
 
             self.update_metrics(mode, query_predictions, query_targets)
 
             # Calculate gradients for query set loss
             if mode == "train":
-                loss.backward()
+                query_loss.backward()
 
                 for i, (p_global, p_local) in enumerate(zip(self.model.parameters(), local_model.parameters())):
                     if p_global.requires_grad is False:
@@ -110,7 +117,7 @@ class Maml(GraphTrainer):
                         # TODO: check why this works with proto maml but not with maml
                         p_global.grad += p_local.grad
 
-            losses.append(loss.detach())
+            query_losses.append(query_loss.detach())
 
         # Perform update of base model
         if mode == "train":
@@ -123,7 +130,8 @@ class Maml(GraphTrainer):
             if self.trainer.current_epoch != 0 and (self.trainer.current_epoch + 1) % train_scheduler.step_size == 0:
                 train_scheduler.step()
 
-        self.log_on_epoch(f"{mode}/loss", sum(losses) / len(losses))
+        self.log_on_epoch(f"{mode}/query_loss", torch.tensor(query_losses).mean())
+        self.log_on_epoch(f"{mode}/support_loss", torch.tensor(support_losses).mean())
 
     def training_step(self, batch, batch_idx):
         self.outer_loop(batch, self.train_loss_module, mode="train")
@@ -153,10 +161,10 @@ def run_model(local_model, x, edge_index, cl_mask, targets, mode, loss_module=No
     targets = targets.view(-1, 1) if not len(targets.shape) == 2 else targets
     loss = loss_module(logits, targets.float()) if loss_module is not None else None
 
-    return loss, (logits.sigmoid() > 0.5).float()
+    return loss, get_predictions(logits)
 
 
-def test_maml(model, test_loader, num_classes=1):
+def test_maml(model, test_loader, label_names, num_classes=1):
     mode = 'test'
     model = model.to(DEVICE)
     model.eval()
@@ -169,20 +177,20 @@ def test_maml(model, test_loader, num_classes=1):
     # First, to select the k-shot batch. Second, to evaluate the model on all other batches.
     test_loss_weight = None
     loss_module = nn.BCEWithLogitsLoss(pos_weight=test_loss_weight)
-
-    f1_fakes = []
+    f1_fakes, f1_macros, f1_weights = defaultdict(list), [], []
 
     for support_batch_idx, batch in tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing"):
-        # TODO: Check if correct here
         support_graphs, _, support_targets, _ = batch
 
         # graphs are automatically put to device in adapt few shot
         support_targets = support_targets.to(DEVICE)
 
         # Finetune new model on support set
-        local_model = model.adapt_few_shot(*get_subgraph_batch(support_graphs), support_targets, mode, loss_module)
+        local_model, _ = model.adapt_few_shot(*get_subgraph_batch(support_graphs), support_targets, mode, loss_module)
 
         f1_target = F1(num_classes=num_classes, average='none').to(DEVICE)
+        f1_macro = F1(num_classes=num_classes, average='macro').to(DEVICE)
+        f1_weighted = F1(num_classes=num_classes, average='weighted').to(DEVICE)
 
         with torch.no_grad():  # No gradients for query set needed
             local_model.eval()
@@ -201,10 +209,20 @@ def test_maml(model, test_loader, num_classes=1):
                 _, pred = run_model(local_model, *get_subgraph_batch(graphs), targets, mode)
 
                 f1_target.update(pred, targets)
+                f1_macro.update(pred, targets)
+                f1_weighted.update(pred, targets)
 
-            f1_fakes.append(f1_target.compute().item())
+            f1_fake = f1_target.compute()
+            for i, label in enumerate(label_names):
+                f1_fakes[label].append(f1_fake[i].item())
+            f1_macros.append(f1_macro.compute().item())
+            f1_weights.append(f1_weighted.compute().item())
 
     test_end = time.time()
     test_elapsed = test_end - test_start
 
-    return (mean(f1_fakes), stdev(f1_fakes)), test_elapsed
+    for label in label_names:
+        f1_fakes[label] = mean(f1_fakes[label])
+
+    return (f1_fakes, 0.0), (mean(f1_macros), stdev(f1_macros)), (
+        mean(f1_weights), stdev(f1_weights)), test_elapsed

@@ -140,7 +140,7 @@ class ProtoNet(GraphTrainer):
 
 
 @torch.no_grad()
-def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=2):
+def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=1):
     """
     Use the trained ProtoNet & adapt to test classes. Pick k examples/sub graphs per class from which prototypes are
     determined. Test the metrics on all other sub graphs, i.e. use k sub graphs per class as support set and
@@ -203,7 +203,9 @@ def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=2):
         k_node_feats, k_targets = get_as_set(k_idx, k_shot, node_features, node_targets, start_indices_per_class)
         prototypes = model.calculate_prototypes(k_node_feats, k_targets)
 
-        batch_f1_target = tm.F1(num_classes=1, average='none')
+        batch_f1_target = tm.F1(num_classes=num_classes, average='none')
+        batch_f1_macro = tm.F1(num_classes=num_classes, average='macro')
+        batch_f1_weighted = tm.F1(num_classes=num_classes, average='weighted')
 
         for e_idx in range(0, node_features.shape[0], k_shot):
             if k_idx == e_idx:  # Do not evaluate on the support set examples

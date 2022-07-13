@@ -6,17 +6,17 @@ from pathlib import Path
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as cb
 import torch
+import wandb
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
 
-import wandb
 from data_prep.config import TSV_DIR, COMPLETE_DIR
 from data_prep.data_utils import get_data, SUPPORTED_DATASETS
 from models.gat_base import GatBase, evaluate
-from models.gmeta import GMeta, test_gmeta
+from models.gmeta import GMeta
 from models.maml import Maml, test_maml
 from models.proto_maml import ProtoMAML, test_protomaml
-from models.proto_net import ProtoNet, test_proto_net
+from models.proto_net import ProtoNet
 from train_config import LOG_PATH, SUPPORTED_MODELS, META_MODELS, SHOTS
 
 if torch.cuda.is_available():
@@ -142,7 +142,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
         suffix=suffix
     )
 
-    trainer = initialize_trainer(model_name, epochs, patience, patience_metric, progress_bar, wb_mode, wandb_config,
+    trainer = initialize_trainer(epochs, patience, patience_metric, progress_bar, wb_mode, wandb_config,
                                  suffix)
 
     if not evaluation:
@@ -170,36 +170,46 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     # Evaluation
     model = model.load_from_checkpoint(model_path)
 
-    target_label = 1
+    target_classes = [0, 1] if data_eval == "twitterHateSpeech" else [1]
+    target_labels = [eval_graph.label_names[cls] for cls in target_classes]
+    n_classes = len(eval_graph.labels)
 
     if model_name == 'gat' and data_eval is not None and data_eval != data_train:
         # model was trained on another dataset --> reinitialize some things, like classifier output or target label
-        model.evaluation(len(eval_graph.labels), eval_graph.label_names, target_label=target_label)
 
-    val_f1_fake = 0.0
+        model.evaluation(n_classes, eval_graph.label_names, target_classes=target_classes)
 
     if model_name == 'gat':
-        test_f1_fake, elapsed = evaluate(trainer, model, test_loader, eval_graph.label_names[target_label])
-    elif model_name == 'prototypical':
-        (test_f1_fake, _), elapsed, _ = test_proto_net(model, eval_graph, k_shot=k_shot)
+
+        test_f1_queries, f1_macro_query, f1_weighted_query, elapsed = evaluate(trainer, model, test_loader,
+                                                                               target_labels)
+    # elif model_name == 'prototypical':
+    #     (test_f1_fake, _), elapsed, _ = test_proto_net(model, eval_graph, k_shot=k_shot)
     elif model_name == 'proto-maml':
-        (test_f1_fake, _), elapsed = test_protomaml(model, test_loader)
+        (test_f1_queries, _), (f1_macro_query, _), (f1_weighted_query, _), elapsed = test_protomaml(model, test_loader)
     elif model_name == 'maml':
-        (test_f1_fake, _), elapsed = test_maml(model, test_loader)
-    elif model_name == 'gmeta':
-        (test_f1_fake, _), elapsed = test_gmeta(model, test_loader)
+        (test_f1_queries, _), (f1_macro_query, _), (f1_weighted_query, _), elapsed = test_maml(model, test_loader,
+                                                                                               target_labels, n_classes)
+    # elif model_name == 'gmeta':
+    #     (test_f1_fake, _), elapsed = test_gmeta(model, test_loader)
     else:
         raise ValueError(f"Model type {model_name} not supported!")
 
-    wandb.log({"test/f1_fake": test_f1_fake})
-
     print(f'\nRequired time for testing: {int(elapsed / 60)} minutes.\n')
-    print(f'Test Results:\n test f1 fake: {round(test_f1_fake, 3)} ({test_f1_fake})\n '
-          f'validation f1 fake: {round(val_f1_fake, 3)} ({val_f1_fake})\n '
+    print(f'Test Results:')
+
+    for label in target_labels:
+        wandb.log({f"test/f1_fake_{label}": test_f1_queries[label]})
+        print(f' test f1 {label}: {round(test_f1_queries[label], 3)} ({test_f1_queries[label]})')
+
+    print(f' test f1 macro: {round(f1_macro_query, 3)} ({f1_macro_query})\n'
+          f' test f1 weighted: {round(f1_weighted_query, 3)} ({f1_weighted_query})\n '
           f'\nepochs: {trainer.current_epoch + 1}\n')
 
-    print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}\n{round_format(test_f1_fake)}\n'
-          f'{round_format(val_f1_fake)}\n')
+    print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}')
+    for label in target_labels:
+        print(f'{round_format(test_f1_queries[label])}')
+    print(f'{round_format(f1_macro_query)}\n{round_format(f1_weighted_query)}\n')
 
 
 def get_output_dim(model_name, proto_dim):
@@ -229,14 +239,14 @@ def get_epoch_num(model_path):
     return int(expected_epoch)
 
 
-def initialize_trainer(model_name, epochs, patience, patience_metric, progress_bar, wb_mode, wandb_config, suffix=None):
+def initialize_trainer(epochs, patience, patience_metric, progress_bar, wb_mode, wandb_config, suffix=None):
     """
     Initializes a Lightning Trainer for respective parameters as given in the function header. Creates a proper
     folder name for the respective model files, initializes logging and early stopping.
     """
 
     if patience_metric == 'loss':
-        metric, mode = 'val_query/loss' if model_name == 'gat' else 'val/loss', 'min'
+        metric, mode = 'val/query_loss', 'min'
     elif patience_metric == 'f1_macro':
         metric, mode = 'val/f1_macro', 'max'
     else:
