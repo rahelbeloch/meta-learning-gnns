@@ -9,6 +9,7 @@ import torch
 import wandb
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
+from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss
 
 from data_prep.config import TSV_DIR, COMPLETE_DIR
 from data_prep.data_utils import get_data, SUPPORTED_DATASETS
@@ -170,34 +171,42 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     # Evaluation
     model = model.load_from_checkpoint(model_path)
 
-    target_classes = [0, 1, 2] if data_eval == "twitterHateSpeech" else [1]
-    target_labels = [eval_graph.label_names[cls] for cls in target_classes]
     n_classes = len(eval_graph.labels)
 
+    if data_eval == "twitterHateSpeech":
+        loss_module = CrossEntropyLoss()
+        target_classes = list(range(n_classes))
+    elif data_eval == "gossipcop":
+        loss_module = BCEWithLogitsLoss()
+        target_classes = [1]
+    else:
+        raise ValueError(f"Unknown eval data {data_eval}!")
+
+    labels = [eval_graph.label_names[cls] for cls in target_classes]
+
     if data_eval != data_train and data_eval is not None:
-        if model_name == 'gat':
-            # model was trained on another dataset --> reinitialize some things, like classifier output or target label
-            # Completely newly setting the output layer, erases all pretrained weights!
+        if model_name == 'gat' or model_name == 'maml':
+            # model was trained on another dataset --> Newly setting the output layer, erases all pretrained weights!
             model.model.reset_classifier_dimensions(n_classes)
 
         # reset the test metric with number of classes
         model.reset_test_metric(n_classes, eval_graph.label_names, target_classes)
 
     if model_name == 'gat':
-
-        test_f1_queries, f1_macro_query, f1_weighted_query, elapsed = evaluate(trainer, model, test_loader,
-                                                                               target_labels)
+        test_f1_queries, f1_macro_query, f1_weighted_query, elapsed = evaluate(trainer, model, test_loader, labels)
     # elif model_name == 'prototypical':
     #     (test_f1_fake, _), elapsed, _ = test_proto_net(model, eval_graph, k_shot=k_shot)
     elif model_name == 'proto-maml':
         (test_f1_queries, _), (f1_macro_query, _), (f1_weighted_query, _), elapsed = test_protomaml(model,
                                                                                                     test_loader,
-                                                                                                    target_labels,
+                                                                                                    labels,
+                                                                                                    loss_module,
                                                                                                     len(target_classes))
     elif model_name == 'maml':
         (test_f1_queries, _), (f1_macro_query, _), (f1_weighted_query, _), elapsed = test_maml(model,
                                                                                                test_loader,
-                                                                                               target_labels,
+                                                                                               labels,
+                                                                                               loss_module,
                                                                                                len(target_classes))
     # elif model_name == 'gmeta':
     #     (test_f1_fake, _), elapsed = test_gmeta(model, test_loader)
@@ -207,7 +216,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     print(f'\nRequired time for testing: {int(elapsed / 60)} minutes.\n')
     print(f'Test Results:')
 
-    for label in target_labels:
+    for label in labels:
         wandb.log({f"test/f1_fake_{label}": test_f1_queries[label]})
         print(f' test f1 {label}: {round(test_f1_queries[label], 3)} ({test_f1_queries[label]})')
 
@@ -216,7 +225,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
           f'\nepochs: {trainer.current_epoch + 1}\n')
 
     print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}')
-    for label in target_labels:
+    for label in labels:
         print(f'{round_format(test_f1_queries[label])}')
     print(f'{round_format(f1_macro_query)}\n{round_format(f1_weighted_query)}\n')
 

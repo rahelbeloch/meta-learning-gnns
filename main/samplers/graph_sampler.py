@@ -92,15 +92,10 @@ class KHopSampler(GraphSAINTSampler):
 
         n_support_samples = self.b_sampler.k_shot_support * self.b_sampler.n_way
 
-        # TODO: decide this based on sampler type, not with these if-elses
-
         if type(self.b_sampler) == NonMetaFewShotEpisodeSampler:
             # no need to split support and query, as they are concatenated anyway for GAT
             return graphs, torch.LongTensor(targets)
 
-        # if self.model_type == 'prototypical' \
-        #         or (self.model_type == 'gat' and self.mode != 'train') \
-        #         or (self.model_type in META_MODELS and self.mode == 'test'):
         elif type(self.b_sampler) == MetaFewShotEpisodeSampler:
 
             # converts list of all given samples (e.g. (local batch size * task batch size) x 3) into a list of

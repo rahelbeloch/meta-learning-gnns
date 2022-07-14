@@ -200,7 +200,7 @@ def run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask, t
     return loss, get_predictions(logits_target)
 
 
-def test_protomaml(model, test_loader, label_names, num_classes=1):
+def test_protomaml(model, test_loader, label_names, loss_module, num_classes=1):
     mode = 'test'
     model = model.to(DEVICE)
     model.eval()
@@ -211,8 +211,9 @@ def test_protomaml(model, test_loader, label_names, num_classes=1):
 
     # Iterate through the full dataset in two manners:
     # First, to select the k-shot batch. Second, to evaluate the model on all other batches.
-    loss_module = CrossEntropyLoss()
     f1_fakes, f1_macros, f1_weights = defaultdict(list), [], []
+
+    # TODO: run on full test data!
 
     test_data_outer = list(test_loader)[:5]
     # test_data_outer = tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing")

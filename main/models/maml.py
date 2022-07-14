@@ -4,8 +4,8 @@ from copy import deepcopy
 from statistics import mean, stdev
 
 from torch import optim, nn
+from torch.nn import CrossEntropyLoss
 from torchmetrics import F1
-from tqdm.auto import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
 from models.graph_trainer import GraphTrainer, get_or_none
@@ -114,7 +114,6 @@ class Maml(GraphTrainer):
                     if p_global.grad is None:
                         p_global.grad = p_local.grad
                     else:
-                        # TODO: check why this works with proto maml but not with maml
                         p_global.grad += p_local.grad
 
             query_losses.append(query_loss.detach())
@@ -158,13 +157,15 @@ def run_model(local_model, x, edge_index, cl_mask, targets, mode, loss_module=No
     # output_weight shape 1 x 64
     # output_bias shape 1
 
-    targets = targets.view(-1, 1) if not len(targets.shape) == 2 else targets
-    loss = loss_module(logits, targets.float()) if loss_module is not None else None
+    if type(loss_module) != CrossEntropyLoss:
+        targets = (targets.view(-1, 1) if not len(targets.shape) == 2 else targets).float()
+
+    loss = loss_module(logits, targets) if loss_module is not None else None
 
     return loss, get_predictions(logits)
 
 
-def test_maml(model, test_loader, label_names, num_classes=1):
+def test_maml(model, test_loader, label_names, loss_module, num_classes=1):
     mode = 'test'
     model = model.to(DEVICE)
     model.eval()
@@ -175,11 +176,15 @@ def test_maml(model, test_loader, label_names, num_classes=1):
 
     # Iterate through the full dataset in two manners:
     # First, to select the k-shot batch. Second, to evaluate the model on all other batches.
-    test_loss_weight = None
-    loss_module = nn.BCEWithLogitsLoss(pos_weight=test_loss_weight)
     f1_fakes, f1_macros, f1_weights = defaultdict(list), [], []
 
-    for support_batch_idx, batch in tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing"):
+    test_data_outer = list(test_loader)[:5]
+    # test_data_outer = tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing")
+
+    test_data_inner = test_data_outer
+    # test_data_inner = test_loader
+
+    for support_batch_idx, batch in enumerate(test_data_outer):
         support_graphs, _, support_targets, _ = batch
 
         # graphs are automatically put to device in adapt few shot
@@ -196,7 +201,7 @@ def test_maml(model, test_loader, label_names, num_classes=1):
             local_model.eval()
 
             # Evaluate all examples in test dataset
-            for query_batch_idx, test_batch in enumerate(test_loader):
+            for query_batch_idx, test_batch in enumerate(test_data_inner):
 
                 if support_batch_idx == query_batch_idx:
                     # Exclude support set elements

@@ -4,7 +4,7 @@ import time
 
 import torch
 import torch.nn.functional as func
-from scipy.sparse import lil_matrix, save_npz, csr_matrix
+from scipy.sparse import lil_matrix, save_npz
 
 from data_prep.config import *
 from data_prep.data_preprocess_utils import *
@@ -93,27 +93,6 @@ class GraphPreprocessor(GraphIO):
         print("Saving user2id_train in : ", user2id_train_file)
         save_json_file(user2id, user2id_train_file)
         self.user2id = user2id
-
-        # TODO: do we need node type and node2id?
-        # # node type should contain train and val docs and train, val and test users
-        # node_type = node_type_train + node_type_val + node_type_user
-        # assert len(node_type) == n_val + n_train + len(all_users)
-        #
-        # print(f"\nNode type size = {len(node_type)}")
-        # node_type_file = self.data_complete_path(NODE_TYPE_FILE_NAME % self.top_users)
-        # node_type = np.array(node_type)
-        # print(f"Saving node type in : {node_type_file}")
-        # np.save(node_type_file, node_type, allow_pickle=True)
-
-        # node2id = self.doc2id.copy()
-        # node2id.update(self.user2id)
-        # assert len(node2id) == len(self.user2id) + len(self.doc2id), \
-        #     "Length of node2id is not the sum of doc2id and user2id length!"
-        #
-        # print("\nNode2id size = ", len(node2id))
-        # node2id_file = self.data_complete_path(NODE_2_ID_FILE_NAME % self.top_users)
-        # print("Saving node2id_lr in : ", node2id_file)
-        # save_json_file(node2id, node2id_file)
 
         print("\nDone ! All files written.")
 

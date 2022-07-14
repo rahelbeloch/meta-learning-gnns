@@ -52,8 +52,6 @@ def sanitize_text(text):
 
     text = re.sub('\\s+', ' ', text)
 
-    # TODO: different preprocessing for different datasets
-
     # (twitter hate speech) preprocessing from Pushkar's repo
     text = re.sub('[' + punctuation + ']', ' ', text)
     text = re.sub('\\b[0-9]+\\b', '', text)
