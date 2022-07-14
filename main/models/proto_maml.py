@@ -1,13 +1,13 @@
 import time
+from collections import defaultdict
 from copy import deepcopy
 from statistics import mean, stdev
 
 import torch.nn
 import torch.nn.functional as func
 from torch import optim
-from torch.nn import BCEWithLogitsLoss
+from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss
 from torchmetrics import F1
-from tqdm.auto import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
 from models.graph_trainer import GraphTrainer, get_or_none
@@ -83,7 +83,8 @@ class ProtoMAML(GraphTrainer):
         for _ in range(updates):
             # Determine loss on the support set
             loss, support_predictions = run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask,
-                                                  support_targets, mode, loss_module)
+                                                  support_targets, mode, torch.tensor(self.target_classes).squeeze(),
+                                                  loss_module)
 
             self.update_support(mode, support_predictions, support_targets)
 
@@ -127,7 +128,7 @@ class ProtoMAML(GraphTrainer):
             # Determine loss of query set
             query_loss, query_predictions = run_model(local_model, output_weight, output_bias,
                                                       *get_subgraph_batch(query_graphs), query_targets, mode,
-                                                      loss_module)
+                                                      torch.tensor(self.target_classes).squeeze(), loss_module)
 
             self.update_query(mode, query_predictions, query_targets)
 
@@ -171,7 +172,8 @@ class ProtoMAML(GraphTrainer):
         torch.set_grad_enabled(False)
 
 
-def run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask, targets, mode, loss_module=None):
+def run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask, targets, mode, target_classes,
+              loss_module=None):
     """
     Execute a model with given output layer weights and inputs.
     """
@@ -186,17 +188,19 @@ def run_model(local_model, output_weight, output_bias, x, edge_index, cl_mask, t
     # out:                  80 x 2
     logits = func.linear(logits, output_weight, output_bias)
 
-    # TODO: use the correct ones here!!
-    # now we have logits for both prototype classes --> use only logits for the target class
-    logits_fake = logits[:, 1].view(-1, 1)
+    logits_target = logits[:, target_classes]
+    if logits_target.ndim == 1:
+        logits_target = logits_target.unsqueeze(dim=1)
 
-    targets = targets.view(-1, 1) if not len(targets.shape) == 2 else targets
-    loss = loss_module(logits_fake, targets.float()) if loss_module is not None else None
+    if type(loss_module) != CrossEntropyLoss:
+        targets = (targets.view(-1, 1) if not len(targets.shape) == 2 else targets).float()
 
-    return loss, get_predictions(logits_fake)
+    loss = loss_module(logits_target, targets) if loss_module is not None else None
+
+    return loss, get_predictions(logits_target)
 
 
-def test_protomaml(model, test_loader, num_classes=1):
+def test_protomaml(model, test_loader, label_names, num_classes=1):
     mode = 'test'
     model = model.to(DEVICE)
     model.eval()
@@ -207,11 +211,16 @@ def test_protomaml(model, test_loader, num_classes=1):
 
     # Iterate through the full dataset in two manners:
     # First, to select the k-shot batch. Second, to evaluate the model on all other batches.
-    test_loss_weight = None
-    loss_module = BCEWithLogitsLoss(pos_weight=test_loss_weight)
-    f1_fakes, f1_macros, f1_weights = [], [], []
+    loss_module = CrossEntropyLoss()
+    f1_fakes, f1_macros, f1_weights = defaultdict(list), [], []
 
-    for support_batch_idx, batch in tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing"):
+    test_data_outer = list(test_loader)[:5]
+    # test_data_outer = tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing")
+
+    test_data_inner = test_data_outer
+    # test_data_inner = test_loader
+
+    for support_batch_idx, batch in enumerate(test_data_outer):
         support_graphs, _, support_targets, _ = batch
 
         # graphs are automatically put to device in adapt few shot
@@ -229,7 +238,7 @@ def test_protomaml(model, test_loader, num_classes=1):
             local_model.eval()
 
             # Evaluate all examples in test dataset
-            for query_batch_idx, test_batch in enumerate(test_loader):
+            for query_batch_idx, test_batch in enumerate(test_data_inner):
 
                 if support_batch_idx == query_batch_idx:
                     # Exclude support set elements
@@ -239,18 +248,24 @@ def test_protomaml(model, test_loader, num_classes=1):
                 graphs = support_graphs + query_graphs
                 targets = torch.cat([support_targets, query_targets]).to(DEVICE)
 
-                _, pred = run_model(local_model, output_weight, output_bias, *get_subgraph_batch(graphs), targets, mode)
+                _, pred = run_model(local_model, output_weight, output_bias, *get_subgraph_batch(graphs), targets, mode,
+                                    torch.tensor(model.target_classes))
 
                 f1_target.update(pred, targets)
                 f1_macro.update(pred, targets)
                 f1_weighted.update(pred, targets)
 
-            f1_fakes.append(f1_target.compute().item())
+            # will be one-dim if binary, multi-dim if many target classes
+            f1_fake = f1_target.compute()
+            for i, label in enumerate(label_names):
+                f1_fakes[label].append(f1_fake[i].item())
             f1_macros.append(f1_macro.compute().item())
             f1_weights.append(f1_weighted.compute().item())
 
     test_end = time.time()
     test_elapsed = test_end - test_start
 
-    return (mean(f1_fakes), stdev(f1_fakes)), (mean(f1_macros), stdev(f1_macros)), (
-        mean(f1_weights), stdev(f1_weights)), test_elapsed
+    for label in label_names:
+        f1_fakes[label] = mean(f1_fakes[label])
+
+    return (f1_fakes, 0.0), (mean(f1_macros), stdev(f1_macros)), (mean(f1_weights), stdev(f1_weights)), test_elapsed

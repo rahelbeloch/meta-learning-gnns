@@ -4,7 +4,7 @@ import torch
 from torch_geometric.loader import GraphSAINTSampler
 from torch_geometric.utils import k_hop_subgraph
 
-from train_config import META_MODELS
+from samplers.episode_sampler import NonMetaFewShotEpisodeSampler, MetaFewShotEpisodeSampler
 
 
 class KHopSampler(GraphSAINTSampler):
@@ -90,24 +90,18 @@ class KHopSampler(GraphSAINTSampler):
 
         graphs, targets = list(map(list, zip(*data_list_collated)))
 
-        n_support_samples = self.b_sampler.k_shot_support * 2
+        n_support_samples = self.b_sampler.k_shot_support * self.b_sampler.n_way
 
-        if self.model_type == 'gat':
+        # TODO: decide this based on sampler type, not with these if-elses
 
-            if self.mode == 'train':
-                # no need to split support and query, as they are concatenated anyway for GAT
-                return graphs, torch.LongTensor(targets)
+        if type(self.b_sampler) == NonMetaFewShotEpisodeSampler:
+            # no need to split support and query, as they are concatenated anyway for GAT
+            return graphs, torch.LongTensor(targets)
 
-        if self.model_type == 'prototypical' \
-                or (self.model_type == 'gat' and self.mode in ['val', 'test']) \
-                or (self.model_type in META_MODELS and self.mode == 'test'):
-
-            support_graphs, query_graphs = graphs[:n_support_samples], graphs[n_support_samples:]
-            support_labels, query_labels = targets[:n_support_samples], targets[n_support_samples:]
-
-            return support_graphs, query_graphs, torch.LongTensor(support_labels), torch.LongTensor(query_labels)
-
-        elif self.model_type in META_MODELS:
+        # if self.model_type == 'prototypical' \
+        #         or (self.model_type == 'gat' and self.mode != 'train') \
+        #         or (self.model_type in META_MODELS and self.mode == 'test'):
+        elif type(self.b_sampler) == MetaFewShotEpisodeSampler:
 
             # converts list of all given samples (e.g. (local batch size * task batch size) x 3) into a list of
             # batches (task batch size x 3 x local batch size). Makes it easier to process in the PL Maml.
@@ -131,6 +125,11 @@ class KHopSampler(GraphSAINTSampler):
             assert len(graphs[0]) == len(targets[0]) == local_b_size
 
             return list(zip(graphs, targets))
+        else:
+            support_graphs, query_graphs = graphs[:n_support_samples], graphs[n_support_samples:]
+            support_labels, query_labels = targets[:n_support_samples], targets[n_support_samples:]
+
+            return support_graphs, query_graphs, torch.LongTensor(support_labels), torch.LongTensor(query_labels)
 
     def as_data_target(self, adj, center_indices, node_indices):
         # data_collated = super().__collate__(data)

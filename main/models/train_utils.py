@@ -18,7 +18,7 @@ def get_subgraph_batch(graphs):
 
 
 def get_predictions(logits):
-    if logits.ndim == 1:
+    if logits.ndim == 1 or logits.shape[1] == 1:
         # binary classification
         return (logits.sigmoid() > 0.5).float()
     else:

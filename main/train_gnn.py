@@ -170,14 +170,18 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     # Evaluation
     model = model.load_from_checkpoint(model_path)
 
-    target_classes = [0, 1] if data_eval == "twitterHateSpeech" else [1]
+    target_classes = [0, 1, 2] if data_eval == "twitterHateSpeech" else [1]
     target_labels = [eval_graph.label_names[cls] for cls in target_classes]
     n_classes = len(eval_graph.labels)
 
-    if model_name == 'gat' and data_eval is not None and data_eval != data_train:
-        # model was trained on another dataset --> reinitialize some things, like classifier output or target label
+    if data_eval != data_train and data_eval is not None:
+        if model_name == 'gat':
+            # model was trained on another dataset --> reinitialize some things, like classifier output or target label
+            # Completely newly setting the output layer, erases all pretrained weights!
+            model.model.reset_classifier_dimensions(n_classes)
 
-        model.evaluation(n_classes, eval_graph.label_names, target_classes=target_classes)
+        # reset the test metric with number of classes
+        model.reset_test_metric(n_classes, eval_graph.label_names, target_classes)
 
     if model_name == 'gat':
 
@@ -186,10 +190,15 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     # elif model_name == 'prototypical':
     #     (test_f1_fake, _), elapsed, _ = test_proto_net(model, eval_graph, k_shot=k_shot)
     elif model_name == 'proto-maml':
-        (test_f1_queries, _), (f1_macro_query, _), (f1_weighted_query, _), elapsed = test_protomaml(model, test_loader)
+        (test_f1_queries, _), (f1_macro_query, _), (f1_weighted_query, _), elapsed = test_protomaml(model,
+                                                                                                    test_loader,
+                                                                                                    target_labels,
+                                                                                                    len(target_classes))
     elif model_name == 'maml':
-        (test_f1_queries, _), (f1_macro_query, _), (f1_weighted_query, _), elapsed = test_maml(model, test_loader,
-                                                                                               target_labels, n_classes)
+        (test_f1_queries, _), (f1_macro_query, _), (f1_weighted_query, _), elapsed = test_maml(model,
+                                                                                               test_loader,
+                                                                                               target_labels,
+                                                                                               len(target_classes))
     # elif model_name == 'gmeta':
     #     (test_f1_fake, _), elapsed = test_gmeta(model, test_loader)
     else:

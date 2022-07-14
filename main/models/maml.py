@@ -224,5 +224,4 @@ def test_maml(model, test_loader, label_names, num_classes=1):
     for label in label_names:
         f1_fakes[label] = mean(f1_fakes[label])
 
-    return (f1_fakes, 0.0), (mean(f1_macros), stdev(f1_macros)), (
-        mean(f1_weights), stdev(f1_weights)), test_elapsed
+    return (f1_fakes, 0.0), (mean(f1_macros), stdev(f1_macros)), (mean(f1_weights), stdev(f1_weights)), test_elapsed

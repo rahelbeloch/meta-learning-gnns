@@ -1,7 +1,6 @@
 import torch.cuda
 
 from data_prep.graph_dataset import TorchGeomGraphDataset
-from data_prep.graph_preprocessor import SPLITS
 from samplers.episode_sampler import NonMetaFewShotEpisodeSampler, FewShotEpisodeSampler, MetaFewShotEpisodeSampler, \
     get_max_nr_for_shots
 from samplers.graph_sampler import KHopSampler
@@ -55,14 +54,11 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
     n_query_train = get_max_n_query(graph_data_train)
     print(f"\nUsing max query samples for episode creation: {n_query_train}\n")
 
-    train_mode, oversample = 'train', True
+    train_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, 'train',
+                              n_query_train['train'], batch_size, True)
 
-    train_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, train_mode, n_query_train,
-                              batch_size, oversample)
-    # val_split = 'train'
-    val_split = 'val'
-    train_val_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, val_split, n_query_train,
-                                  batch_size, oversample)
+    train_val_loader = get_loader(graph_data_train, model_name, hop_size, k_shot, num_workers, 'val',
+                                  n_query_train['val'], batch_size, True)
 
     print(f"\nTrain graph size: \n num_features: {graph_data_train.size[1]}\n total_nodes: {graph_data_train.size[0]}")
 
@@ -70,7 +66,6 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
         print(f'\nData eval and data train are equal, loading graph data only once.\n')
         graph_data_eval = graph_data_train
         test_val_loader = train_val_loader
-        n_query_eval = n_query_train
     else:
         # creating a val and test loader from the eval dataset
         data_config['top_users_excluded'] = 0
@@ -79,17 +74,14 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
                                          'val_size': eval_split_size[1], 'test_size': eval_split_size[2]}}
 
         graph_data_eval = TorchGeomGraphDataset(eval_config, eval_split_size, *dirs)
-        n_query_eval = get_max_n_query(graph_data_eval)
-
-        oversample = False
 
         print(f"\nTest graph size: \n num_features: {graph_data_eval.size[1]}\n total_nodes: {graph_data_eval.size[0]}")
 
-        test_val_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'val', n_query_eval,
-                                     batch_size, oversample)
+        # test_val_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'val', None,
+        #                              batch_size, True)
+        test_val_loader = None
 
-    test_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'test', n_query_eval,
-                             batch_size, oversample)
+    test_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'test', None, batch_size, True)
 
     # verify_not_overlapping_samples(train_loader)
     # verify_not_overlapping_samples(train_val_loader)
@@ -116,19 +108,20 @@ def get_num_workers(sampler, num_workers):
     return 0
 
 
-def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, n_queries, batch_size, oversample):
+def get_loader(graph_data, model_name, hop_size, k_shot, num_workers, mode, max_n_query, batch_size, oversample):
     n_classes = len(graph_data.labels)
 
     mask = graph_data.mask(f"{mode}_mask")
     indices = torch.where(mask == True)[0]
     targets = graph_data.data.y[mask]
     assert indices.shape == targets.shape
-    max_n_query = n_queries[mode]
 
     if model_name == 'gat' and mode == 'train':
         batch_sampler = NonMetaFewShotEpisodeSampler(indices, targets, max_n_query, mode, batch_size, n_classes, k_shot,
                                                      oversample=oversample)
-    elif model_name == 'prototypical' or (model_name == 'gat' and mode != 'train'):
+    elif model_name == 'prototypical' \
+            or (model_name == 'gat' and mode != 'train') \
+            or (model_name in META_MODELS and mode == 'test'):
         batch_sampler = FewShotEpisodeSampler(indices, targets, max_n_query, mode, n_classes, k_shot,
                                               oversample=oversample)
     elif model_name in META_MODELS:
@@ -160,7 +153,7 @@ def get_max_n_query(graph_data):
     n_classes = len(graph_data.labels)
 
     n_queries = {}
-    for split in SPLITS:
+    for split in ['train', 'val']:
         # maximum amount of query samples which should be used from the total amount of samples
         samples = len(torch.where(graph_data.split_masks[f"{split}_mask"])[0]) // n_classes
         n_queries[split] = get_max_nr_for_shots(samples, n_classes)

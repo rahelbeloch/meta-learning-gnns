@@ -197,14 +197,6 @@ class GatBase(GraphTrainer):
         _, sub_graphs, _, targets = batch
         self.forward(sub_graphs, targets, mode='test')
 
-    def evaluation(self, n_classes, label_names, target_classes):
-
-        # Completely newly setting the output layer, erases all pretrained weights!
-        self.model.reset_classifier_dimensions(n_classes)
-
-        # reset the test metric with number of classes
-        self.reset_test_metric(n_classes, label_names, target_classes)
-
 
 def evaluate(trainer, model, test_dataloader, label_names):
     """

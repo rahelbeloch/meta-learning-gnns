@@ -48,7 +48,7 @@ class FewShotEpisodeSampler(Sampler):
         # Number of K-shot batches that each class can provide
         self.batches_per_class, self.indices_per_class = dict(support={}, query={}), dict(support={}, query={})
 
-        n_support = 0
+        majority_class, largest_n_support = None, 0
 
         if self.verbose:
             print(f"{mode} sampler:")
@@ -58,15 +58,27 @@ class FewShotEpisodeSampler(Sampler):
             class_indices = indices[torch.where(self.data_targets == c)[0]]
             n_class = len(class_indices)
 
-            # calculate how many query samples to take from this class
-            c_max_n_query = int((n_class / self.total_samples) * self.max_n_query)
-            # c_max_n_query = int(round(n_class / self.total_samples, 1) * self.max_n_query)
-            n_query_class = get_max_nr_for_shots(c_max_n_query, self.n_way)
+            if mode != 'test':
+                # make sure we take the same amount for query sets
+                assert self.max_n_query is not None, f"Episode sampler for mode {mode}, but max_n_query is not defined!"
+
+                # calculate how many query samples to take from this class
+                c_max_n_query = int((n_class / self.total_samples) * self.max_n_query)
+                # c_max_n_query = int(round(n_class / self.total_samples, 1) * self.max_n_query)
+                n_query_class = get_max_nr_for_shots(c_max_n_query, self.n_way)
+            else:
+                # meta test query does not follow any constraints --> Simply divide samples by 2 and upsample support
+                assert self.max_n_query is None, f"Episode sampler for mode {mode}, but max_n_query is defined!"
+
+                n_query_class = int(n_class / 2)
 
             # divide the samples we have for this class into support and query samples
             n_support_class = n_class - n_query_class
             self.indices_per_class['support'][c] = class_indices[:n_support_class]
-            n_support += n_support_class
+
+            if majority_class is None or n_support_class > largest_n_support:
+                # keep track of which class of all is the majority class for upsampling later!
+                majority_class, largest_n_support = c, n_support_class
 
             query_samples = class_indices[n_support_class:]
             assert query_samples.shape[0] == n_query_class
@@ -77,8 +89,19 @@ class FewShotEpisodeSampler(Sampler):
                       f" {n_query_class} (query).")
 
         if oversample:
-            # random oversampling for the support sets for both classes
-            self.indices_per_class['support'][1] = get_random_oversampled(0, 1, self.indices_per_class['support'])
+            for c in self.classes:
+                if c == majority_class:
+                    # no need to upsample the majority class
+                    continue
+
+                self.indices_per_class['support'][c] = get_random_oversampled(majority_class, c,
+                                                                              self.indices_per_class['support'])
+        # some verification that we now really have balanced support set samples!!
+        n_support_samples = []
+        for c in self.classes:
+            n_support_samples.append(self.indices_per_class['support'][c].shape[0])
+
+        assert len(set(n_support_samples)) == 1, "We should have the same amount of support samples across all classes!"
 
         # assert 1 not in self.data_targets[self.indices_per_class['support'][0]] \
         #        and 0 not in self.data_targets[self.indices_per_class['support'][1]] \
@@ -109,11 +132,12 @@ class FewShotEpisodeSampler(Sampler):
             print(f" Query shots after rounding: {self.k_shot_query}")
 
         # Number of overall samples per query and support batch
-        self.batch_size = self.k_shot_support * 2 + self.k_shot_query[0] + self.k_shot_query[1]
+        self.batch_size = self.k_shot_support * self.n_way + sum(self.k_shot_query.values())
 
         # some validation
-        nr_query_samples = self.count_samples('query')
-        assert nr_query_samples <= self.max_n_query, "Number of query examples we are using exceeds the max query nr!"
+        if mode == 'test' and self.max_n_query is not None:
+            nr_query_samples = self.count_samples('query')
+            assert nr_query_samples <= self.max_n_query, "Query examples numbe we are using exceeds the max query nr!"
 
         # dividing all query samples into batches/episodes should be the number of batches we have for the query set
         # assert (nr_query_samples // self.k_shot_support) == sum(self.batches_per_class['query'].values())
@@ -214,10 +238,22 @@ class NonMetaFewShotEpisodeSampler(FewShotEpisodeSampler):
         # self.new_b_size = 2704   # --> 3 batches
         # self.new_b_size = 624  # --> 13 batches
 
+        # TODO unbalanced dataset (gossipcop): shots 6
+        # self.new_b_size =    # --> 1 batch
+        # self.new_b_size =    # --> 2 batches
+        # self.new_b_size =    # --> 3 batches
+        # self.new_b_size =    # --> 13 batches
+
         # unbalanced dataset (gossipcop): shots 10
         # self.new_b_size = 8349   # --> 1 batch
         # self.new_b_size = 2783   # --> 3 batches
         # self.new_b_size = 759  # --> 11 batches
+
+        # TODO unbalanced dataset (gossipcop): shots 18
+        # self.new_b_size =    # --> 1 batch
+        # self.new_b_size =    # --> 2 batches
+        # self.new_b_size =    # --> 3 batches
+        # self.new_b_size =    # --> 13 batches
 
         # unbalanced dataset (gossipcop): shots 20
         # self.new_b_size = 4221   # --> 2 batch
