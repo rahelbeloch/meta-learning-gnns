@@ -224,7 +224,9 @@ class NonMetaFewShotEpisodeSampler(FewShotEpisodeSampler):
 
         shot_batch_size_map = {
             5: [8112, 4056, 2704, 624],
+            8: [8034, 2678],
             10: [8349, 2783, 759],
+            16: [8316, 4158, 378],
             20: [4221, 2814, 1407, 938, 603],
             40: [8442, 4221, 2814, 1206, 938],
         }
@@ -238,22 +240,18 @@ class NonMetaFewShotEpisodeSampler(FewShotEpisodeSampler):
         # self.new_b_size = 2704   # --> 3 batches
         # self.new_b_size = 624  # --> 13 batches
 
-        # TODO unbalanced dataset (gossipcop): shots 6
-        # self.new_b_size =    # --> 1 batch
-        # self.new_b_size =    # --> 2 batches
-        # self.new_b_size =    # --> 3 batches
-        # self.new_b_size =    # --> 13 batches
+        # self.new_b_size = 8034   # --> 1 batch
+        # self.new_b_size = 2678   # --> 3 batches
 
         # unbalanced dataset (gossipcop): shots 10
         # self.new_b_size = 8349   # --> 1 batch
         # self.new_b_size = 2783   # --> 3 batches
         # self.new_b_size = 759  # --> 11 batches
 
-        # TODO unbalanced dataset (gossipcop): shots 18
-        # self.new_b_size =    # --> 1 batch
-        # self.new_b_size =    # --> 2 batches
-        # self.new_b_size =    # --> 3 batches
-        # self.new_b_size =    # --> 13 batches
+        # unbalanced dataset (gossipcop): shots 16
+        # self.new_b_size = 8316   # --> 1 batch
+        # self.new_b_size = 4158   # --> 2 batches
+        # self.new_b_size = 378    # --> 7 batches
 
         # unbalanced dataset (gossipcop): shots 20
         # self.new_b_size = 4221   # --> 2 batch
