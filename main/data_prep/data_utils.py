@@ -1,6 +1,7 @@
 import torch.cuda
 
 from data_prep.graph_dataset import TorchGeomGraphDataset
+from data_prep.graph_preprocessor import SPLITS
 from samplers.episode_sampler import NonMetaFewShotEpisodeSampler, FewShotEpisodeSampler, MetaFewShotEpisodeSampler, \
     get_max_nr_for_shots
 from samplers.graph_sampler import KHopSampler
@@ -66,6 +67,7 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
         print(f'\nData eval and data train are equal, loading graph data only once.\n')
         graph_data_eval = graph_data_train
         test_val_loader = train_val_loader
+        n_query_test = n_query_train
     else:
         # creating a val and test loader from the eval dataset
         data_config['top_users_excluded'] = 0
@@ -77,11 +79,11 @@ def get_data(data_train, data_eval, model_name, hop_size, top_k, top_users_exclu
 
         print(f"\nTest graph size: \n num_features: {graph_data_eval.size[1]}\n total_nodes: {graph_data_eval.size[0]}")
 
-        # test_val_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'val', None,
-        #                              batch_size, True)
         test_val_loader = None
+        n_query_test = get_max_n_query(graph_data_eval)
 
-    test_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'test', None, batch_size, True)
+    test_loader = get_loader(graph_data_eval, model_name, hop_size, k_shot, num_workers, 'test', n_query_test['test'],
+                             batch_size, True)
 
     # verify_not_overlapping_samples(train_loader)
     # verify_not_overlapping_samples(train_val_loader)
@@ -153,9 +155,9 @@ def get_max_n_query(graph_data):
     n_classes = len(graph_data.labels)
 
     n_queries = {}
-    for split in ['train', 'val']:
+    for split in SPLITS:
         # maximum amount of query samples which should be used from the total amount of samples
-        samples = len(torch.where(graph_data.split_masks[f"{split}_mask"])[0]) // n_classes
+        samples = len(torch.where(graph_data.split_masks[f"{split}_mask"])[0]) // 2
         n_queries[split] = get_max_nr_for_shots(samples, n_classes)
 
     return n_queries

@@ -357,8 +357,11 @@ class DataPreprocessor(GraphIO):
         split_dict = {}
 
         if self.test_size > 0:
-            # one tuple is one split and contains: (x, y, doc_names)
-            rest_split, test_split = split_data(splits, self.test_size, data)
+            if self.test_size == 1:
+                test_split, rest_split = data, None
+            else:
+                # one tuple is one split and contains: (x, y, doc_names)
+                rest_split, test_split = split_data(splits, self.test_size, data)
 
             assert len(set(test_split[2])) == len(test_split[2]), \
                 "Test split contains duplicate doc names!"
@@ -370,7 +373,6 @@ class DataPreprocessor(GraphIO):
 
         train_split = None
         if self.val_size > 0:
-
             if (self.test_size + self.val_size) == 1:
                 # no train split needed
                 val_split = rest_split
@@ -387,8 +389,6 @@ class DataPreprocessor(GraphIO):
             self.print_label_distribution(val_split[1], 'val')
 
             split_dict['val'] = val_split
-        else:
-            train_split = data
 
         if train_split is not None and self.balance_train_split:
             print("Balancing train split")

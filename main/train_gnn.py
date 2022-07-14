@@ -32,7 +32,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
           lr_decay_factor, scheduler, weight_decay, momentum, optimizer, suffix):
     os.makedirs(LOG_PATH, exist_ok=True)
 
-    eval_split_size = (0.0, 0.25, 0.75) if data_eval != data_train else None
+    eval_split_size = (0.0, 0.0, 1) if data_eval != data_train else None
 
     if model_name not in SUPPORTED_MODELS:
         raise ValueError("Model type '%s' is not supported." % model_name)

@@ -58,19 +58,19 @@ class FewShotEpisodeSampler(Sampler):
             class_indices = indices[torch.where(self.data_targets == c)[0]]
             n_class = len(class_indices)
 
-            if mode != 'test':
-                # make sure we take the same amount for query sets
-                assert self.max_n_query is not None, f"Episode sampler for mode {mode}, but max_n_query is not defined!"
+            # if mode != 'test':
+            # make sure we take the same amount for query sets
+            assert self.max_n_query is not None, f"Episode sampler for mode {mode}, but max_n_query is not defined!"
 
-                # calculate how many query samples to take from this class
-                c_max_n_query = int((n_class / self.total_samples) * self.max_n_query)
-                # c_max_n_query = int(round(n_class / self.total_samples, 1) * self.max_n_query)
-                n_query_class = get_max_nr_for_shots(c_max_n_query, self.n_way)
-            else:
-                # meta test query does not follow any constraints --> Simply divide samples by 2 and upsample support
-                assert self.max_n_query is None, f"Episode sampler for mode {mode}, but max_n_query is defined!"
-
-                n_query_class = int(n_class / 2)
+            # calculate how many query samples to take from this class
+            c_max_n_query = int((n_class / self.total_samples) * self.max_n_query)
+            # c_max_n_query = int(round(n_class / self.total_samples, 1) * self.max_n_query)
+            n_query_class = get_max_nr_for_shots(c_max_n_query, self.n_way)
+            # else:
+            #     # meta test query does not follow any constraints --> Simply divide samples by 2 and upsample support
+            #     assert self.max_n_query is None, f"Episode sampler for mode {mode}, but max_n_query is defined!"
+            #
+            #     n_query_class = int(n_class / 2)
 
             # divide the samples we have for this class into support and query samples
             n_support_class = n_class - n_query_class
@@ -135,9 +135,9 @@ class FewShotEpisodeSampler(Sampler):
         self.batch_size = self.k_shot_support * self.n_way + sum(self.k_shot_query.values())
 
         # some validation
-        if mode == 'test' and self.max_n_query is not None:
-            nr_query_samples = self.count_samples('query')
-            assert nr_query_samples <= self.max_n_query, "Query examples number we are using exceeds the max query nr!"
+        # if mode == 'test' and self.max_n_query is not None:
+        nr_query_samples = self.count_samples('query')
+        assert nr_query_samples <= self.max_n_query, "Query examples number we are using exceeds the max query nr!"
 
         # dividing all query samples into batches/episodes should be the number of batches we have for the query set
         # assert (nr_query_samples // self.k_shot_support) == sum(self.batches_per_class['query'].values())
@@ -376,8 +376,8 @@ def get_max_nr_for_shots(max_samples, n_class, max_shot=max(SHOTS)):
     max_nr = get_max_n(max_samples, n_class, max_shot)
 
     # test to verify this number is divisible by shot int and number of classes
-    for shot in SHOTS:
-        assert (max_nr / shot / n_class) % 1 == 0
+    # for shot in SHOTS:
+    #     assert (max_nr / shot / n_class) % 1 == 0
 
     return max_nr
 
