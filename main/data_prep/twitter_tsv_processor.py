@@ -221,7 +221,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--val_size', type=float, default=0.0, help='Size of validation split.')
 
-    parser.add_argument('--test_size', type=float, default=1.0, help='Size of train split.')
+    parser.add_argument('--test_size', type=float, default=1, help='Size of train split.')
 
     args, unparsed = parser.parse_known_args()
     args = args.__dict__
