@@ -137,7 +137,7 @@ class FewShotEpisodeSampler(Sampler):
         # some validation
         if mode == 'test' and self.max_n_query is not None:
             nr_query_samples = self.count_samples('query')
-            assert nr_query_samples <= self.max_n_query, "Query examples numbe we are using exceeds the max query nr!"
+            assert nr_query_samples <= self.max_n_query, "Query examples number we are using exceeds the max query nr!"
 
         # dividing all query samples into batches/episodes should be the number of batches we have for the query set
         # assert (nr_query_samples // self.k_shot_support) == sum(self.batches_per_class['query'].values())
