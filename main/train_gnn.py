@@ -28,7 +28,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
           patience_metric, h_size, top_users, top_users_excluded, k_shot, lr, lr_val, lr_inner, lr_output,
           hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size,
           feature_type, vocab_size, n_inner_updates, n_inner_updates_test, num_workers, gat_dropout, lin_dropout,
-          attn_dropout, wb_mode, warmup, max_iters, gat_heads, batch_size, lr_decay_epochs, lr_decay_epochs_val,
+          attn_dropout, wb_mode, warmup, max_iters, gat_heads, gat_train_batches, lr_decay_epochs, lr_decay_epochs_val,
           lr_decay_factor, scheduler, weight_decay, momentum, optimizer, suffix):
     os.makedirs(LOG_PATH, exist_ok=True)
 
@@ -67,7 +67,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
 
     loaders, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
                                                 top_users_excluded, k_shot, train_split_size, eval_split_size,
-                                                feature_type, vocab_size, dirs, batch_size, num_workers,
+                                                feature_type, vocab_size, dirs, gat_train_batches, num_workers,
                                                 balance_data)
 
     train_loader, train_val_loader, test_loader, test_val_loader = loaders
@@ -397,7 +397,7 @@ if __name__ == "__main__":
     parser.add_argument('--feature-type', dest='feature_type', type=str, default='one-hot',
                         help="Type of features used.")
     parser.add_argument('--vocab-size', dest='vocab_size', type=int, default=10000, help="Size of the vocabulary.")
-    parser.add_argument('--batch-size', dest='batch_size', type=int, default=None, help="Size of batches.")
+    parser.add_argument('--gat-train-batches', dest='gat_train_batches', type=int, default=1, help="Number of batches to use during training for GAT baseline.")
     parser.add_argument('--data-dir', dest='data_dir', default='data',
                         help='Select the dataset you want to use.')
 
@@ -467,7 +467,7 @@ if __name__ == "__main__":
           warmup=params['warmup'],
           max_iters=params['max_iters'],
           gat_heads=params['gat_heads'],
-          batch_size=params['batch_size'],
+          gat_train_batches=params['gat_train_batches'],
           lr_decay_epochs=params['lr_decay_epochs'],
           lr_decay_epochs_val=params['lr_decay_epochs_val'],
           lr_decay_factor=params['lr_decay_factor'],

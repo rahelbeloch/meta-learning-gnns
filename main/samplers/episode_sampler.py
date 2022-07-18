@@ -215,24 +215,29 @@ class NonMetaFewShotEpisodeSampler(FewShotEpisodeSampler):
     Useful for non-meta baselines for more stable training with bigger batches.
     """
 
-    def __init__(self, indices, targets, max_n_query, mode, batch_size, n_way=2, k_shot=5, verbose=False,
+    def __init__(self, indices, targets, max_n_query, mode, gat_train_batches, n_way=2, k_shot=5,
+                 verbose=False,
                  oversample=False):
         super().__init__(indices, targets, max_n_query, mode, n_way, k_shot, verbose, oversample)
 
         # different shot sizes change the number of samples which can be used.
         # For comparability, GAT should be trained with 3 batches for each shot size...
 
-        shot_batch_size_map = {
-            5: [8112, 4056, 2704, 624],
-            8: [8034, 2678],
-            10: [8349, 2783, 759],
-            16: [8316, 4158, 378],
-            20: [4221, 2814, 1407, 938, 603],
-            40: [8442, 4221, 2814, 1206, 938],
+        gossipcop_shot_batch_size_map = {
+            5: {1: 8112, 2: 4056, 3: 2704, 13: 624},
+            8: {1: 8086, 2: 4043, 13: 622},
+            10: {1: 8349, 3: 2783, 11: 759},
+            16: {1: 8215, 5: 1643},
+            20: {2: 4221, 3: 2814, 6: 1407, 9: 938, 14: 603},
+            40: {1: 8442, 2: 4221, 3: 2814, 7: 1206, 9: 938},
         }
 
-        assert batch_size in shot_batch_size_map[k_shot], \
-            f"Batch size can not create even number of batches, please choose one of: {shot_batch_size_map[k_shot]}"
+        # twitter_shot_batch_size_map = {8: {1: 8034, 3: 2678}, 16: {1: 8316, 2: 4158, 7: 378}}
+
+        shot_batch_size_map = gossipcop_shot_batch_size_map
+        assert k_shot in shot_batch_size_map and gat_train_batches in shot_batch_size_map[k_shot], \
+            f"K-Shot {k_shot} not in shot batch map or nr of gat train batches ({gat_train_batches}) not " \
+            f"in shot batch map: {shot_batch_size_map[k_shot]}."
 
         # unbalanced dataset (gossipcop): shots 5
         # self.new_b_size = 8112   # --> 1 batch
@@ -240,18 +245,10 @@ class NonMetaFewShotEpisodeSampler(FewShotEpisodeSampler):
         # self.new_b_size = 2704   # --> 3 batches
         # self.new_b_size = 624  # --> 13 batches
 
-        # self.new_b_size = 8034   # --> 1 batch
-        # self.new_b_size = 2678   # --> 3 batches
-
         # unbalanced dataset (gossipcop): shots 10
         # self.new_b_size = 8349   # --> 1 batch
         # self.new_b_size = 2783   # --> 3 batches
         # self.new_b_size = 759  # --> 11 batches
-
-        # unbalanced dataset (gossipcop): shots 16
-        # self.new_b_size = 8316   # --> 1 batch
-        # self.new_b_size = 4158   # --> 2 batches
-        # self.new_b_size = 378    # --> 7 batches
 
         # unbalanced dataset (gossipcop): shots 20
         # self.new_b_size = 4221   # --> 2 batch
@@ -267,10 +264,19 @@ class NonMetaFewShotEpisodeSampler(FewShotEpisodeSampler):
         # self.new_b_size = 1206  # --> 7 batches
         # self.new_b_size = 938  # --> 9 batches
 
+        # unbalanced dataset (twitterHateSpeech): shots 8
+        # self.new_b_size = 8034   # --> 1 batch
+        # self.new_b_size = 2678   # --> 3 batches
+
+        # unbalanced dataset (twitterHateSpeech): shots 16
+        # self.new_b_size = 8316   # --> 1 batch
+        # self.new_b_size = 4158   # --> 2 batches
+        # self.new_b_size = 378    # --> 7 batches
+
         # balanced dataset (gossipcop)
         # self.new_b_size = 497  # --> balanced dataset, 9 batches
 
-        self.new_b_size = batch_size
+        self.new_b_size = shot_batch_size_map[k_shot][gat_train_batches]
 
         used_samples = self.num_batches * self.batch_size
         n_new_batches = used_samples / self.new_b_size
@@ -303,7 +309,7 @@ class NonMetaFewShotEpisodeSampler(FewShotEpisodeSampler):
 
 class MetaFewShotEpisodeSampler(FewShotEpisodeSampler):
 
-    def __init__(self, indices, targets, max_n_query, mode, n_way, k_shot, batch_size=None, oversample=False):
+    def __init__(self, indices, targets, max_n_query, mode, n_way, k_shot, oversample=False):
         """
         Inputs:
             dataset_targets - PyTorch tensor of the labels of the data elements.
@@ -313,9 +319,7 @@ class MetaFewShotEpisodeSampler(FewShotEpisodeSampler):
         """
         super().__init__(indices, targets, max_n_query, mode, n_way, k_shot, oversample=oversample)
 
-        # for training, we want to pass the whole data as 1 batch
-        self.task_batch_size = batch_size if batch_size is not None else self.num_batches
-        # self.task_batch_size = batch_size
+        self.task_batch_size = self.num_batches if mode == 'train' else 2
 
         self.local_batch_size = self.batch_size  # already includes both classes for support and query
 
