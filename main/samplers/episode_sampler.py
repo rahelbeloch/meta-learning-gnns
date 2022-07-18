@@ -274,7 +274,7 @@ class NonMetaFewShotEpisodeSampler(FewShotEpisodeSampler):
 
         used_samples = self.num_batches * self.batch_size
         n_new_batches = used_samples / self.new_b_size
-        assert n_new_batches % 1 == 0, f"New batch size {self.new_b_size} can not create even number of batches."
+        assert n_new_batches % 1 == 0, f"New batch size {self.new_b_size} can not create even number of batches out of  {used_samples} used samples."
 
         self.n_new_batches = int(n_new_batches)
 
