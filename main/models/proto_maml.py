@@ -86,7 +86,7 @@ class ProtoMAML(GraphTrainer):
                                                   support_targets, mode, torch.tensor(self.target_classes).squeeze(),
                                                   loss_module)
 
-            self.update_support(mode, support_predictions, support_targets)
+            self.update_metrics(mode, support_predictions, support_targets, set_name='support')
 
             # Calculate gradients and perform inner loop update
             loss.backward()
@@ -130,7 +130,7 @@ class ProtoMAML(GraphTrainer):
                                                       *get_subgraph_batch(query_graphs), query_targets, mode,
                                                       torch.tensor(self.target_classes).squeeze(), loss_module)
 
-            self.update_query(mode, query_predictions, query_targets)
+            self.update_metrics(mode, query_predictions, query_targets, set_name='query')
 
             # Calculate gradients for query set loss
             if mode == "train":

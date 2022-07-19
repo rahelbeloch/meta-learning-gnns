@@ -146,7 +146,7 @@ class GatBase(GraphTrainer):
             logits = self.validation_model(x, edge_index, mode)[cl_mask].squeeze()
 
             support_predictions = (logits.sigmoid() > 0.5).float()
-            self.update_support(mode, support_predictions, support_targets)
+            self.update_metrics(mode, support_predictions, support_targets, set_name='support')
 
             loss = self.validation_loss(logits, support_targets.float())
 
@@ -183,7 +183,7 @@ class GatBase(GraphTrainer):
             loss = self.validation_loss(logits, query_targets.float())
 
             query_predictions = (logits.sigmoid() > 0.5).float()
-            self.update_query(mode, query_predictions, query_targets)
+            self.update_metrics(mode, query_predictions, query_targets, set_name='query')
 
             # only log this once in the end of an epoch (averaged over steps)
             self.log_on_epoch(f"{mode}/query_loss", loss)

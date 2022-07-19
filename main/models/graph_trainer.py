@@ -62,15 +62,16 @@ class GraphTrainer(pl.LightningModule):
         super().test_epoch_end(outputs)
         self.compute_and_log_metrics('test')
 
-    def update_metrics(self, mode, predictions, targets):
-        for mode_dict, _ in self.metrics.values():
-            mode_dict[mode].update(predictions, targets)
+    def update_metrics(self, mode, predictions, targets, set_name=None):
+        for metric_name, (mode_dict, _) in self.metrics.items():
+            if set_name is None or set_name in metric_name:
+                mode_dict[mode].update(predictions, targets)
 
-    def update_query(self, mode, predictions, targets):
-        self.metrics['f1_target_query'][0][mode].update(predictions, targets)
-
-    def update_support(self, mode, predictions, targets):
-        self.metrics['f1_target_support'][0][mode].update(predictions, targets)
+    # def update_query(self, mode, predictions, targets):
+    #     self.metrics['f1_target_query'][0][mode].update(predictions, targets)
+    #
+    # def update_support(self, mode, predictions, targets):
+    #     self.metrics['f1_target_support'][0][mode].update(predictions, targets)
 
     def compute_and_log_metrics(self, mode):
 

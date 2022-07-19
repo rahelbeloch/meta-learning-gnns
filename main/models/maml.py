@@ -69,7 +69,10 @@ class Maml(GraphTrainer):
         # Optimize inner loop model on support set
         for _ in range(updates):
             # Determine loss on the support set
-            loss, _ = run_model(local_model, x, edge_index, cl_mask, support_targets, mode, loss_module)
+            loss, support_predictions = run_model(local_model, x, edge_index, cl_mask, support_targets, mode,
+                                                  loss_module)
+
+            self.update_metrics(mode, support_predictions, support_targets, set_name='support')
 
             # Calculate gradients and perform inner loop update
             loss.backward()
@@ -100,7 +103,7 @@ class Maml(GraphTrainer):
                                                       mode,
                                                       loss_module)
 
-            self.update_metrics(mode, query_predictions, query_targets)
+            self.update_metrics(mode, query_predictions, query_targets, set_name='query')
 
             # Calculate gradients for query set loss
             if mode == "train":
