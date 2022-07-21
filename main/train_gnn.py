@@ -375,7 +375,7 @@ if __name__ == "__main__":
     # META PARAMETERS
 
     parser.add_argument('--proto-dim', dest='proto_dim', type=int, default=64)
-    parser.add_argument('--output-lr', dest='lr_output', type=float, default=0.01)
+    parser.add_argument('--output-lr', dest='lr_output', type=float, default=0.1)
     parser.add_argument('--inner-lr', dest='lr_inner', type=float, default=0.01)
     parser.add_argument('--n-updates', dest='n_updates', type=int, default=5,
                         help="Inner gradient updates during meta learning.")
