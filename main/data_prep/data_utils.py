@@ -152,10 +152,13 @@ def get_max_n_query(graph_data):
 
     n_classes = len(graph_data.labels)
 
+    # twitterHateSpeech strong class imbalance, therefore need more query samples
+    sample_divider = 1.8 if graph_data.dataset == 'twitterHateSpeech' else 2
+
     n_queries = {}
     for split in SPLITS:
         # maximum amount of query samples which should be used from the total amount of samples
-        samples = len(torch.where(graph_data.split_masks[f"{split}_mask"])[0]) // 2
+        samples = len(torch.where(graph_data.split_masks[f"{split}_mask"])[0]) // sample_divider
         n_queries[split] = get_max_nr_for_shots(samples, n_classes)
 
     return n_queries

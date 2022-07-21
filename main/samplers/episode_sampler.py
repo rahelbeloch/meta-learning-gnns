@@ -74,13 +74,21 @@ class FewShotEpisodeSampler(Sampler):
 
             # divide the samples we have for this class into support and query samples
             n_support_class = n_class - n_query_class
-            self.indices_per_class['support'][c] = class_indices[:n_support_class]
+
+            random_class_indices = torch.randperm(class_indices.size(0))
+            support_indices = random_class_indices[:n_support_class]
+            self.indices_per_class['support'][c] = class_indices[support_indices]
 
             if majority_class is None or n_support_class > largest_n_support:
                 # keep track of which class of all is the majority class for upsampling later!
                 majority_class, largest_n_support = c, n_support_class
 
-            query_samples = class_indices[n_support_class:]
+            query_indices = random_class_indices[n_support_class:]
+
+            assert len(set([f.item() for f in support_indices]).intersection([f.item() for f in query_indices])) == 0, \
+                'There are samples that are taken for query and support set!'
+
+            query_samples = class_indices[query_indices]
             assert query_samples.shape[0] == n_query_class
             self.indices_per_class['query'][c] = query_samples
 
