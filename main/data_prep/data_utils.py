@@ -104,7 +104,7 @@ def get_num_workers(sampler, num_workers):
             if (len(sampler) / r) >= 2:
                 return r
     elif type(sampler) == FewShotEpisodeSampler:
-        return 4
+        return 0
     elif type(sampler) == MetaFewShotEpisodeSampler:
         return 0
     return 0
