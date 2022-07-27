@@ -37,8 +37,8 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     if model_name not in SUPPORTED_MODELS:
         raise ValueError("Model type '%s' is not supported." % model_name)
 
-    if checkpoint is not None and model_name not in checkpoint:
-        raise ValueError(f"Can not evaluate model type '{model_name}' on a pretrained model of another type.")
+    # if checkpoint is not None and model_name not in checkpoint:
+    #     raise ValueError(f"Can not evaluate model type '{model_name}' on a pretrained model of another type.")
 
     if k_shot not in SHOTS:
         raise ValueError(f"'{k_shot}' is not valid!")
@@ -119,8 +119,6 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     else:
         raise ValueError(f'Model name {model_name} unknown!')
 
-    print('\nInitializing trainer ..........\n')
-
     wandb_config = dict(
         seed=seed,
         max_epochs=epochs,
@@ -143,8 +141,11 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
         suffix=suffix
     )
 
-    trainer = initialize_trainer(epochs, patience, patience_metric, progress_bar, wb_mode, wandb_config,
-                                 suffix)
+    trainer = None
+    if not evaluation or model_name == 'gat':
+        # either training mode or GAT evaluation
+        print('\nInitializing trainer ..........\n')
+        trainer = initialize_trainer(epochs, patience, patience_metric, progress_bar, wb_mode, wandb_config, suffix)
 
     if not evaluation:
         # Training
@@ -170,7 +171,6 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
 
     # Evaluation
     model = model.load_from_checkpoint(model_path)
-
     n_classes = len(eval_graph.labels)
 
     if data_eval == "twitterHateSpeech":
@@ -194,15 +194,31 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
 
     if model_name == 'gat':
         test_f1_queries, f1_macro_query, f1_weighted_query, elapsed = evaluate(trainer, model, test_loader, labels)
-    # elif model_name == 'prototypical':
-    #     (test_f1_fake, _), elapsed, _ = test_proto_net(model, eval_graph, k_shot=k_shot)
     elif model_name == 'proto-maml':
+
+        if wb_mode == 'online':
+            wandb.init(config=wandb_config,
+                       project='meta-gnn',
+                       name=f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}{suffix}",
+                       dir=LOG_PATH,
+                       entity='rahelhabacker',
+                       job_type='evaluation')
+
         (test_f1_queries, _), (f1_macro_query, _), (f1_weighted_query, _), elapsed = test_protomaml(model,
                                                                                                     test_loader,
                                                                                                     labels,
                                                                                                     loss_module,
                                                                                                     len(target_classes))
     elif model_name == 'maml':
+
+        if wb_mode == 'online':
+            wandb.init(config=wandb_config,
+                       project='meta-gnn',
+                       name=f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}{suffix}",
+                       dir=LOG_PATH,
+                       entity='rahelhabacker',
+                       job_type='evaluation')
+
         (test_f1_queries, _), (f1_macro_query, _), (f1_weighted_query, _), elapsed = test_maml(model,
                                                                                                test_loader,
                                                                                                labels,
@@ -217,14 +233,19 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     print(f'Test Results:')
 
     for label in labels:
-        wandb.log({f"test/f1_fake_{label}": test_f1_queries[label]})
+        if wb_mode == 'online':
+            wandb.log({f"test/f1_fake_{label}": test_f1_queries[label]})
         print(f' test f1 {label}: {round(test_f1_queries[label], 3)} ({test_f1_queries[label]})')
 
     print(f' test f1 macro: {round(f1_macro_query, 3)} ({f1_macro_query})\n'
-          f' test f1 weighted: {round(f1_weighted_query, 3)} ({f1_weighted_query})\n '
-          f'\nepochs: {trainer.current_epoch + 1}\n')
+          f' test f1 weighted: {round(f1_weighted_query, 3)} ({f1_weighted_query})\n')
 
-    print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}')
+    if trainer is not None:
+        print(f'\nepochs: {trainer.current_epoch + 1}\n')
+
+    if trainer is not None:
+        print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}')
+
     for label in labels:
         print(f'{round_format(test_f1_queries[label])}')
     print(f'{round_format(f1_macro_query)}\n{round_format(f1_weighted_query)}\n')
@@ -397,7 +418,8 @@ if __name__ == "__main__":
     parser.add_argument('--feature-type', dest='feature_type', type=str, default='one-hot',
                         help="Type of features used.")
     parser.add_argument('--vocab-size', dest='vocab_size', type=int, default=10000, help="Size of the vocabulary.")
-    parser.add_argument('--gat-train-batches', dest='gat_train_batches', type=int, default=1, help="Number of batches to use during training for GAT baseline.")
+    parser.add_argument('--gat-train-batches', dest='gat_train_batches', type=int, default=1,
+                        help="Number of batches to use during training for GAT baseline.")
     parser.add_argument('--data-dir', dest='data_dir', default='data',
                         help='Select the dataset you want to use.')
 

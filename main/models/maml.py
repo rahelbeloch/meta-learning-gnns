@@ -6,6 +6,7 @@ from statistics import mean, stdev
 from torch import optim, nn
 from torch.nn import CrossEntropyLoss
 from torchmetrics import F1
+from tqdm import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
 from models.graph_trainer import GraphTrainer, get_or_none
@@ -173,21 +174,19 @@ def test_maml(model, test_loader, label_names, loss_module, num_classes=1):
     model = model.to(DEVICE)
     model.eval()
 
-    # TODO: use inner loop updates of 200 --> should be higher than in training
-
     test_start = time.time()
 
     # Iterate through the full dataset in two manners:
     # First, to select the k-shot batch. Second, to evaluate the model on all other batches.
     f1_fakes, f1_macros, f1_weights = defaultdict(list), [], []
 
-    test_data_outer = list(test_loader)[:5]
+    # test_data_outer = enumerate(list(test_loader)[:5])
     # test_data_outer = tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing")
 
-    test_data_inner = test_data_outer
+    # test_data_inner = test_data_outer
     # test_data_inner = test_loader
 
-    for support_batch_idx, batch in enumerate(test_data_outer):
+    for support_batch_idx, batch in tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing"):
         support_graphs, _, support_targets, _ = batch
 
         # graphs are automatically put to device in adapt few shot
@@ -204,7 +203,7 @@ def test_maml(model, test_loader, label_names, loss_module, num_classes=1):
             local_model.eval()
 
             # Evaluate all examples in test dataset
-            for query_batch_idx, test_batch in enumerate(test_data_inner):
+            for query_batch_idx, test_batch in enumerate(test_loader):
 
                 if support_batch_idx == query_batch_idx:
                     # Exclude support set elements
