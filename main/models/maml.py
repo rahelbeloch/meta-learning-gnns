@@ -63,7 +63,7 @@ class Maml(GraphTrainer):
         local_optim = optim.SGD(local_model.parameters(), lr=self.lr_inner)
         local_optim.zero_grad()
 
-        updates = self.n_inner_updates if mode == 'train' else self.n_inner_updates_test
+        updates = self.n_inner_updates if mode != 'test' else self.n_inner_updates_test
 
         losses = []
 
@@ -78,7 +78,7 @@ class Maml(GraphTrainer):
             # Calculate gradients and perform inner loop update
             loss.backward()
             local_optim.step()
-            losses.append(loss.detach())
+            losses.append(loss.detach().item())
 
         return local_model, torch.tensor(losses).mean().item()
 
@@ -120,7 +120,7 @@ class Maml(GraphTrainer):
                     else:
                         p_global.grad += p_local.grad
 
-            query_losses.append(query_loss.detach())
+            query_losses.append(query_loss.detach().item())
 
         # Perform update of base model
         if mode == "train":

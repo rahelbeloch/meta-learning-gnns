@@ -76,7 +76,7 @@ class ProtoMAML(GraphTrainer):
         output_weight = init_weight.detach().requires_grad_()
         output_bias = init_bias.detach().requires_grad_()
 
-        updates = self.n_inner_updates if mode == 'train' else self.n_inner_updates_test
+        updates = self.n_inner_updates if mode != 'test' else self.n_inner_updates_test
 
         losses = []
 
@@ -92,7 +92,7 @@ class ProtoMAML(GraphTrainer):
             # Calculate gradients and perform inner loop update
             loss.backward()
             local_optim.step()
-            losses.append(loss.detach())
+            losses.append(loss.detach().item())
 
             # Update output layer via SGD
             output_weight.data -= self.hparams.optimizer_hparams['lr_output'] * output_weight.grad
@@ -144,7 +144,7 @@ class ProtoMAML(GraphTrainer):
                     # First-order approx. -> add gradients of fine-tuned and base model
                     p_global.grad += p_local.grad
 
-            query_losses.append(query_loss.detach())
+            query_losses.append(query_loss.detach().item())
 
         # Perform update of base model
         if mode == "train":
