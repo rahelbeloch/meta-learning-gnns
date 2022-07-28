@@ -234,7 +234,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
 
     for label in labels:
         if wb_mode == 'online':
-            wandb.log({f"test/f1_fake_{label}": test_f1_queries[label]})
+            wandb.log({f"test/f1_{label}": test_f1_queries[label]})
         print(f' test f1 {label}: {round(test_f1_queries[label], 3)} ({test_f1_queries[label]})')
 
     print(f' test f1 macro: {round(f1_macro_query, 3)} ({f1_macro_query})\n'
