@@ -21,7 +21,6 @@ class GatNet(torch.nn.Module):
         self.feat_reduce_dim = model_params["feat_reduce_dim"]
 
         self.gat_dropout = model_params["gat_dropout"]
-        self.lin_dropout = model_params["lin_dropout"]
         self.attn_dropout = model_params["attn_dropout"]
 
         # self.mask = model_params["mask_rate"]
@@ -46,18 +45,6 @@ class GatNet(torch.nn.Module):
         self.classifier = self.get_classifier(num_classes)
 
     def get_classifier(self, output_dim):
-        # Phillips implementation
-        # return nn.Sequential(
-        #     nn.Dropout(self.lin_dropout),
-        #     nn.Linear(self.hid_dim * self.n_heads, num_classes)
-        # )
-
-        # Shans implementation
-        # return nn.Sequential(nn.Dropout(self.lin_dropout),
-        #                      nn.Linear(self.n_heads * self.hid_dim, self.feat_reduce_dim),
-        #                      nn.ReLU(),
-        #                      nn.Linear(self.feat_reduce_dim, num_classes))
-
         # Pushkar implementation
         return SparseGATLayer(self.hid_dim * self.n_heads, output_dim, self.feat_reduce_dim,
                               dropout=self.gat_dropout, attn_drop=self.attn_dropout, concat=False)

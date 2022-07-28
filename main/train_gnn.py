@@ -27,7 +27,7 @@ if torch.cuda.is_available():
 def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_name, seed, epochs, patience,
           patience_metric, h_size, top_users, top_users_excluded, k_shot, lr, lr_val, lr_inner, lr_output,
           hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size,
-          feature_type, vocab_size, n_inner_updates, n_inner_updates_test, num_workers, gat_dropout, lin_dropout,
+          feature_type, vocab_size, n_inner_updates, n_inner_updates_test, num_workers, gat_dropout,
           attn_dropout, wb_mode, warmup, max_iters, gat_heads, gat_train_batches, lr_decay_epochs, lr_decay_epochs_val,
           lr_decay_factor, scheduler, weight_decay, momentum, optimizer, suffix):
     os.makedirs(LOG_PATH, exist_ok=True)
@@ -86,7 +86,6 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
         'output_dim': get_output_dim(model_name, proto_dim),
         'class_weight': train_graph.class_ratios,
         'gat_dropout': gat_dropout,
-        'lin_dropout': lin_dropout,
         'attn_dropout': attn_dropout,
         'concat': True,
         'n_heads': gat_heads,
@@ -357,7 +356,6 @@ if __name__ == "__main__":
     parser.add_argument('--patience-metric', dest='patience_metric', type=str, default='loss')
     parser.add_argument('--patience', dest='patience', type=int, default=20)
     parser.add_argument('--gat-dropout', dest='gat_dropout', type=float, default=0.4)
-    parser.add_argument('--lin-dropout', dest='lin_dropout', type=float, default=0.5)
     parser.add_argument('--attn-dropout', dest='attn_dropout', type=float, default=0.4)
     parser.add_argument('--k-shot', dest='k_shot', type=int, default=5, help="Number of examples per task/batch.",
                         choices=SHOTS)
@@ -483,7 +481,6 @@ if __name__ == "__main__":
           n_inner_updates_test=params["n_updates_test"],
           num_workers=params["n_workers"],
           gat_dropout=params["gat_dropout"],
-          lin_dropout=params["lin_dropout"],
           attn_dropout=params["attn_dropout"],
           wb_mode=params['wb_mode'],
           warmup=params['warmup'],
