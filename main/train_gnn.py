@@ -142,6 +142,16 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
         # either training mode or GAT evaluation
         print('\nInitializing trainer ..........\n')
         trainer = initialize_trainer(epochs, patience, patience_metric, progress_bar, wb_mode, wandb_config, suffix)
+    elif wb_mode == 'online':
+        # if we don't have a trainer, we still need to initialize the wandb run
+        wandb_config.update(dict(model_params=dict(model=model_name)))
+
+        wandb.init(config=wandb_config,
+                   project='meta-gnn',
+                   name=f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}{suffix}",
+                   dir=LOG_PATH,
+                   entity='rahelhabacker',
+                   job_type='evaluation')
 
     if not evaluation:
         # Training
@@ -191,30 +201,12 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     if model_name == 'gat':
         test_f1_queries, f1_macro_query, f1_weighted_query, elapsed = evaluate(trainer, model, test_loader, labels)
     elif model_name == 'proto-maml':
-
-        if wb_mode == 'online':
-            wandb.init(config=wandb_config,
-                       project='meta-gnn',
-                       name=f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}{suffix}",
-                       dir=LOG_PATH,
-                       entity='rahelhabacker',
-                       job_type='evaluation')
-
         (test_f1_queries, _), (f1_macro_query, _), (f1_weighted_query, _), elapsed = test_protomaml(model,
                                                                                                     test_loader,
                                                                                                     labels,
                                                                                                     loss_module,
                                                                                                     len(target_classes))
     elif model_name == 'maml':
-
-        if wb_mode == 'online':
-            wandb.init(config=wandb_config,
-                       project='meta-gnn',
-                       name=f"{time.strftime('%Y%m%d_%H%M', time.gmtime())}{suffix}",
-                       dir=LOG_PATH,
-                       entity='rahelhabacker',
-                       job_type='evaluation')
-
         (test_f1_queries, _), (f1_macro_query, _), (f1_weighted_query, _), elapsed = test_maml(model,
                                                                                                test_loader,
                                                                                                labels,
