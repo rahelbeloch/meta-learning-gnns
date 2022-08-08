@@ -37,9 +37,6 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     if model_name not in SUPPORTED_MODELS:
         raise ValueError("Model type '%s' is not supported." % model_name)
 
-    # if checkpoint is not None and model_name not in checkpoint:
-    #     raise ValueError(f"Can not evaluate model type '{model_name}' on a pretrained model of another type.")
-
     if k_shot not in SHOTS:
         raise ValueError(f"'{k_shot}' is not valid!")
 
