@@ -37,5 +37,3 @@ TODO again: (time-limit)
 --model maml --hidden-dim 64 --no-progress-bar --n-updates 10 --wb-mode online --suffix best_eval_twitter --seed 2471 --k-shot 4 --train-loss-weight 4 --val-loss-weight 2 --lr 5e-4 --inner-lr 5e-3 --gat-heads 8 --dataset-eval twitterHateSpeech --checkpoint ../logs/meta-gnn/cpki9l19/checkpoints/epoch=32-step=32.ckpt
 TODO again: invalid argument
 --model maml --hidden-dim 64 --no-progress-bar --n-updates 10 --wb-mode online --suffix best_eval_twitter --seed 5321 --k-shot 4 --train-loss-weight 4 --val-loss-weight 2 --lr 5e-4 --inner-lr 5e-3 --gat-heads 8 --dataset-eval twitterHateSpeech --checkpoint ../logs/meta-gnn/e6mtb9se/checkpoints/epoch=46-step=46.ckpt
-
-33-37, 39
