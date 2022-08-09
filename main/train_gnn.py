@@ -144,7 +144,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
         trainer = initialize_trainer(epochs, patience, patience_metric, progress_bar, wb_mode, wandb_config, suffix)
     elif wb_mode == 'online':
         # if we don't have a trainer, we still need to initialize the wandb run
-        wandb_config.update(dict(model_params=dict(model=model_name)))
+        wandb_config.update({"model_params/model": model_name})
 
         wandb.init(config=wandb_config,
                    project='meta-gnn',
