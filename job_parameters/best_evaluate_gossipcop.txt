@@ -12,6 +12,7 @@
 --model gat --gat-dropout 0.4 --attn-dropout 0.4 --no-progress-bar --wb-mode online --suffix best_eval_gosispcop --n-workers 0 --seed 5321 --gat-train-batches 1 --k-shot 16 --train-loss-weight 3 --val-loss-weight 3 --gat-heads 16 --lr 5e-4 --lr-val 1e-4 --hidden-dim 64 --dataset-eval gossipcop --checkpoint ../logs/meta-gnn/13szwng0/checkpoints/epoch=24-step=24.ckpt
 --model maml --hidden-dim 64 --no-progress-bar --n-updates 10 --wb-mode online --suffix best_eval_gosispcop --seed 8173 --k-shot 4 --train-loss-weight 4 --val-loss-weight 2 --lr 5e-4 --inner-lr 5e-3 --gat-heads 8 --dataset-eval gossipcop --checkpoint ../logs/meta-gnn/10iv6dvx/checkpoints/epoch=24-step=24.ckpt
 --model maml --hidden-dim 64 --no-progress-bar --n-updates 10 --wb-mode online --suffix best_eval_gosispcop --seed 2471 --k-shot 4 --train-loss-weight 4 --val-loss-weight 2 --lr 5e-4 --inner-lr 5e-3 --gat-heads 8 --dataset-eval gossipcop --checkpoint ../logs/meta-gnn/cpki9l19/checkpoints/epoch=32-step=32.ckpt
+--model maml --hidden-dim 64 --no-progress-bar --n-updates 10 --wb-mode online --suffix best_eval_gosispcop --seed 5321 --k-shot 4 --train-loss-weight 4 --val-loss-weight 2 --lr 5e-4 --inner-lr 5e-3 --gat-heads 8 --dataset-eval gossipcop --checkpoint ../logs/meta-gnn/e6mtb9se/checkpoints/epoch=46-step=46.ckpt
 --model maml --hidden-dim 64 --no-progress-bar --n-updates 10 --wb-mode online --suffix best_eval_gosispcop --seed 8173 --k-shot 8 --train-loss-weight 3 --val-loss-weight 2 --lr 5e-4 --inner-lr 1e-2 --gat-heads 8 --dataset-eval gossipcop --checkpoint ../logs/meta-gnn/1mv87out/checkpoints/epoch=18-step=18.ckpt
 --model maml --hidden-dim 64 --no-progress-bar --n-updates 10 --wb-mode online --suffix best_eval_gosispcop --seed 2471 --k-shot 8 --train-loss-weight 3 --val-loss-weight 2 --lr 5e-4 --inner-lr 1e-2 --gat-heads 8 --dataset-eval gossipcop --checkpoint ../logs/meta-gnn/32ry4bss/checkpoints/epoch=25-step=25.ckpt
 --model maml --hidden-dim 64 --no-progress-bar --n-updates 10 --wb-mode online --suffix best_eval_gosispcop --seed 5321 --k-shot 8 --train-loss-weight 3 --val-loss-weight 2 --lr 5e-4 --inner-lr 1e-2 --gat-heads 8 --dataset-eval gossipcop --checkpoint ../logs/meta-gnn/288epzdt/checkpoints/epoch=36-step=36.ckpt
@@ -33,9 +34,6 @@
 --model proto-maml --hidden-dim 64 --no-progress-bar --n-updates 10 --wb-mode online --suffix best_eval_gosispcop --seed 8173 --k-shot 16 --train-loss-weight 4 --val-loss-weight 3 --lr 1e-3 --inner-lr 1e-2 --gat-heads 8 --dataset-eval gossipcop --checkpoint ../logs/meta-gnn/1s2mthdp/checkpoints/epoch=5-step=5.ckpt
 --model proto-maml --hidden-dim 64 --no-progress-bar --n-updates 10 --wb-mode online --suffix best_eval_gosispcop --seed 2471 --k-shot 16 --train-loss-weight 4 --val-loss-weight 3 --lr 1e-3 --inner-lr 1e-2 --gat-heads 8 --dataset-eval gossipcop --checkpoint ../logs/meta-gnn/1rnpo54s/checkpoints/epoch=14-step=14.ckpt
 --model proto-maml --hidden-dim 64 --no-progress-bar --n-updates 10 --wb-mode online --suffix best_eval_gosispcop --seed 5321 --k-shot 16 --train-loss-weight 4 --val-loss-weight 3 --lr 1e-3 --inner-lr 1e-2 --gat-heads 8 --dataset-eval gossipcop --checkpoint ../logs/meta-gnn/ylajwcht/checkpoints/epoch=35-step=35.ckpt
-
-TODO: again
---model maml --hidden-dim 64 --no-progress-bar --n-updates 10 --wb-mode online --suffix best_eval_gosispcop --seed 5321 --k-shot 4 --train-loss-weight 4 --val-loss-weight 2 --lr 5e-4 --inner-lr 5e-3 --gat-heads 8 --dataset-eval gossipcop --checkpoint ../logs/meta-gnn/e6mtb9se/checkpoints/epoch=46-step=46.ckpt
 
 
 

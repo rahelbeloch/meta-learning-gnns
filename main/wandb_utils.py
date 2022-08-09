@@ -41,6 +41,8 @@ def update_config(wandb_api):
     for run_id in maml_ids:
         run = wandb_api.run(f"rahelhabacker/meta-gnn/{run_id}")
         run.config["model_params/model"] = "maml"
+        run.config["model_params.model"] = "maml"
+        run.config["model_params"]['model'] = "maml"
         run.update()
 
 
@@ -169,9 +171,9 @@ if __name__ == '__main__':
 
     api = wandb.Api(overrides={"project": project, "entity": entity}, timeout=19)
 
-    g_means = get_mean_stds_gossipcop(api)
+    # g_means = get_mean_stds_gossipcop(api)
 
-    t_means = get_mean_stds_twitter(api)
+    # t_means = get_mean_stds_twitter(api)
 
     # update_config(api)
 
