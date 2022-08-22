@@ -24,7 +24,7 @@ class ProtoNet(GraphTrainer):
             proto_dim - Dimensionality of prototype feature space
             lr - Learning rate of Adam optimizer
         """
-        super().__init__(validation_sets=['val'])
+        super().__init__()
         self.save_hyperparameters()
 
         self.loss_module = BCEWithLogitsLoss(pos_weight=get_or_none(other_params, 'train_loss_weight'))
@@ -98,6 +98,8 @@ class ProtoNet(GraphTrainer):
         x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
         support_logits = self.model(x, edge_index, mode)[cl_mask]
 
+        self.update_metrics(mode, get_predictions(support_logits), support_targets, set_name='support')
+
         assert support_logits.shape[0] == support_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
 
@@ -126,9 +128,10 @@ class ProtoNet(GraphTrainer):
             self.log_on_epoch(f"{mode}/loss", loss)
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
-        pred = (logits.sigmoid() > 0.5).float()
+        query_predictions = get_predictions(logits)
 
-        self.update_metrics(mode, pred, targets)
+        # TODO: or query targets?
+        self.update_metrics(mode, query_predictions, targets, set_name='query')
 
         return loss
 

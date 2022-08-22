@@ -198,22 +198,15 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
         # reset the test metric with number of classes
         model.reset_test_metric(n_classes, eval_graph.label_names, target_classes)
 
+    test_f1_queries_std = None
     if model_name == 'gat':
         test_f1_queries, f1_macro_query, f1_weighted_query, elapsed = evaluate(trainer, model, test_loader, labels)
     elif model_name == 'proto-maml':
-        (test_f1_queries, _), (f1_macro_query, _), (f1_weighted_query, _), elapsed = test_protomaml(model,
-                                                                                                    test_loader,
-                                                                                                    labels,
-                                                                                                    loss_module,
-                                                                                                    len(target_classes))
+        (test_f1_queries, test_f1_queries_std), (f1_macro_query, _), (f1_weighted_query, _), elapsed \
+            = test_protomaml(model, test_loader, labels, loss_module, len(target_classes))
     elif model_name == 'maml':
-        (test_f1_queries, _), (f1_macro_query, _), (f1_weighted_query, _), elapsed = test_maml(model,
-                                                                                               test_loader,
-                                                                                               labels,
-                                                                                               loss_module,
-                                                                                               len(target_classes))
-    # elif model_name == 'gmeta':
-    #     (test_f1_fake, _), elapsed = test_gmeta(model, test_loader)
+        (test_f1_queries, test_f1_queries_std), (f1_macro_query, _), (f1_weighted_query, _), elapsed \
+            = test_maml(model, test_loader, labels, loss_module, len(target_classes))
     else:
         raise ValueError(f"Model type {model_name} not supported!")
 
@@ -223,7 +216,14 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     for label in labels:
         if wb_mode == 'online':
             wandb.log({f"test/f1_{label}": test_f1_queries[label]})
+
+            if test_f1_queries_std is not None:
+                wandb.log({f"test/f1_{label}_std": test_f1_queries_std[label]})
+
         print(f' test f1 {label}: {round(test_f1_queries[label], 3)} ({test_f1_queries[label]})')
+
+        if test_f1_queries_std is not None:
+            print(f' test f1 std {label}: {round(test_f1_queries_std[label], 3)} ({test_f1_queries_std[label]})')
 
     print(f' test f1 macro: {round(f1_macro_query, 3)} ({f1_macro_query})\n'
           f' test f1 weighted: {round(f1_weighted_query, 3)} ({f1_weighted_query})\n')
@@ -236,6 +236,10 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
 
     for label in labels:
         print(f'{round_format(test_f1_queries[label])}')
+
+        if test_f1_queries_std is not None:
+            print(f'{round_format(test_f1_queries_std[label])}')
+
     print(f'{round_format(f1_macro_query)}\n{round_format(f1_weighted_query)}\n')
 
 
