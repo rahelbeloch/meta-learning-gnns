@@ -263,7 +263,9 @@ def test_protomaml(model, test_loader, label_names, loss_module, num_classes=1):
     test_end = time.time()
     test_elapsed = test_end - test_start
 
+    f1_fakes_std = defaultdict(float)
     for label in label_names:
+        f1_fakes_std[label] = stdev(f1_fakes[label])
         f1_fakes[label] = mean(f1_fakes[label])
 
-    return (f1_fakes, 0.0), (mean(f1_macros), stdev(f1_macros)), (mean(f1_weights), stdev(f1_weights)), test_elapsed
+    return (f1_fakes, f1_fakes_std), (mean(f1_macros), stdev(f1_macros)), (mean(f1_weights), stdev(f1_weights)), test_elapsed
