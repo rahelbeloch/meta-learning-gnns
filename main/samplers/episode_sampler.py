@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch.utils.data import Sampler
 
-from train_config import SHOTS, GOSSIPCOP_EPISODES, GOSSIPCOP_QUERY_SAMPLES
+from train_config import SHOTS, GOSSIPCOP_EPISODES, GOSSIPCOP_QUERY_SAMPLES, TWITTER_EPISODES, TWITTER_QUERY_SAMPLES
 
 
 def get_random_oversampled(majority_class_idx, minority_class_idx, indices):
@@ -22,7 +22,8 @@ def get_random_oversampled(majority_class_idx, minority_class_idx, indices):
 
 class FewShotEpisodeSampler(Sampler):
 
-    def __init__(self, indices, targets, max_n_query, mode, n_way=2, k_shot=5, verbose=True, oversample=False):
+    def __init__(self, data_eval, indices, targets, max_n_query, mode, n_way=2, k_shot=5, verbose=True,
+                 oversample=False):
         """
         Support sets should contain n_way * k_shot examples. So, e.g. 2 * 5 = 10 sub graphs.
         Query set is of same size ...
@@ -59,18 +60,24 @@ class FewShotEpisodeSampler(Sampler):
         if self.verbose:
             print(f"{mode} sampler:")
 
-        self.num_batches = GOSSIPCOP_EPISODES[mode][k_shot]
+        if data_eval == 'gossipcop':
+            self.num_batches = GOSSIPCOP_EPISODES[mode][k_shot]
+            query_samples_numbers = GOSSIPCOP_QUERY_SAMPLES
+        elif data_eval == 'twitterHateSpeech':
+            self.num_batches = TWITTER_EPISODES[mode][k_shot]
+            query_samples_numbers = TWITTER_QUERY_SAMPLES
+        else:
+            raise ValueError
 
         for c in self.classes:
             # noinspection PyTypeChecker
             class_indices = indices[torch.where(self.data_targets == c)[0]]
             n_class = len(class_indices)
 
-            # if mode != 'test':
             # make sure we take the same amount for query sets
             assert self.max_n_query is not None, f"Episode sampler for mode {mode}, but max_n_query is not defined!"
 
-            n_query_class = GOSSIPCOP_QUERY_SAMPLES[mode][c]
+            n_query_class = query_samples_numbers[mode][c]
             n_support_class_orig = n_class - n_query_class
 
             self.indices_per_class['support'][c] = class_indices[:n_support_class_orig]
@@ -213,10 +220,9 @@ class NonMetaFewShotEpisodeSampler(FewShotEpisodeSampler):
     Useful for non-meta baselines for more stable training with bigger batches.
     """
 
-    def __init__(self, indices, targets, max_n_query, mode, gat_train_batches, n_way=2, k_shot=5,
-                 verbose=False,
-                 oversample=False):
-        super().__init__(indices, targets, max_n_query, mode, n_way, k_shot, verbose, oversample)
+    def __init__(self, data_eval, indices, targets, max_n_query, mode, gat_train_batches, n_way=2, k_shot=5,
+                 verbose=False, oversample=False):
+        super().__init__(data_eval, indices, targets, max_n_query, mode, n_way, k_shot, verbose, oversample)
 
         # different shot sizes change the number of samples which can be used.
         # For comparability, GAT should be trained with 3 batches for each shot size...
@@ -319,7 +325,7 @@ class NonMetaFewShotEpisodeSampler(FewShotEpisodeSampler):
 
 class MetaFewShotEpisodeSampler(FewShotEpisodeSampler):
 
-    def __init__(self, indices, targets, max_n_query, mode, n_way, k_shot, oversample=False):
+    def __init__(self, data_eval, indices, targets, max_n_query, mode, n_way, k_shot, oversample=False):
         """
         Inputs:
             dataset_targets - PyTorch tensor of the labels of the data elements.
@@ -327,7 +333,7 @@ class MetaFewShotEpisodeSampler(FewShotEpisodeSampler):
             n_way - Number of classes to sample per batch.
             k_shot - Number of examples to sample per class in the batch.
         """
-        super().__init__(indices, targets, max_n_query, mode, n_way, k_shot, oversample=oversample)
+        super().__init__(data_eval, indices, targets, max_n_query, mode, n_way, k_shot, oversample=oversample)
 
         self.task_batch_size = self.num_batches if mode == 'train' else 2
 
@@ -441,10 +447,10 @@ def get_evenly_divisible_nr1(nr, divisors, max_checks=100):
             print(f"Found fitting number after checking {times_checked} decreasing: {current_nr}")
             return current_nr
         else:
-            current_nr = 1
+            current_nr -= 1
 
 
 if __name__ == '__main__':
     # get_evenly_divisible_nr(2431, 2, [4, 8, 12, 16])
 
-    get_evenly_divisible_nr1(482, [4, 8, 12, 16])
+    get_evenly_divisible_nr1(912, [4, 8, 12, 16])

@@ -16,7 +16,7 @@ model_name = 'maml'
 h_size = 2
 top_users, top_users_excluded = 30, 1
 k_shot = 5
-train_split_size, eval_split_size = (0.7, 0.1, 0.2), None
+train_split_size, eval_split_size = (0.7, 0.1, 0.2), (0.0, 0.0, 1)
 feature_type = 'one-hot'
 vocab_size = 10000
 dirs = "data", "../data/tsv", "../data/complete"
@@ -51,17 +51,18 @@ def validate_query_set_equal():
         train_loader, train_val_loader, test_loader, test_val_loader = loaders
 
         query_nodes, support_nodes = [], []
-        for episode in iter(test_loader):
-            # if model_name == 'gat' and mode != 'text':
-            #     # sub graphs are organizes as: [s,s,s,s,s... q,q,q,q, ..., s,s,s,s, ...q,q,q,q ...]
-            #     sub_graphs, targets = episode
-            #     for i, g in enumerate(sub_graphs):
-            #         if g.set_type == 'query':
-            #             query_nodes.append((g.orig_center_idx, targets[i].item(), g.set_type))
-            # else:
-            support_sub_graphs, query_sub_graphs, support_targets, query_targets = episode
-            for i, g in enumerate(query_sub_graphs):
-                query_nodes.append((g.orig_center_idx, query_targets[i].item(), g.set_type))
+        for episode in iter(train_loader):
+            if model_name == 'gat':
+                # sub graphs are organizes as: [s,s,s,s,s... q,q,q,q, ..., s,s,s,s, ...q,q,q,q ...]
+                sub_graphs, targets = episode
+                for i, g in enumerate(sub_graphs):
+                    if g.set_type == 'query':
+                        query_nodes.append((g.orig_center_idx, targets[i].item(), g.set_type))
+            else:
+                for graphs, targets in episode:
+                    for i, g in enumerate(graphs):
+                        if g.set_type == 'query':
+                            query_nodes.append((g.orig_center_idx, targets[i].item(), g.set_type))
 
         query_shot_nodes[k] = query_nodes
         print(f"\nCollected {len(query_nodes)} query nodes for shot '{k}'")
