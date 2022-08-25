@@ -209,7 +209,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
             = test_maml(model, test_loader, labels, loss_module, len(target_classes))
     elif model_name == 'prototypical':
         (test_f1_queries, test_f1_queries_std), (f1_macro_query, _), (f1_weighted_query, _), elapsed \
-            = test_proto_net(model, test_loader, labels, k_shot=k_shot, num_classes=2)
+            = test_proto_net(model, test_loader, labels, k_shot=k_shot, num_classes=len(target_classes))
     else:
         raise ValueError(f"Model type {model_name} not supported!")
 
