@@ -14,10 +14,10 @@ from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss
 from data_prep.config import TSV_DIR, COMPLETE_DIR
 from data_prep.data_utils import get_data, SUPPORTED_DATASETS
 from models.gat_base import GatBase, evaluate
-from models.gmeta import GMeta
 from models.maml import Maml, test_maml
 from models.proto_maml import ProtoMAML, test_protomaml
 from models.proto_net import ProtoNet
+from models.proto_net import test_proto_net
 from train_config import LOG_PATH, SUPPORTED_MODELS, META_MODELS, SHOTS
 
 if torch.cuda.is_available():
@@ -108,8 +108,8 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
         if model_name == 'proto-maml':
             optimizer_params.update(lr_output=lr_output)
             model = ProtoMAML(model_params, optimizer_params, other_params)
-        elif model_name == 'gmeta':
-            model = GMeta(model_params, optimizer_params, other_params)
+        elif model_name == 'prototypical':
+            model = ProtoNet(model_params, optimizer_params, other_params)
         elif model_name == 'maml':
             model = Maml(model_params, optimizer_params, other_params)
     else:
@@ -207,6 +207,9 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     elif model_name == 'maml':
         (test_f1_queries, test_f1_queries_std), (f1_macro_query, _), (f1_weighted_query, _), elapsed \
             = test_maml(model, test_loader, labels, loss_module, len(target_classes))
+    elif model_name == 'prototypical':
+        (test_f1_queries, test_f1_queries_std), (f1_macro_query, _), (f1_weighted_query, _), elapsed \
+            = test_proto_net(model, test_loader, labels, k_shot=k_shot, num_classes=2)
     else:
         raise ValueError(f"Model type {model_name} not supported!")
 
