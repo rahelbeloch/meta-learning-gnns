@@ -22,7 +22,6 @@
 --model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 64 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 8 --n-updates 10
 --model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 2 --n-updates 10
 --model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 8 --n-updates 10
-
 --model prototypical --seed 3333 --patience 20 --lr 4e-3 --hidden-dim 64 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 2 --n-updates 10
 --model prototypical --seed 3333 --patience 20 --lr 4e-3 --hidden-dim 64 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 8 --n-updates 10
 --model prototypical --seed 3333 --patience 20 --lr 4e-3 --hidden-dim 128 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 2 --n-updates 10
