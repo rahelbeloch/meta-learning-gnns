@@ -7,7 +7,7 @@ from torch.optim.lr_scheduler import MultiStepLR, StepLR
 
 class GraphTrainer(pl.LightningModule):
 
-    def __init__(self):
+    def __init__(self, n_classes=1, target_classes=None):
         super().__init__()
 
         self._device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
@@ -17,10 +17,9 @@ class GraphTrainer(pl.LightningModule):
                         'f1_weighted_query': ({}, 'weighted'), 'f1_weighted_support': ({}, 'weighted')}
 
         # used during testing
-        self.label_names, self.target_classes = None, [1]
+        self.label_names, self.target_classes = None, [1] if target_classes is None else target_classes
 
         # we have a binary problem per default; will be adapted for testing purposes depending on dataset
-        n_classes = 1
 
         splits = ['train', 'test', 'val']
 

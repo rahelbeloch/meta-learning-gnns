@@ -2,13 +2,14 @@ import time
 from collections import defaultdict
 from statistics import mean, stdev
 
-import torch.nn
+import sklearn
 import torchmetrics as tm
 from torch import optim, nn
+from torch.nn import functional as func
 from tqdm.auto import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
-from models.graph_trainer import GraphTrainer, get_or_none
+from models.graph_trainer import GraphTrainer
 from models.train_utils import *
 
 
@@ -16,22 +17,25 @@ from models.train_utils import *
 class ProtoNet(GraphTrainer):
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, optimizer_hparams, other_params):
+    def __init__(self, model_params, optimizer_hparams, other_params, train_weights, val_weights):
         """
         Inputs
             proto_dim - Dimensionality of prototype feature space
             lr - Learning rate of Adam optimizer
         """
-        super().__init__()
+        super().__init__(n_classes=2, target_classes=[0, 1])
         self.save_hyperparameters()
 
-        train_weight = get_or_none(other_params, 'train_loss_weight')
-        print(f"Positive train weight: {train_weight}")
-        self.train_loss_module = nn.BCEWithLogitsLoss(pos_weight=train_weight)
+        self.train_loss_module = nn.CrossEntropyLoss(weight=train_weights.float())
+        self.val_loss_module = nn.CrossEntropyLoss(weight=val_weights.float())
 
-        val_weight = get_or_none(other_params, 'val_loss_weight')
-        print(f"Positive val weight: {val_weight}")
-        self.val_loss_module = nn.BCEWithLogitsLoss(pos_weight=val_weight)
+        # train_weight = get_or_none(other_params, 'train_loss_weight')
+        # print(f"Positive train weight: {train_weight}")
+        # self.train_loss_module = nn.BCEWithLogitsLoss(pos_weight=train_weight)
+        #
+        # val_weight = get_or_none(other_params, 'val_loss_weight')
+        # print(f"Positive val weight: {val_weight}")
+        # self.val_loss_module = nn.BCEWithLogitsLoss(pos_weight=val_weight)
 
         self.model = GatNet(model_params)
 
@@ -53,6 +57,9 @@ class ProtoNet(GraphTrainer):
 
         classes, _ = torch.unique(targets).sort()  # Determine which classes we have
 
+        # TODO: only target class!
+        # classes = [1]
+
         prototypes = []
         for c in classes:
             # noinspection PyTypeChecker
@@ -72,16 +79,22 @@ class ProtoNet(GraphTrainer):
         dist = torch.pow(prototypes[None, :] - feats[:, None], 2).sum(dim=2)
 
         # we only want to consider the distance for the target/fake class
-        dist_fake = dist[:, 1]
-
-        # predictions = func.log_softmax(-dist, dim=1)      # for CE loss
-        # predictions = torch.sigmoid(-dist)  # for BCE loss
+        # dist_fake = dist[:, 1]
 
         # predictions = -dist  # for BCE with logits loss
         # for BCE with logits loss: don't use negative dist
-        logits = dist_fake
 
-        return logits.view(-1, 1), targets.view(-1, 1)
+        # logits = dist_fake
+        # logits = dist
+        # logits = logits.view(-1, 1)
+        # targets = targets.view(-1, 1)
+
+        logits = func.log_softmax(-dist, dim=1)  # for CE loss
+        # targets = func.one_hot(targets.squeeze()).float()
+
+        # predictions = torch.sigmoid(-dist)  # for BCE loss
+
+        return logits, targets
 
     def calculate_loss(self, batch, mode, loss_module):
         """
@@ -121,7 +134,7 @@ class ProtoNet(GraphTrainer):
         # targets have dimensions according to classes which are in the subgraph batch, i.e. if all sub graphs have the
         # same label, targets has 2nd dimension = 1
 
-        loss = loss_module(logits, targets.float())
+        loss = loss_module(logits, targets)
 
         if mode == 'train' or mode == 'val':
             self.log_on_epoch(f"{mode}/query_loss", loss)
@@ -168,14 +181,21 @@ def test_proto_net(model, test_loader, label_names, k_shot=4, num_classes=1):
 
     test_start = time.time()
 
+    f1_target = tm.F1(num_classes=num_classes, average='none').to(DEVICE)
+    f1_macro = tm.F1(num_classes=num_classes, average='macro').to(DEVICE)
+    f1_weighted = tm.F1(num_classes=num_classes, average='weighted').to(DEVICE)
+
     f1_fakes, f1_macros, f1_weights = defaultdict(list), [], []
 
-    for support_batch_idx, episode in tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing"):
-        support_graphs, _, support_targets, _ = episode
+    for support_batch_idx, support_episode in tqdm(enumerate(test_loader),
+                                                   "Performing few-shot fine tuning in testing"):
+        support_graphs, _, support_targets, _ = support_episode
 
         x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
-        support_feats = model.model(x, edge_index, 'test')
-        support_feats = support_feats[cl_mask]
+
+        with torch.no_grad():  # No gradients for query set needed
+            support_feats = model.model(x, edge_index, 'test')[cl_mask]
+
         support_targets = support_targets.to(DEVICE)
 
         assert support_feats.shape[0] == 2 * k_shot
@@ -184,44 +204,41 @@ def test_proto_net(model, test_loader, label_names, k_shot=4, num_classes=1):
 
         prototypes = model.calculate_prototypes(support_feats, support_targets)
 
-        f1_target = tm.F1(num_classes=num_classes, average='none').to(DEVICE)
-        f1_macro = tm.F1(num_classes=num_classes, average='macro').to(DEVICE)
-        f1_weighted = tm.F1(num_classes=num_classes, average='weighted').to(DEVICE)
+        # Evaluate all examples in test dataset
+        for query_episode_idx, query_episode in enumerate(test_loader):
 
-        with torch.no_grad():  # No gradients for query set needed
+            if support_batch_idx == query_episode_idx:
+                # Exclude support set elements
+                continue
 
-            # Evaluate all examples in test dataset
-            for query_episode_idx, query_episode in enumerate(test_loader):
+            support_graphs, query_graphs, support_targets, query_targets = query_episode
+            graphs = support_graphs + query_graphs
+            targets = torch.cat([support_targets, query_targets]).to(DEVICE)
 
-                if support_batch_idx == query_episode_idx:
-                    # Exclude support set elements
-                    continue
+            x, edge_index, cl_mask = get_subgraph_batch(graphs)
 
-                support_graphs, query_graphs, support_targets, query_targets = query_episode
-                graphs = support_graphs + query_graphs
-                targets = torch.cat([support_targets, query_targets]).to(DEVICE)
+            with torch.no_grad():  # No gradients for query set needed
+                feats = model.model(x, edge_index, 'test')[cl_mask]
 
-                x, edge_index, cl_mask = get_subgraph_batch(graphs)
-                feats = model.model(x, edge_index, 'test')
-                feats = feats[cl_mask]
+            logits, targets = model.classify_features(prototypes, feats, targets)
+            predictions = get_predictions(logits)
 
-                logits, targets = model.classify_features(prototypes, feats, targets)
-                predictions = get_predictions(logits)
+            f1_target.update(predictions, targets)
+            f1_macro.update(predictions, targets)
+            f1_weighted.update(predictions, targets)
 
-                f1_target.update(predictions, targets)
-                f1_macro.update(predictions, targets)
-                f1_weighted.update(predictions, targets)
+        f1_fake = f1_target.compute()
+        for i, label in enumerate(label_names):
+            f1_fakes[label].append(f1_fake[i].item())
+        f1_macros.append(f1_macro.compute().item())
+        f1_weights.append(f1_weighted.compute().item())
 
-            f1_fake = f1_target.compute()
-            for i, label in enumerate(label_names):
-                f1_fakes[label].append(f1_fake[i].item())
-            f1_macros.append(f1_macro.compute().item())
-            f1_weights.append(f1_weighted.compute().item())
+        f1_target.reset()
+        f1_macro.reset()
+        f1_weighted.reset()
 
     test_end = time.time()
     test_elapsed = test_end - test_start
-
-    print(f1_fakes)
 
     f1_fakes_std = defaultdict(float)
     for label in label_names:

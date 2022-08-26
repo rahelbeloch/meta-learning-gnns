@@ -99,7 +99,8 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
 
         model = GatBase(model_params, optimizer_params, other_params)
     elif model_name == 'prototypical':
-        model = ProtoNet(model_params, optimizer_params, other_params)
+        model = ProtoNet(model_params, optimizer_params, other_params, train_loader.b_sampler.class_weights,
+                         train_val_loader.b_sampler.class_weights)
     elif model_name in META_MODELS:
         model_params.update(n_inner_updates=n_inner_updates, n_inner_updates_test=n_inner_updates_test)
         optimizer_params.update(lr_inner=lr_inner)
@@ -108,8 +109,6 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
         if model_name == 'proto-maml':
             optimizer_params.update(lr_output=lr_output)
             model = ProtoMAML(model_params, optimizer_params, other_params)
-        elif model_name == 'prototypical':
-            model = ProtoNet(model_params, optimizer_params, other_params)
         elif model_name == 'maml':
             model = Maml(model_params, optimizer_params, other_params)
     else:
@@ -209,7 +208,8 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
             = test_maml(model, test_loader, labels, loss_module, len(target_classes))
     elif model_name == 'prototypical':
         (test_f1_queries, test_f1_queries_std), (f1_macro_query, _), (f1_weighted_query, _), elapsed \
-            = test_proto_net(model, test_loader, labels, k_shot=k_shot, num_classes=len(target_classes))
+            = test_proto_net(model, test_loader, labels, k_shot=k_shot, num_classes=2)
+        # len(target_classes)
     else:
         raise ValueError(f"Model type {model_name} not supported!")
 

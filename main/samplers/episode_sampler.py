@@ -3,6 +3,7 @@ from math import floor
 
 import numpy as np
 import torch
+from sklearn.utils import compute_class_weight
 from torch.utils.data import Sampler
 
 from train_config import SHOTS, GOSSIPCOP_EPISODES, GOSSIPCOP_QUERY_SAMPLES, TWITTER_EPISODES, TWITTER_QUERY_SAMPLES
@@ -43,6 +44,9 @@ class FewShotEpisodeSampler(Sampler):
         # number of samples which actually can be used with n classes and k shot
         self.data_targets = targets
         self.total_samples = self.data_targets.shape[0]
+
+        self.class_weights = torch.from_numpy(compute_class_weight('balanced', classes=np.unique(targets),
+                                                                   y=targets.numpy()))
 
         # is the maximum number of query examples which should be used
         self.max_n_query = max_n_query
