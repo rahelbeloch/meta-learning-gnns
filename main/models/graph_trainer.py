@@ -7,14 +7,21 @@ from torch.optim.lr_scheduler import MultiStepLR, StepLR
 
 class GraphTrainer(pl.LightningModule):
 
-    def __init__(self, n_classes=1, target_classes=None):
+    def __init__(self, n_classes=1, target_classes=None, support_set=True):
         super().__init__()
 
         self._device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
-        self.metrics = {'f1_target_query': ({}, 'none'), 'f1_target_support': ({}, 'none'),
-                        'f1_macro_query': ({}, 'macro'), 'f1_macro_support': ({}, 'macro'),
-                        'f1_weighted_query': ({}, 'weighted'), 'f1_weighted_support': ({}, 'weighted')}
+        self.metrics = {'f1_target_query': ({}, 'none'),
+                        'f1_macro_query': ({}, 'macro'),
+                        'f1_weighted_query': ({}, 'weighted')}
+
+        if support_set:
+            self.metrics['f1_target_support'] = ({}, 'none')
+            self.metrics['f1_macro_support'] = ({}, 'macro')
+            self.metrics['f1_weighted_support'] = ({}, 'weighted')
+
+        self.support_set = support_set
 
         # used during testing
         self.label_names, self.target_classes = None, [1] if target_classes is None else target_classes
@@ -66,31 +73,24 @@ class GraphTrainer(pl.LightningModule):
             if set_name is None or set_name in metric_name:
                 mode_dict[mode].update(predictions, targets)
 
-    # def update_query(self, mode, predictions, targets):
-    #     self.metrics['f1_target_query'][0][mode].update(predictions, targets)
-    #
-    # def update_support(self, mode, predictions, targets):
-    #     self.metrics['f1_target_support'][0][mode].update(predictions, targets)
-
     def compute_and_log_metrics(self, mode):
 
-        # Micro scores
-        self.log_and_reset(mode, 'support')
-        self.log_and_reset(mode, 'query')
+        if self.support_set:
+            self.log_and_reset(mode, 'support')
 
-        # Macro scores
-        support_metric = self.metrics['f1_macro_support'][0][mode]
-        self.log_on_epoch(f'{mode}/f1_macro_support', support_metric.compute())
-        support_metric.reset()
+            support_metric = self.metrics['f1_macro_support'][0][mode]
+            self.log_on_epoch(f'{mode}/f1_macro_support', support_metric.compute())
+            support_metric.reset()
+
+            support_metric = self.metrics['f1_weighted_support'][0][mode]
+            self.log_on_epoch(f'{mode}/f1_weighted_support', support_metric.compute())
+            support_metric.reset()
+
+        self.log_and_reset(mode, 'query')
 
         query_metric = self.metrics['f1_macro_query'][0][mode]
         self.log_on_epoch(f'{mode}/f1_macro_query', query_metric.compute())
         query_metric.reset()
-
-        # Weighted scores
-        support_metric = self.metrics['f1_weighted_support'][0][mode]
-        self.log_on_epoch(f'{mode}/f1_weighted_support', support_metric.compute())
-        support_metric.reset()
 
         query_metric = self.metrics['f1_weighted_query'][0][mode]
         self.log_on_epoch(f'{mode}/f1_weighted_query', query_metric.compute())

@@ -2,7 +2,6 @@ import time
 from collections import defaultdict
 from statistics import mean, stdev
 
-import sklearn
 import torchmetrics as tm
 from torch import optim, nn
 from torch.nn import functional as func
@@ -23,7 +22,7 @@ class ProtoNet(GraphTrainer):
             proto_dim - Dimensionality of prototype feature space
             lr - Learning rate of Adam optimizer
         """
-        super().__init__(n_classes=2, target_classes=[0, 1])
+        super().__init__(n_classes=2, target_classes=[0, 1], support_set=False)
         self.save_hyperparameters()
 
         self.train_loss_module = nn.CrossEntropyLoss(weight=train_weights.float())
