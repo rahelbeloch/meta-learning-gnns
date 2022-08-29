@@ -262,7 +262,8 @@ def get_loss_weights(data_train, model_name, train_loss_weight, train_loss_weigh
     if val_loss_weight_maj is not None:
         val_loss_w = [val_loss_weight_maj] + val_loss_w
 
-    return {'train_loss_weight': torch.tensor(train_loss_w), 'val_loss_weight': torch.tensor(val_loss_w)}
+    return {'train_loss_weight': torch.tensor(train_loss_w).float(),
+            'val_loss_weight': torch.tensor(val_loss_w).float()}
 
 
 def get_output_dim(model_name, proto_dim):
