@@ -1,30 +1,19 @@
---model prototypical --seed 3333 --patience 20 --lr 1e-4 --hidden-dim 64 --k-shot 4 --no-progress-bar --wb-mode online --gat-heads 16
---model prototypical --seed 3333 --patience 20 --lr 1e-4 --hidden-dim 128 --k-shot 4 --no-progress-bar --wb-mode online --gat-heads 16
---model prototypical --seed 3333 --patience 20 --lr 1e-4 --hidden-dim 256 --k-shot 4 --no-progress-bar --wb-mode online --gat-heads 16
---model prototypical --seed 3333 --patience 20 --lr 1e-4 --hidden-dim 256 --k-shot 4 --no-progress-bar --wb-mode online --gat-heads 8
+--model prototypical --seed 3333 --patience 20 --lr 1e-4 --hidden-dim 64 --k-shot 4 --no-progress-bar --wb-mode online --gat-heads 16 --suffix flipped_loss_weights
+--model prototypical --seed 3333 --patience 20 --lr 1e-4 --hidden-dim 128 --k-shot 4 --no-progress-bar --wb-mode online --gat-heads 16 --suffix flipped_loss_weights
+--model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 64 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 8 --suffix flipped_loss_weights
+--model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 8 --suffix flipped_loss_weights
+--model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 64 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 16 --suffix flipped_loss_weights
+--model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 16 --suffix flipped_loss_weights
+--model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 64 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 8 --suffix flipped_loss_weights
+--model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 8 --suffix flipped_loss_weights
+--model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 64 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 16 --suffix flipped_loss_weights
+--model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 16 --suffix flipped_loss_weights
+--model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 64 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 8 --suffix flipped_loss_weights
+--model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 8 --suffix flipped_loss_weights
+--model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 64 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 16 --suffix flipped_loss_weights
+--model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 16 --suffix flipped_loss_weights
 
+4 Shot
 
---model prototypical --seed 3333 --patience 20 --lr 4e-3 --hidden-dim 64 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 2
---model prototypical --seed 3333 --patience 20 --lr 4e-3 --hidden-dim 64 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 8
---model prototypical --seed 3333 --patience 20 --lr 4e-3 --hidden-dim 128 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 2
---model prototypical --seed 3333 --patience 20 --lr 4e-3 --hidden-dim 128 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 8
---model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 64 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 2
---model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 64 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 8
---model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 2
---model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 8
---model prototypical --seed 3333 --patience 20 --lr 4e-3 --hidden-dim 64 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 2
---model prototypical --seed 3333 --patience 20 --lr 4e-3 --hidden-dim 64 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 8
---model prototypical --seed 3333 --patience 20 --lr 4e-3 --hidden-dim 128 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 2
---model prototypical --seed 3333 --patience 20 --lr 4e-3 --hidden-dim 128 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 8
---model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 64 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 2
---model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 64 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 8
---model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 2
---model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 8
---model prototypical --seed 3333 --patience 20 --lr 4e-3 --hidden-dim 64 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 2
---model prototypical --seed 3333 --patience 20 --lr 4e-3 --hidden-dim 64 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 8
---model prototypical --seed 3333 --patience 20 --lr 4e-3 --hidden-dim 128 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 2
---model prototypical --seed 3333 --patience 20 --lr 4e-3 --hidden-dim 128 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 8
---model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 64 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 2
---model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 64 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 8
---model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 2
---model prototypical --seed 3333 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 8
+hidden dim: 128 or 64
+gat heads: the more the better: 16

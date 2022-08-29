@@ -25,8 +25,8 @@ class ProtoNet(GraphTrainer):
         super().__init__(n_classes=2, target_classes=[0, 1], support_set=False)
         self.save_hyperparameters()
 
-        self.train_loss_module = nn.CrossEntropyLoss(weight=train_weights.float())
-        self.val_loss_module = nn.CrossEntropyLoss(weight=val_weights.float())
+        self.train_loss_module = nn.CrossEntropyLoss(weight=torch.flip(train_weights.float(), [0]))
+        self.val_loss_module = nn.CrossEntropyLoss(weight=torch.flip(val_weights.float(), [0]))
 
         # train_weight = get_or_none(other_params, 'train_loss_weight')
         # print(f"Positive train weight: {train_weight}")
