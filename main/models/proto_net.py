@@ -8,7 +8,7 @@ from torch.nn import functional as func
 from tqdm.auto import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
-from models.graph_trainer import GraphTrainer
+from models.graph_trainer import GraphTrainer, get_or_none
 from models.train_utils import *
 
 
@@ -16,7 +16,7 @@ from models.train_utils import *
 class ProtoNet(GraphTrainer):
 
     # noinspection PyUnusedLocal
-    def __init__(self, model_params, optimizer_hparams, other_params, train_weights, val_weights):
+    def __init__(self, model_params, optimizer_hparams, other_params):
         """
         Inputs
             proto_dim - Dimensionality of prototype feature space
@@ -25,8 +25,11 @@ class ProtoNet(GraphTrainer):
         super().__init__(n_classes=2, target_classes=[0, 1], support_set=False)
         self.save_hyperparameters()
 
-        self.train_loss_module = nn.CrossEntropyLoss(weight=torch.flip(train_weights.float(), [0]))
-        self.val_loss_module = nn.CrossEntropyLoss(weight=torch.flip(val_weights.float(), [0]))
+        train_weight = get_or_none(other_params, 'train_loss_weight')
+        val_weight = get_or_none(other_params, 'val_loss_weight')
+
+        self.train_loss_module = nn.CrossEntropyLoss(weight=train_weight)
+        self.val_loss_module = nn.CrossEntropyLoss(weight=val_weight)
 
         # train_weight = get_or_none(other_params, 'train_loss_weight')
         # print(f"Positive train weight: {train_weight}")

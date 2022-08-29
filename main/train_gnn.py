@@ -24,7 +24,8 @@ if torch.cuda.is_available():
     torch.cuda.empty_cache()
 
 
-def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_name, seed, epochs, patience,
+def train(balance_data, val_loss_weight, train_loss_weight, val_loss_weight_maj, train_loss_weight_maj, progress_bar,
+          model_name, seed, epochs, patience,
           patience_metric, h_size, top_users, top_users_excluded, k_shot, lr, lr_val, lr_inner, lr_output,
           hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size,
           feature_type, vocab_size, n_inner_updates, n_inner_updates_test, num_workers, gat_dropout,
@@ -44,6 +45,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     evaluation = checkpoint is not None and Path(checkpoint).exists()
 
     print(f'\nConfiguration:\n\n balance_data: {balance_data}\n train_loss_weight: {train_loss_weight}\n '
+          f'val_loss_weight_maj: {val_loss_weight_maj}\n train_loss_weight_maj: {train_loss_weight_maj}\n '
           f'val_loss_weight: {val_loss_weight}\n mode: {"TEST" if evaluation else "TRAIN"}\n '
           f'seed: {seed}\n max epochs: {epochs}\n patience: {patience}\n patience metric: {patience_metric}\n '
           f'k_shot: {k_shot}\n\n model_name: {model_name}\n hidden_dim: {hidden_dim}\n '
@@ -90,8 +92,8 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
         'label_names': train_graph.label_names,
     }
 
-    other_params = {'train_loss_weight': torch.tensor(train_loss_weight) if train_loss_weight is not None else None,
-                    'val_loss_weight': torch.tensor(val_loss_weight) if val_loss_weight is not None else None}
+    other_params = get_loss_weights(data_train, model_name, train_loss_weight, train_loss_weight_maj, val_loss_weight,
+                                    val_loss_weight_maj)
 
     if model_name == 'gat':
         optimizer_params.update(lr_val=lr_val, lr_decay_epochs_val=lr_decay_epochs_val)
@@ -99,8 +101,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
 
         model = GatBase(model_params, optimizer_params, other_params)
     elif model_name == 'prototypical':
-        model = ProtoNet(model_params, optimizer_params, other_params, train_loader.b_sampler.class_weights,
-                         train_val_loader.b_sampler.class_weights)
+        model = ProtoNet(model_params, optimizer_params, other_params)
     elif model_name in META_MODELS:
         model_params.update(n_inner_updates=n_inner_updates, n_inner_updates_test=n_inner_updates_test)
         optimizer_params.update(lr_inner=lr_inner)
@@ -244,6 +245,24 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
             print(f'{round_format(test_f1_queries_std[label])}')
 
     print(f'{round_format(f1_macro_query)}\n{round_format(f1_weighted_query)}\n')
+
+
+def get_loss_weights(data_train, model_name, train_loss_weight, train_loss_weight_maj, val_loss_weight,
+                     val_loss_weight_maj) -> dict:
+    if (train_loss_weight_maj is not None or val_loss_weight_maj is not None) \
+            and (data_train != 'gossipcop' or model_name != 'prototypical'):
+        raise ValueError("Can not use majority class loss values for dataset other than gossipcop or model "
+                         "other than prototypical!")
+
+    train_loss_w = [train_loss_weight]
+    if train_loss_weight_maj is not None:
+        train_loss_w = [train_loss_weight_maj] + train_loss_w
+
+    val_loss_w = [val_loss_weight]
+    if val_loss_weight_maj is not None:
+        val_loss_w = [val_loss_weight_maj] + val_loss_w
+
+    return {'train_loss_weight': torch.tensor(train_loss_w), 'val_loss_weight': torch.tensor(val_loss_w)}
 
 
 def get_output_dim(model_name, proto_dim):
@@ -427,6 +446,12 @@ if __name__ == "__main__":
     parser.add_argument('--train-loss-weight', dest='train_loss_weight', type=int, default=None,
                         help="Weight of the minority class for the training loss function.")
 
+    parser.add_argument('--val-loss-weight-maj', dest='val_loss_weight_maj', type=int, default=None,
+                        help="Weight of the majority class for the validation loss function.")
+
+    parser.add_argument('--train-loss-weight-maj', dest='train_loss_weight_maj', type=int, default=None,
+                        help="Weight of the majority class for the training loss function.")
+
     # parser.add_argument('--train-size', dest='train_size', type=float, default=0.875)
     # parser.add_argument('--val-size', dest='val_size', type=float, default=0.125)
     # parser.add_argument('--test-size', dest='test_size', type=float, default=0.0)
@@ -449,6 +474,8 @@ if __name__ == "__main__":
     train(balance_data=not params['no_balance_data'],
           val_loss_weight=params['val_loss_weight'],
           train_loss_weight=params['train_loss_weight'],
+          val_loss_weight_maj=params['val_loss_weight_maj'],
+          train_loss_weight_maj=params['train_loss_weight_maj'],
           progress_bar=params['progress_bar'],
           model_name=params['model'],
           seed=params['seed'],
