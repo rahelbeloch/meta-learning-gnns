@@ -1,4 +1,5 @@
 import itertools
+import json
 
 import networkx as nx
 import torch
@@ -12,7 +13,7 @@ from train_config import SHOTS
 
 data_train = 'gossipcop'
 data_eval = 'gossipcop'
-model_name = 'maml'
+model_name = 'gat'
 h_size = 2
 top_users, top_users_excluded = 30, 1
 k_shot = 5
@@ -42,53 +43,109 @@ gat_train_batches = 1
 
 
 def validate_query_set_equal():
-    query_shot_nodes = dict()
+    query_shot_nodes = {'train': {}, 'val': {}, 'test': {}}
+
     for k in SHOTS:
         loaders, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
                                                     top_users_excluded, k, train_split_size, eval_split_size,
                                                     feature_type, vocab_size, dirs, gat_train_batches, num_workers)
 
-        train_loader, train_val_loader, test_loader, test_val_loader = loaders
+        query_nodes = get_loader_query_nodes(loaders[0])
+        print(f"\nCollected {len(query_nodes)} query nodes for shot '{k}'")
+        query_shot_nodes['train'][k] = query_nodes
 
-        query_nodes, support_nodes = [], []
-        for episode in iter(train_loader):
-            if model_name == 'gat':
+        query_nodes = get_loader_query_nodes(loaders[1])
+        print(f"\nCollected {len(query_nodes)} query nodes for shot '{k}'")
+        query_shot_nodes['val'][k] = query_nodes
+
+        query_nodes = get_loader_query_nodes(loaders[2])
+        print(f"\nCollected {len(query_nodes)} query nodes for shot '{k}'")
+        query_shot_nodes['test'][k] = query_nodes
+
+    # verify overlap within single loaders
+    verify_non_overlap(query_shot_nodes, 'train')
+    verify_non_overlap(query_shot_nodes, 'val')
+    verify_non_overlap(query_shot_nodes, 'test')
+
+    # verify overlap across loaders
+    verify_across_loaders(query_shot_nodes, 'train', 'val')
+    verify_across_loaders(query_shot_nodes, 'train', 'test')
+    verify_across_loaders(query_shot_nodes, 'val', 'test')
+
+    with open('sample_stats.json', 'w') as fp:
+        json.dump(query_shot_nodes, fp)
+
+
+def verify_across_loaders(query_shot_nodes, loader1, loader2):
+    diff1 = set(query_shot_nodes[loader1][4]).intersection(set(query_shot_nodes[loader2][8]))
+    diff2 = set(query_shot_nodes[loader1][4]).intersection(set(query_shot_nodes[loader2][12]))
+    diff3 = set(query_shot_nodes[loader1][4]).intersection(set(query_shot_nodes[loader2][16]))
+    diff4 = set(query_shot_nodes[loader1][8]).intersection(set(query_shot_nodes[loader2][12]))
+    diff5 = set(query_shot_nodes[loader1][8]).intersection(set(query_shot_nodes[loader2][16]))
+    diff6 = set(query_shot_nodes[loader1][12]).intersection(set(query_shot_nodes[loader2][16]))
+    assert len(diff1) == 0
+    assert len(diff2) == 0
+    assert len(diff3) == 0
+    assert len(diff4) == 0
+    assert len(diff5) == 0
+    assert len(diff6) == 0
+    print(f"Difference 4 and 8: {diff1}")
+    print(f"Difference 4 and 12: {diff2}")
+    print(f"Difference 4 and 16: {diff3}")
+    print(f"Difference 8 and 12: {diff4}")
+    print(f"Difference 8 and 16: {diff5}")
+    print(f"Difference 12 and 16: {diff6}")
+
+
+def verify_non_overlap(query_shot_nodes, loader_name):
+    diff_5_10 = set(query_shot_nodes[loader_name][4]).symmetric_difference(set(query_shot_nodes[loader_name][8]))
+    diff_5_20 = set(query_shot_nodes[loader_name][4]).symmetric_difference(set(query_shot_nodes[loader_name][12]))
+    diff_5_40 = set(query_shot_nodes[loader_name][4]).symmetric_difference(set(query_shot_nodes[loader_name][16]))
+    diff_10_20 = set(query_shot_nodes[loader_name][8]).symmetric_difference(set(query_shot_nodes[loader_name][12]))
+    diff_10_40 = set(query_shot_nodes[loader_name][8]).symmetric_difference(set(query_shot_nodes[loader_name][16]))
+    diff_20_40 = set(query_shot_nodes[loader_name][12]).symmetric_difference(set(query_shot_nodes[loader_name][16]))
+
+    assert len(diff_5_10) == 0
+    assert len(diff_5_20) == 0
+    assert len(diff_5_40) == 0
+    assert len(diff_10_20) == 0
+    assert len(diff_10_40) == 0
+    assert len(diff_20_40) == 0
+
+    print(f"Difference 4 and 8: {diff_5_10}")
+    print(f"Difference 4 and 12: {diff_5_20}")
+    print(f"Difference 4 and 16: {diff_5_40}")
+    print(f"Difference 8 and 12: {diff_10_20}")
+    print(f"Difference 8 and 16: {diff_10_40}")
+    print(f"Difference 12 and 16: {diff_20_40}")
+
+
+def get_loader_query_nodes(loader):
+    # gat + train --> episode contains 2 things
+    # gat + val --> episode contains 4 things
+    # gat + test --> episode contains 4 things
+
+    query_nodes, support_nodes = [], []
+    for episode in iter(loader):
+        if model_name == 'gat':
+
+            if loader.mode == 'train':
                 # sub graphs are organizes as: [s,s,s,s,s... q,q,q,q, ..., s,s,s,s, ...q,q,q,q ...]
                 sub_graphs, targets = episode
-                for i, g in enumerate(sub_graphs):
+            else:
+                support_graphs, query_graphs, support_targets, query_targets = episode
+                sub_graphs = query_graphs
+                targets = query_targets
+
+            for i, g in enumerate(sub_graphs):
+                if g.set_type == 'query':
+                    query_nodes.append((g.orig_center_idx, targets[i].item(), g.set_type))
+        else:
+            for graphs, targets in episode:
+                for i, g in enumerate(graphs):
                     if g.set_type == 'query':
                         query_nodes.append((g.orig_center_idx, targets[i].item(), g.set_type))
-            else:
-                for graphs, targets in episode:
-                    for i, g in enumerate(graphs):
-                        if g.set_type == 'query':
-                            query_nodes.append((g.orig_center_idx, targets[i].item(), g.set_type))
-
-        query_shot_nodes[k] = query_nodes
-        print(f"\nCollected {len(query_nodes)} query nodes for shot '{k}'")
-
-    difference_5_10 = set(query_shot_nodes[4]).symmetric_difference(set(query_shot_nodes[8]))
-    difference_5_20 = set(query_shot_nodes[4]).symmetric_difference(set(query_shot_nodes[12]))
-    difference_5_40 = set(query_shot_nodes[4]).symmetric_difference(set(query_shot_nodes[16]))
-
-    difference_10_20 = set(query_shot_nodes[8]).symmetric_difference(set(query_shot_nodes[12]))
-    difference_10_40 = set(query_shot_nodes[8]).symmetric_difference(set(query_shot_nodes[16]))
-
-    difference_20_40 = set(query_shot_nodes[12]).symmetric_difference(set(query_shot_nodes[16]))
-
-    assert len(difference_5_10) == 0
-    assert len(difference_5_20) == 0
-    assert len(difference_5_40) == 0
-    assert len(difference_10_20) == 0
-    assert len(difference_10_40) == 0
-    assert len(difference_20_40) == 0
-
-    print(f"Difference 4 and 8: {difference_5_10}")
-    print(f"Difference 4 and 12: {difference_5_20}")
-    print(f"Difference 4 and 16: {difference_5_40}")
-    print(f"Difference 8 and 12: {difference_10_20}")
-    print(f"Difference 8 and 16: {difference_10_40}")
-    print(f"Difference 12 and 16: {difference_20_40}")
+    return query_nodes
 
 
 def check_train_loader_query_samples():
