@@ -192,9 +192,10 @@ def test_proto_net(model, test_loader, label_names, k_shot=4, num_classes=1):
 
         support_targets = support_targets.to(DEVICE)
 
-        assert support_feats.shape[0] == 2 * k_shot
-        assert support_targets.shape[0] == 2 * k_shot
-        assert len(set(support_targets.tolist())) == 2
+        # sanity checks
+        assert support_feats.shape[0] == num_classes * k_shot
+        assert support_targets.shape[0] == num_classes * k_shot
+        assert len(set(support_targets.tolist())) == num_classes
 
         prototypes = model.calculate_prototypes(support_feats, support_targets)
 

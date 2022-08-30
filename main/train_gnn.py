@@ -179,10 +179,10 @@ def train(balance_data, val_loss_weight, train_loss_weight, val_loss_weight_maj,
     model = model.load_from_checkpoint(model_path)
     n_classes = len(eval_graph.labels)
 
+    target_classes = list(range(n_classes))
     if data_eval == "twitterHateSpeech":
         loss_module = CrossEntropyLoss()
-        target_classes = list(range(n_classes))
-    elif data_eval == "gossipcop":
+    elif data_eval == "gossipcop" and model_name != 'prototypical':
         loss_module = BCEWithLogitsLoss()
         target_classes = [1]
     else:
@@ -199,6 +199,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, val_loss_weight_maj,
         model.reset_test_metric(n_classes, eval_graph.label_names, target_classes)
 
     test_f1_queries_std = None
+
     if model_name == 'gat':
         test_f1_queries, f1_macro_query, f1_weighted_query, elapsed = evaluate(trainer, model, test_loader, labels)
     elif model_name == 'proto-maml':
@@ -209,8 +210,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, val_loss_weight_maj,
             = test_maml(model, test_loader, labels, loss_module, len(target_classes))
     elif model_name == 'prototypical':
         (test_f1_queries, test_f1_queries_std), (f1_macro_query, _), (f1_weighted_query, _), elapsed \
-            = test_proto_net(model, test_loader, labels, k_shot=k_shot, num_classes=2)
-        # len(target_classes)
+            = test_proto_net(model, test_loader, labels, k_shot=k_shot, num_classes=len(target_classes))
     else:
         raise ValueError(f"Model type {model_name} not supported!")
 
@@ -234,13 +234,10 @@ def train(balance_data, val_loss_weight, train_loss_weight, val_loss_weight_maj,
 
     if trainer is not None:
         print(f'\nepochs: {trainer.current_epoch + 1}\n')
-
-    if trainer is not None:
         print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}')
 
     for label in labels:
         print(f'{round_format(test_f1_queries[label])}')
-
         if test_f1_queries_std is not None:
             print(f'{round_format(test_f1_queries_std[label])}')
 
