@@ -254,16 +254,25 @@ def get_loss_weights(data_train, model_name, train_loss_weight, train_loss_weigh
         raise ValueError("Can not use majority class loss values for dataset other than gossipcop or model "
                          "other than prototypical!")
 
-    train_loss_w = [train_loss_weight]
+    train_loss_w = []
+    if train_loss_weight is not None:
+        train_loss_w = [train_loss_weight]
     if train_loss_weight_maj is not None:
         train_loss_w = [train_loss_weight_maj] + train_loss_w
 
-    val_loss_w = [val_loss_weight]
+    val_loss_w = []
+    if val_loss_weight is not None:
+        val_loss_w = [val_loss_weight]
     if val_loss_weight_maj is not None:
         val_loss_w = [val_loss_weight_maj] + val_loss_w
 
-    return {'train_loss_weight': torch.tensor(train_loss_w).float(),
-            'val_loss_weight': torch.tensor(val_loss_w).float()}
+    other_params = {}
+    if len(train_loss_w) > 0:
+        other_params['train_loss_weight'] = torch.tensor(train_loss_w).float()
+    if len(val_loss_w) > 0:
+        other_params['val_loss_weight'] = torch.tensor(val_loss_w).float()
+
+    return other_params
 
 
 def get_output_dim(model_name, proto_dim):

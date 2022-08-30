@@ -31,14 +31,6 @@ class ProtoNet(GraphTrainer):
         self.train_loss_module = nn.CrossEntropyLoss(weight=train_weight)
         self.val_loss_module = nn.CrossEntropyLoss(weight=val_weight)
 
-        # train_weight = get_or_none(other_params, 'train_loss_weight')
-        # print(f"Positive train weight: {train_weight}")
-        # self.train_loss_module = nn.BCEWithLogitsLoss(pos_weight=train_weight)
-        #
-        # val_weight = get_or_none(other_params, 'val_loss_weight')
-        # print(f"Positive val weight: {val_weight}")
-        # self.val_loss_module = nn.BCEWithLogitsLoss(pos_weight=val_weight)
-
         self.model = GatNet(model_params)
 
     def configure_optimizers(self):
