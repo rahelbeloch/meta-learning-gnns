@@ -198,18 +198,18 @@ def train(balance_data, val_loss_weight, train_loss_weight, val_loss_weight_maj,
         # reset the test metric with number of classes
         model.reset_test_metric(n_classes, eval_graph.label_names, target_classes)
 
-    test_f1_queries_std = None
+    test_f1_queries_std, f1_macro_query_std = None, None
 
     if model_name == 'gat':
         test_f1_queries, f1_macro_query, f1_weighted_query, elapsed = evaluate(trainer, model, test_loader, labels)
     elif model_name == 'proto-maml':
-        (test_f1_queries, test_f1_queries_std), (f1_macro_query, _), (f1_weighted_query, _), elapsed \
+        (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), elapsed \
             = test_protomaml(model, test_loader, labels, loss_module, len(target_classes))
     elif model_name == 'maml':
-        (test_f1_queries, test_f1_queries_std), (f1_macro_query, _), (f1_weighted_query, _), elapsed \
+        (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), elapsed \
             = test_maml(model, test_loader, labels, loss_module, len(target_classes))
     elif model_name == 'prototypical':
-        (test_f1_queries, test_f1_queries_std), (f1_macro_query, _), (f1_weighted_query, _), elapsed \
+        (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), elapsed \
             = test_proto_net(model, test_loader, labels, k_shot=k_shot, num_classes=len(target_classes))
     else:
         raise ValueError(f"Model type {model_name} not supported!")
@@ -220,9 +220,13 @@ def train(balance_data, val_loss_weight, train_loss_weight, val_loss_weight_maj,
     for label in labels:
         if wb_mode == 'online':
             wandb.log({f"test/f1_{label}": test_f1_queries[label]})
+            wandb.log({f"test/f1_macro_query": f1_macro_query})
 
             if test_f1_queries_std is not None:
                 wandb.log({f"test/f1_{label}_std": test_f1_queries_std[label]})
+
+            if f1_macro_query_std is not None:
+                wandb.log({f"test/f1_macro_query_std": f1_macro_query_std})
 
         print(f' test f1 {label}: {round(test_f1_queries[label], 3)} ({test_f1_queries[label]})')
 
