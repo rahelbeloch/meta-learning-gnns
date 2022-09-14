@@ -175,77 +175,77 @@ def train(balance_data, val_loss_weight, train_loss_weight, val_loss_weight_maj,
     else:
         model_path = checkpoint
 
-    # Evaluation
-    model = model.load_from_checkpoint(model_path)
-    n_classes = len(eval_graph.labels)
+        # Evaluation
+        model = model.load_from_checkpoint(model_path)
+        n_classes = len(eval_graph.labels)
 
-    target_classes = list(range(n_classes))
-    if data_eval == "twitterHateSpeech":
-        loss_module = CrossEntropyLoss()
-    elif data_eval == "gossipcop" and model_name != 'prototypical':
-        loss_module = BCEWithLogitsLoss()
-        target_classes = [1]
-    else:
-        raise ValueError(f"Unknown eval data {data_eval}!")
+        target_classes = list(range(n_classes))
+        if data_eval == "twitterHateSpeech":
+            loss_module = CrossEntropyLoss()
+        elif data_eval == "gossipcop" and model_name != 'prototypical':
+            loss_module = BCEWithLogitsLoss()
+            target_classes = [1]
+        else:
+            raise ValueError(f"Unknown eval data {data_eval}!")
 
-    labels = [eval_graph.label_names[cls] for cls in target_classes]
+        labels = [eval_graph.label_names[cls] for cls in target_classes]
 
-    if data_eval != data_train and data_eval is not None:
-        if model_name == 'gat' or model_name == 'maml':
-            # model was trained on another dataset --> Newly setting the output layer, erases all pretrained weights!
-            model.model.reset_classifier_dimensions(n_classes)
+        if data_eval != data_train and data_eval is not None:
+            if model_name == 'gat' or model_name == 'maml':
+                # model was trained on another dataset --> Newly setting the output layer, erases all pretrained weights!
+                model.model.reset_classifier_dimensions(n_classes)
 
-        # reset the test metric with number of classes
-        model.reset_test_metric(n_classes, eval_graph.label_names, target_classes)
+            # reset the test metric with number of classes
+            model.reset_test_metric(n_classes, eval_graph.label_names, target_classes)
 
-    test_f1_queries_std, f1_macro_query_std = None, None
+        test_f1_queries_std, f1_macro_query_std = None, None
 
-    if model_name == 'gat':
-        test_f1_queries, f1_macro_query, f1_weighted_query, elapsed = evaluate(trainer, model, test_loader, labels)
-    elif model_name == 'proto-maml':
-        (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), elapsed \
-            = test_protomaml(model, test_loader, labels, loss_module, len(target_classes))
-    elif model_name == 'maml':
-        (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), elapsed \
-            = test_maml(model, test_loader, labels, loss_module, len(target_classes))
-    elif model_name == 'prototypical':
-        (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), elapsed \
-            = test_proto_net(model, test_loader, labels, k_shot=k_shot, num_classes=len(target_classes))
-    else:
-        raise ValueError(f"Model type {model_name} not supported!")
+        if model_name == 'gat':
+            test_f1_queries, f1_macro_query, f1_weighted_query, elapsed = evaluate(trainer, model, test_loader, labels)
+        elif model_name == 'proto-maml':
+            (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), elapsed \
+                = test_protomaml(model, test_loader, labels, loss_module, len(target_classes))
+        elif model_name == 'maml':
+            (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), elapsed \
+                = test_maml(model, test_loader, labels, loss_module, len(target_classes))
+        elif model_name == 'prototypical':
+            (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), elapsed \
+                = test_proto_net(model, test_loader, labels, k_shot=k_shot, num_classes=len(target_classes))
+        else:
+            raise ValueError(f"Model type {model_name} not supported!")
 
-    print(f'\nRequired time for testing: {int(elapsed / 60)} minutes.\n')
-    print(f'Test Results:')
+        print(f'\nRequired time for testing: {int(elapsed / 60)} minutes.\n')
+        print(f'Test Results:')
 
-    for label in labels:
-        if wb_mode == 'online':
-            wandb.log({f"test/f1_{label}": test_f1_queries[label]})
-            wandb.log({f"test/f1_macro_query": f1_macro_query})
+        for label in labels:
+            if wb_mode == 'online':
+                wandb.log({f"test/f1_{label}": test_f1_queries[label]})
+                wandb.log({f"test/f1_macro_query": f1_macro_query})
+
+                if test_f1_queries_std is not None:
+                    wandb.log({f"test/f1_{label}_std": test_f1_queries_std[label]})
+
+                if f1_macro_query_std is not None:
+                    wandb.log({f"test/f1_macro_query_std": f1_macro_query_std})
+
+            print(f' test f1 {label}: {round(test_f1_queries[label], 3)} ({test_f1_queries[label]})')
 
             if test_f1_queries_std is not None:
-                wandb.log({f"test/f1_{label}_std": test_f1_queries_std[label]})
+                print(f' test f1 std {label}: {round(test_f1_queries_std[label], 3)} ({test_f1_queries_std[label]})')
 
-            if f1_macro_query_std is not None:
-                wandb.log({f"test/f1_macro_query_std": f1_macro_query_std})
+        print(f' test f1 macro: {round(f1_macro_query, 3)} ({f1_macro_query})\n'
+              f' test f1 weighted: {round(f1_weighted_query, 3)} ({f1_weighted_query})\n')
 
-        print(f' test f1 {label}: {round(test_f1_queries[label], 3)} ({test_f1_queries[label]})')
+        if trainer is not None:
+            print(f'\nepochs: {trainer.current_epoch + 1}\n')
+            print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}')
 
-        if test_f1_queries_std is not None:
-            print(f' test f1 std {label}: {round(test_f1_queries_std[label], 3)} ({test_f1_queries_std[label]})')
+        for label in labels:
+            print(f'{round_format(test_f1_queries[label])}')
+            if test_f1_queries_std is not None:
+                print(f'{round_format(test_f1_queries_std[label])}')
 
-    print(f' test f1 macro: {round(f1_macro_query, 3)} ({f1_macro_query})\n'
-          f' test f1 weighted: {round(f1_weighted_query, 3)} ({f1_weighted_query})\n')
-
-    if trainer is not None:
-        print(f'\nepochs: {trainer.current_epoch + 1}\n')
-        print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}')
-
-    for label in labels:
-        print(f'{round_format(test_f1_queries[label])}')
-        if test_f1_queries_std is not None:
-            print(f'{round_format(test_f1_queries_std[label])}')
-
-    print(f'{round_format(f1_macro_query)}\n{round_format(f1_weighted_query)}\n')
+        print(f'{round_format(f1_macro_query)}\n{round_format(f1_weighted_query)}\n')
 
 
 def get_loss_weights(data_train, model_name, train_loss_weight, train_loss_weight_maj, val_loss_weight,

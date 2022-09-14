@@ -2,7 +2,7 @@
 
 #SBATCH --job-name=meta-gnn-job
 #SBATCH --time=06:00:00
-#SBATCH --array=25-128
+#SBATCH --array=1-24
 #SBATCH --output=logs/job_outputs/hparams_protomaml_%A_%a.out
 
 # GPU Settings
