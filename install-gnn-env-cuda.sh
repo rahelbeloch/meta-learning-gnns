@@ -14,6 +14,7 @@ source activate meta-gnn-env
 conda install pandas
 conda install importlib_resources
 conda install matplotlib
+conda install wandb
 
 pip install torchtext==0.8.0
 
@@ -28,10 +29,6 @@ pip install --no-cache-dir torch-geometric
 #pip3 install --no-cache-dir torch==1.8.1+cu101 -f https://download.pytorch.org/whl/torch_stable.html
 #pip3 install --no-cache-dir torch-scatter -f https://pytorch-geometric.com/whl/torch-1.8.1+cu101.html
 #pip3 install --no-cache-dir torch-sparse -f https://pytorch-geometric.com/whl/torch-1.8.1+cu101.html
-##pip3 install --no-cache-dir torch-cluster -f https://pytorch-geometric.com/whl/torch-1.8.1+cu101.html
-##pip3 install --no-cache-dir torch-spline-conv -f https://pytorch-geometric.com/whl/torch-1.8.1+cu101.html
 #pip3 install --no-cache-dir torch-geometric
-
-#pip3 install -r requirements.txt
 
 python -c 'import torch; from torch.utils.cpp_extension import CUDA_HOME; print(torch.cuda.is_available(), CUDA_HOME)'
