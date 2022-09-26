@@ -106,7 +106,7 @@ class ProtoNet(GraphTrainer):
         # support logits: 8 x 64
         # support targets: 8
 
-        # TODO: not sure how to do this
+        # TODO: does it make sense to log support metrics?
         # self.update_metrics(mode, get_predictions(support_logits).float(), support_targets, set_name='support')
 
         assert support_logits.shape[0] == support_targets.shape[0], \
@@ -140,10 +140,10 @@ class ProtoNet(GraphTrainer):
 
         return loss
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch):
         return self.calculate_loss(batch, mode="train", loss_module=self.train_loss_module)
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch):
         self.calculate_loss(batch, mode="val", loss_module=self.val_loss_module)
 
 

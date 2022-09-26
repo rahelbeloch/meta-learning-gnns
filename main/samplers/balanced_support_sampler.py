@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import numpy as np
 import torch
 from torch.utils.data import Sampler
@@ -81,6 +83,7 @@ class FewShotEpisodeSampler(Sampler):
             print(f"{mode} sampler episodes/batches: {self.num_batches}")
 
         nr_support_samples = sum([len(indices) for indices in self.indices_per_class['support'].values()])
+        nr_query_samples = sum([len(indices) for indices in self.indices_per_class['query'].values()])
         print(f"{mode} sampler support samples: {nr_support_samples}")
         print(f"{mode} sampler query samples: {nr_query_samples}")
 

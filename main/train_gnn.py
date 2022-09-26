@@ -176,6 +176,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, val_loss_weight_maj,
         model_path = checkpoint
 
         # Evaluation
+        # noinspection PyUnboundLocalVariable
         model = model.load_from_checkpoint(model_path)
         n_classes = len(eval_graph.labels)
 
@@ -192,7 +193,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, val_loss_weight_maj,
 
         if data_eval != data_train and data_eval is not None:
             if model_name == 'gat' or model_name == 'maml':
-                # model was trained on another dataset --> Newly setting the output layer, erases all pretrained weights!
+                # model was trained on another dataset -> Newly setting the output layer, erases all pretrained weights!
                 model.model.reset_classifier_dimensions(n_classes)
 
             # reset the test metric with number of classes
@@ -203,14 +204,14 @@ def train(balance_data, val_loss_weight, train_loss_weight, val_loss_weight_maj,
         if model_name == 'gat':
             test_f1_queries, f1_macro_query, f1_weighted_query, elapsed = evaluate(trainer, model, test_loader, labels)
         elif model_name == 'proto-maml':
-            (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), elapsed \
-                = test_protomaml(model, test_loader, labels, loss_module, len(target_classes))
+            (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), \
+                elapsed = test_protomaml(model, test_loader, labels, loss_module, len(target_classes))
         elif model_name == 'maml':
-            (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), elapsed \
-                = test_maml(model, test_loader, labels, loss_module, len(target_classes))
+            (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), \
+                elapsed = test_maml(model, test_loader, labels, loss_module, len(target_classes))
         elif model_name == 'prototypical':
-            (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), elapsed \
-                = test_proto_net(model, test_loader, labels, k_shot=k_shot, num_classes=len(target_classes))
+            (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), \
+                elapsed = test_proto_net(model, test_loader, labels, k_shot=k_shot, num_classes=len(target_classes))
         else:
             raise ValueError(f"Model type {model_name} not supported!")
 

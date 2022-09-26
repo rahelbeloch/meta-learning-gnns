@@ -11,7 +11,7 @@ GOSSIPCOP_EPISODES = {
     'test': {4: 120, 8: 60, 12: 40, 16: 30}
 }
 
-# we are not training on twitter, therefore using all samples for test!
+# we are not training on Twitter, therefore using all samples for test!
 TWITTER_QUERY_SAMPLES = {'test': {0: 912, 1: 1824, 2: 3648}}
 TWITTER_EPISODES = {'test': {4: 912, 8: 456, 12: 304, 16: 228}}
 

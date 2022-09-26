@@ -238,5 +238,5 @@ def test_maml(model, test_loader, label_names, loss_module, num_classes=1):
         f1_fakes_std[label] = stdev(f1_fakes[label])
         f1_fakes[label] = mean(f1_fakes[label])
 
-    return (f1_fakes, f1_fakes_std), (mean(f1_macros), stdev(f1_macros)), (
-        mean(f1_weights), stdev(f1_weights)), test_elapsed
+    return (f1_fakes, f1_fakes_std), (mean(f1_macros), stdev(f1_macros)), \
+           (mean(f1_weights), stdev(f1_weights)), test_elapsed

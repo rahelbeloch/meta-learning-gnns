@@ -52,7 +52,7 @@ class GraphTrainer(pl.LightningModule):
     def log_on_epoch(self, metric, value):
         self.log(metric, value, on_step=False, on_epoch=True)
 
-    def log(self, metric, value, on_step=True, on_epoch=False, **kwargs):
+    def log(self, metric, value, on_step=True, on_epoch=False):
         b_size = self.hparams["model_params"]["batch_size"]
         super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=b_size, add_dataloader_idx=False)
 

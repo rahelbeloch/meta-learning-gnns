@@ -209,8 +209,7 @@ def unused_samples_stats():
 def visualize_subgraphs():
     loaders, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
                                                 top_users_excluded, 5, train_split_size, eval_split_size,
-                                                feature_type, vocab_size, dirs, num_workers=num_workers,
-                                                batch_size=344)
+                                                feature_type, vocab_size, dirs, num_workers=num_workers)
 
     for loader in loaders:
         for episode in iter(loader):
@@ -256,8 +255,7 @@ def node_indices_belong_to_split():
         model, shots, batch_size = s
         loaders, train_graph, eval_graph = get_data(data_train, data_eval, model, h_size, top_users,
                                                     top_users_excluded, shots, train_split_size, eval_split_size,
-                                                    feature_type, vocab_size, dirs, num_workers=num_workers,
-                                                    batch_size=batch_size)
+                                                    feature_type, vocab_size, dirs, num_workers=num_workers)
         for loader in loaders:
             verify_node_indices(loader)
 
