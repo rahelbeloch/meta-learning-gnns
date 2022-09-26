@@ -1,17 +1,15 @@
 import time
+from collections import defaultdict
 from statistics import mean, stdev
 
-import numpy as np
-import torch.nn
 import torchmetrics as tm
-from torch import optim
-from torch.nn import BCEWithLogitsLoss
+from torch import optim, nn
+from torch.nn import functional as func
 from tqdm.auto import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
 from models.graph_trainer import GraphTrainer, get_or_none
 from models.train_utils import *
-from samplers.graph_sampler import KHopSamplerSimple
 
 
 # noinspection PyAbstractClass
@@ -24,10 +22,14 @@ class ProtoNet(GraphTrainer):
             proto_dim - Dimensionality of prototype feature space
             lr - Learning rate of Adam optimizer
         """
-        super().__init__()
+        super().__init__(n_classes=2, target_classes=[0, 1], support_set=False)
         self.save_hyperparameters()
 
-        self.loss_module = BCEWithLogitsLoss(pos_weight=get_or_none(other_params, 'train_loss_weight'))
+        train_weight = get_or_none(other_params, 'train_loss_weight')
+        val_weight = get_or_none(other_params, 'val_loss_weight')
+
+        self.train_loss_module = nn.CrossEntropyLoss(weight=train_weight)
+        self.val_loss_module = nn.CrossEntropyLoss(weight=val_weight)
 
         self.model = GatNet(model_params)
 
@@ -49,6 +51,9 @@ class ProtoNet(GraphTrainer):
 
         classes, _ = torch.unique(targets).sort()  # Determine which classes we have
 
+        # TODO: only target class!
+        # classes = [1]
+
         prototypes = []
         for c in classes:
             # noinspection PyTypeChecker
@@ -61,33 +66,33 @@ class ProtoNet(GraphTrainer):
     @staticmethod
     def classify_features(prototypes, feats, targets):
         """
-                Classify new examples with prototypes and return classification error.
-                :param prototypes:
-                :param feats:
-                :param targets:
-                :return:
-                """
+        Classify new examples with prototypes and return classification error.
+        """
+
         # Squared euclidean distance:   batch size x 2
         dist = torch.pow(prototypes[None, :] - feats[:, None], 2).sum(dim=2)
 
         # we only want to consider the distance for the target/fake class
-        dist_fake = dist[:, 1]
-
-        # predictions = func.log_softmax(-dist, dim=1)      # for CE loss
-        # predictions = torch.sigmoid(-dist)  # for BCE loss
+        # dist_fake = dist[:, 1]
 
         # predictions = -dist  # for BCE with logits loss
         # for BCE with logits loss: don't use negative dist
-        logits = dist_fake
 
-        return logits.view(-1, 1), targets.view(-1, 1)
+        # logits = dist_fake
+        # logits = dist
+        # logits = logits.view(-1, 1)
+        # targets = targets.view(-1, 1)
 
-    def calculate_loss(self, batch, mode):
+        logits = func.log_softmax(-dist, dim=1)  # for CE loss
+        # targets = func.one_hot(targets.squeeze()).float()
+
+        # predictions = torch.sigmoid(-dist)  # for BCE loss
+
+        return logits, targets
+
+    def calculate_loss(self, batch, mode, loss_module):
         """
         Determine training loss for a given support and query set.
-        :param batch:
-        :param mode:
-        :return:
         """
 
         if torch.cuda.is_available():
@@ -98,7 +103,11 @@ class ProtoNet(GraphTrainer):
         x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
         support_logits = self.model(x, edge_index, mode)[cl_mask]
 
-        self.update_metrics(mode, get_predictions(support_logits), support_targets, set_name='support')
+        # support logits: 8 x 64
+        # support targets: 8
+
+        # TODO: does it make sense to log support metrics?
+        # self.update_metrics(mode, get_predictions(support_logits).float(), support_targets, set_name='support')
 
         assert support_logits.shape[0] == support_targets.shape[0], \
             "Nr of features returned does not equal nr. of classification nodes!"
@@ -116,34 +125,30 @@ class ProtoNet(GraphTrainer):
         logits, targets = ProtoNet.classify_features(prototypes, query_logits, query_targets)
         # logits and targets: batch size x 1
 
-        # for cross entropy
-        # targets = targets.long().argmax(dim=-1)
-
         # targets have dimensions according to classes which are in the subgraph batch, i.e. if all sub graphs have the
         # same label, targets has 2nd dimension = 1
 
-        loss = self.loss_module(logits, targets.float())
+        loss = loss_module(logits, targets)
 
         if mode == 'train' or mode == 'val':
-            self.log_on_epoch(f"{mode}/loss", loss)
+            self.log_on_epoch(f"{mode}/query_loss", loss)
 
         # make probabilities out of logits via sigmoid --> especially for the metrics; makes it more interpretable
         query_predictions = get_predictions(logits)
 
-        # TODO: or query targets?
         self.update_metrics(mode, query_predictions, targets, set_name='query')
 
         return loss
 
-    def training_step(self, batch, batch_idx):
-        return self.calculate_loss(batch, mode="train")
+    def training_step(self, batch):
+        return self.calculate_loss(batch, mode="train", loss_module=self.train_loss_module)
 
-    def validation_step(self, batch, batch_idx):
-        self.calculate_loss(batch, mode="val")
+    def validation_step(self, batch):
+        self.calculate_loss(batch, mode="val", loss_module=self.val_loss_module)
 
 
 @torch.no_grad()
-def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=1):
+def test_proto_net(model, test_loader, label_names, k_shot=4, num_classes=1):
     """
     Use the trained ProtoNet & adapt to test classes. Pick k examples/sub graphs per class from which prototypes are
     determined. Test the metrics on all other sub graphs, i.e. use k sub graphs per class as support set and
@@ -161,34 +166,8 @@ def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=1):
         k_shot - Number of examples per class in the support set.
     """
 
-    test_node_indices = torch.where(dataset.split_masks['test_mask'])[0]
-    sampler = KHopSamplerSimple(dataset, 2)
-
     model = model.to(DEVICE)
     model.eval()
-
-    # The encoder network remains unchanged across k-shot settings.
-    # Hence, we only need to extract the features for all articles once.
-    if data_feats is None:
-
-        data_list_collated = []
-        for orig_node_idx in test_node_indices:
-            data, target = sampler[orig_node_idx]
-            data_list_collated.append((data, target))
-
-        sup_graphs, labels = list(map(list, zip(*data_list_collated)))
-        x, edge_index, cl_mask = get_subgraph_batch(sup_graphs)
-        x, edge_index = x.to(DEVICE), edge_index.to(DEVICE)
-        feats = model.model(x, edge_index, 'test')
-        feats = feats[cl_mask]
-
-        node_features = feats.detach().cpu()  # shape: 1975 x 2
-        node_targets = torch.tensor(labels)  # shape: 1975
-
-        node_targets, sort_idx = node_targets.sort()
-        node_features = node_features[sort_idx]
-    else:
-        node_features, node_targets = data_feats
 
     # Iterate through the full dataset in two manners:
     #   First, to select the k-shot batch.
@@ -196,51 +175,70 @@ def test_proto_net(model, dataset, data_feats=None, k_shot=4, num_classes=1):
 
     test_start = time.time()
 
-    start_indices_per_class = torch.zeros(num_classes).int()
-    for c in range(num_classes):
-        start_indices_per_class[c] = torch.where(node_targets == c)[0][0].item()
+    f1_target = tm.F1(num_classes=num_classes, average='none').to(DEVICE)
+    f1_macro = tm.F1(num_classes=num_classes, average='macro').to(DEVICE)
+    f1_weighted = tm.F1(num_classes=num_classes, average='weighted').to(DEVICE)
 
-    f1_fake = []
-    for k_idx in tqdm(range(0, node_features.shape[0], k_shot), "Evaluating prototype classification", leave=False):
-        # Select support set (k examples per class) and calculate prototypes
-        k_node_feats, k_targets = get_as_set(k_idx, k_shot, node_features, node_targets, start_indices_per_class)
-        prototypes = model.calculate_prototypes(k_node_feats, k_targets)
+    f1_fakes, f1_macros, f1_weights = defaultdict(list), [], []
 
-        batch_f1_target = tm.F1(num_classes=num_classes, average='none')
-        batch_f1_macro = tm.F1(num_classes=num_classes, average='macro')
-        batch_f1_weighted = tm.F1(num_classes=num_classes, average='weighted')
+    for support_batch_idx, support_episode in tqdm(enumerate(test_loader),
+                                                   "Performing few-shot fine tuning in testing"):
+        support_graphs, _, support_targets, _ = support_episode
 
-        for e_idx in range(0, node_features.shape[0], k_shot):
-            if k_idx == e_idx:  # Do not evaluate on the support set examples
+        x, edge_index, cl_mask = get_subgraph_batch(support_graphs)
+
+        with torch.no_grad():  # No gradients for query set needed
+            support_feats = model.model(x, edge_index, 'test')[cl_mask]
+
+        support_targets = support_targets.to(DEVICE)
+
+        # sanity checks
+        assert support_feats.shape[0] == num_classes * k_shot
+        assert support_targets.shape[0] == num_classes * k_shot
+        assert len(set(support_targets.tolist())) == num_classes
+
+        prototypes = model.calculate_prototypes(support_feats, support_targets)
+
+        # Evaluate all examples in test dataset
+        for query_episode_idx, query_episode in enumerate(test_loader):
+
+            if support_batch_idx == query_episode_idx:
+                # Exclude support set elements
                 continue
 
-            e_node_feats, e_targets = get_as_set(e_idx, k_shot, node_features, node_targets, start_indices_per_class)
-            logits, targets = model.classify_features(prototypes, e_node_feats, e_targets)
+            support_graphs, query_graphs, support_targets, query_targets = query_episode
+            graphs = support_graphs + query_graphs
+            targets = torch.cat([support_targets, query_targets]).to(DEVICE)
 
-            predictions = (logits.sigmoid() > 0.5).float()
+            x, edge_index, cl_mask = get_subgraph_batch(graphs)
 
-            batch_f1_target.update(predictions, targets)
+            with torch.no_grad():  # No gradients for query set needed
+                feats = model.model(x, edge_index, 'test')[cl_mask]
 
-        # F1 values can be nan, if e.g. proto_classes contains only one of the 2 classes
-        f1_fake_value = batch_f1_target.compute().item()
-        if not np.isnan(f1_fake_value):
-            f1_fake.append(f1_fake_value)
+            logits, targets = model.classify_features(prototypes, feats, targets)
+            predictions = get_predictions(logits)
 
-        batch_f1_target.reset()
+            f1_target.update(predictions, targets)
+            f1_macro.update(predictions, targets)
+            f1_weighted.update(predictions, targets)
+
+        f1_fake = f1_target.compute()
+        for i, label in enumerate(label_names):
+            f1_fakes[label].append(f1_fake[i].item())
+        f1_macros.append(f1_macro.compute().item())
+        f1_weights.append(f1_weighted.compute().item())
+
+        f1_target.reset()
+        f1_macro.reset()
+        f1_weighted.reset()
 
     test_end = time.time()
     test_elapsed = test_end - test_start
 
-    return (mean(f1_fake), stdev(f1_fake)), test_elapsed, (node_features, node_targets)
+    f1_fakes_std = defaultdict(float)
+    for label in label_names:
+        f1_fakes_std[label] = stdev(f1_fakes[label])
+        f1_fakes[label] = mean(f1_fakes[label])
 
-
-def get_as_set(idx, k_shot, all_node_features, all_node_targets, start_indices_per_class):
-    node_targets = []
-    node_feats = []
-    for s_idx in start_indices_per_class:
-        start_idx = idx + s_idx
-        targets = all_node_targets[start_idx: start_idx + k_shot]
-        feats = all_node_features[start_idx: start_idx + k_shot]
-        node_targets.append(targets)
-        node_feats.append(feats)
-    return torch.cat(node_feats), torch.cat(node_targets)
+    return (f1_fakes, f1_fakes_std), (mean(f1_macros), stdev(f1_macros)), \
+           (mean(f1_weights), stdev(f1_weights)), test_elapsed

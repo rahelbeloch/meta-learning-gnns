@@ -35,15 +35,14 @@ DOC_2_ID_FILE_NAME = 'doc2id_train_type=%s_vsize=%s_train=%s_val=%s_test=%s.json
 DOC_2_LABELS_FILE_NAME = 'doc2labels.json'
 DOC_2_USERS_FILE_NAME = 'doc2users.json'
 
+ADJACENCY_MATRIX_FILE = 'adj_matrix_train'
+ADJACENCY_MATRIX_FILE_NAME = f'{ADJACENCY_MATRIX_FILE}.npz'
+
 # NOT REQUIRED
 
 # NODE_2_ID_FILE_NAME = 'node2id_train.json'
 # NODE_TYPE_FILE_NAME = 'node_type_train.npy'
 
-ADJACENCY_MATRIX_FILE = 'adj_matrix_train'
-ADJACENCY_MATRIX_FILE_NAME = f'{ADJACENCY_MATRIX_FILE}.npz'
-
 # EDGE_INDEX_FILE_NAME = EDGE_TYPE_FILE + '_edge.npy'
-
 
 # TRAIN_LABELS_FILE_NAME = 'labels_train_val_type=%s_vsize=%s_train=%s_val=%s_test=%s.json'
