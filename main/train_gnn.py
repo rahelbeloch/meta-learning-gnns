@@ -14,17 +14,18 @@ from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss
 from data_prep.config import TSV_DIR, COMPLETE_DIR
 from data_prep.data_utils import get_data, SUPPORTED_DATASETS
 from models.gat_base import GatBase, evaluate
-from models.gmeta import GMeta
 from models.maml import Maml, test_maml
 from models.proto_maml import ProtoMAML, test_protomaml
 from models.proto_net import ProtoNet
+from models.proto_net import test_proto_net
 from train_config import LOG_PATH, SUPPORTED_MODELS, META_MODELS, SHOTS
 
 if torch.cuda.is_available():
     torch.cuda.empty_cache()
 
 
-def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_name, seed, epochs, patience,
+def train(balance_data, val_loss_weight, train_loss_weight, val_loss_weight_maj, train_loss_weight_maj, progress_bar,
+          model_name, seed, epochs, patience,
           patience_metric, h_size, top_users, top_users_excluded, k_shot, lr, lr_val, lr_inner, lr_output,
           hidden_dim, feat_reduce_dim, proto_dim, data_train, data_eval, dirs, checkpoint, train_split_size,
           feature_type, vocab_size, n_inner_updates, n_inner_updates_test, num_workers, gat_dropout,
@@ -44,6 +45,7 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     evaluation = checkpoint is not None and Path(checkpoint).exists()
 
     print(f'\nConfiguration:\n\n balance_data: {balance_data}\n train_loss_weight: {train_loss_weight}\n '
+          f'val_loss_weight_maj: {val_loss_weight_maj}\n train_loss_weight_maj: {train_loss_weight_maj}\n '
           f'val_loss_weight: {val_loss_weight}\n mode: {"TEST" if evaluation else "TRAIN"}\n '
           f'seed: {seed}\n max epochs: {epochs}\n patience: {patience}\n patience metric: {patience_metric}\n '
           f'k_shot: {k_shot}\n\n model_name: {model_name}\n hidden_dim: {hidden_dim}\n '
@@ -90,8 +92,8 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
         'label_names': train_graph.label_names,
     }
 
-    other_params = {'train_loss_weight': torch.tensor(train_loss_weight) if train_loss_weight is not None else None,
-                    'val_loss_weight': torch.tensor(val_loss_weight) if val_loss_weight is not None else None}
+    other_params = get_loss_weights(data_train, model_name, train_loss_weight, train_loss_weight_maj, val_loss_weight,
+                                    val_loss_weight_maj)
 
     if model_name == 'gat':
         optimizer_params.update(lr_val=lr_val, lr_decay_epochs_val=lr_decay_epochs_val)
@@ -108,8 +110,6 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
         if model_name == 'proto-maml':
             optimizer_params.update(lr_output=lr_output)
             model = ProtoMAML(model_params, optimizer_params, other_params)
-        elif model_name == 'gmeta':
-            model = GMeta(model_params, optimizer_params, other_params)
         elif model_name == 'maml':
             model = Maml(model_params, optimizer_params, other_params)
     else:
@@ -175,72 +175,106 @@ def train(balance_data, val_loss_weight, train_loss_weight, progress_bar, model_
     else:
         model_path = checkpoint
 
-    # Evaluation
-    model = model.load_from_checkpoint(model_path)
-    n_classes = len(eval_graph.labels)
+        # Evaluation
+        # noinspection PyUnboundLocalVariable
+        model = model.load_from_checkpoint(model_path)
+        n_classes = len(eval_graph.labels)
 
-    if data_eval == "twitterHateSpeech":
-        loss_module = CrossEntropyLoss()
         target_classes = list(range(n_classes))
-    elif data_eval == "gossipcop":
-        loss_module = BCEWithLogitsLoss()
-        target_classes = [1]
-    else:
-        raise ValueError(f"Unknown eval data {data_eval}!")
+        if data_eval == "twitterHateSpeech":
+            loss_module = CrossEntropyLoss()
+        elif data_eval == "gossipcop" and model_name != 'prototypical':
+            loss_module = BCEWithLogitsLoss()
+            target_classes = [1]
+        else:
+            raise ValueError(f"Unknown eval data {data_eval}!")
 
-    labels = [eval_graph.label_names[cls] for cls in target_classes]
+        labels = [eval_graph.label_names[cls] for cls in target_classes]
 
-    if data_eval != data_train and data_eval is not None:
-        if model_name == 'gat' or model_name == 'maml':
-            # model was trained on another dataset --> Newly setting the output layer, erases all pretrained weights!
-            model.model.reset_classifier_dimensions(n_classes)
+        if data_eval != data_train and data_eval is not None:
+            if model_name == 'gat' or model_name == 'maml':
+                # model was trained on another dataset -> Newly setting the output layer, erases all pretrained weights!
+                model.model.reset_classifier_dimensions(n_classes)
 
-        # reset the test metric with number of classes
-        model.reset_test_metric(n_classes, eval_graph.label_names, target_classes)
+            # reset the test metric with number of classes
+            model.reset_test_metric(n_classes, eval_graph.label_names, target_classes)
 
-    test_f1_queries_std = None
-    if model_name == 'gat':
-        test_f1_queries, f1_macro_query, f1_weighted_query, elapsed = evaluate(trainer, model, test_loader, labels)
-    elif model_name == 'proto-maml':
-        (test_f1_queries, test_f1_queries_std), (f1_macro_query, _), (f1_weighted_query, _), elapsed \
-            = test_protomaml(model, test_loader, labels, loss_module, len(target_classes))
-    elif model_name == 'maml':
-        (test_f1_queries, test_f1_queries_std), (f1_macro_query, _), (f1_weighted_query, _), elapsed \
-            = test_maml(model, test_loader, labels, loss_module, len(target_classes))
-    else:
-        raise ValueError(f"Model type {model_name} not supported!")
+        test_f1_queries_std, f1_macro_query_std = None, None
 
-    print(f'\nRequired time for testing: {int(elapsed / 60)} minutes.\n')
-    print(f'Test Results:')
+        if model_name == 'gat':
+            test_f1_queries, f1_macro_query, f1_weighted_query, elapsed = evaluate(trainer, model, test_loader, labels)
+        elif model_name == 'proto-maml':
+            (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), \
+                elapsed = test_protomaml(model, test_loader, labels, loss_module, len(target_classes))
+        elif model_name == 'maml':
+            (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), \
+                elapsed = test_maml(model, test_loader, labels, loss_module, len(target_classes))
+        elif model_name == 'prototypical':
+            (test_f1_queries, test_f1_queries_std), (f1_macro_query, f1_macro_query_std), (f1_weighted_query, _), \
+                elapsed = test_proto_net(model, test_loader, labels, k_shot=k_shot, num_classes=len(target_classes))
+        else:
+            raise ValueError(f"Model type {model_name} not supported!")
 
-    for label in labels:
-        if wb_mode == 'online':
-            wandb.log({f"test/f1_{label}": test_f1_queries[label]})
+        print(f'\nRequired time for testing: {int(elapsed / 60)} minutes.\n')
+        print(f'Test Results:')
+
+        for label in labels:
+            if wb_mode == 'online':
+                wandb.log({f"test/f1_{label}": test_f1_queries[label]})
+                wandb.log({f"test/f1_macro_query": f1_macro_query})
+
+                if test_f1_queries_std is not None:
+                    wandb.log({f"test/f1_{label}_std": test_f1_queries_std[label]})
+
+                if f1_macro_query_std is not None:
+                    wandb.log({f"test/f1_macro_query_std": f1_macro_query_std})
+
+            print(f' test f1 {label}: {round(test_f1_queries[label], 3)} ({test_f1_queries[label]})')
 
             if test_f1_queries_std is not None:
-                wandb.log({f"test/f1_{label}_std": test_f1_queries_std[label]})
+                print(f' test f1 std {label}: {round(test_f1_queries_std[label], 3)} ({test_f1_queries_std[label]})')
 
-        print(f' test f1 {label}: {round(test_f1_queries[label], 3)} ({test_f1_queries[label]})')
+        print(f' test f1 macro: {round(f1_macro_query, 3)} ({f1_macro_query})\n'
+              f' test f1 weighted: {round(f1_weighted_query, 3)} ({f1_weighted_query})\n')
 
-        if test_f1_queries_std is not None:
-            print(f' test f1 std {label}: {round(test_f1_queries_std[label], 3)} ({test_f1_queries_std[label]})')
+        if trainer is not None:
+            print(f'\nepochs: {trainer.current_epoch + 1}\n')
+            print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}')
 
-    print(f' test f1 macro: {round(f1_macro_query, 3)} ({f1_macro_query})\n'
-          f' test f1 weighted: {round(f1_weighted_query, 3)} ({f1_weighted_query})\n')
+        for label in labels:
+            print(f'{round_format(test_f1_queries[label])}')
+            if test_f1_queries_std is not None:
+                print(f'{round_format(test_f1_queries_std[label])}')
 
-    if trainer is not None:
-        print(f'\nepochs: {trainer.current_epoch + 1}\n')
+        print(f'{round_format(f1_macro_query)}\n{round_format(f1_weighted_query)}\n')
 
-    if trainer is not None:
-        print(f'{trainer.current_epoch + 1}\n{get_epoch_num(model_path)}')
 
-    for label in labels:
-        print(f'{round_format(test_f1_queries[label])}')
+def get_loss_weights(data_train, model_name, train_loss_weight, train_loss_weight_maj, val_loss_weight,
+                     val_loss_weight_maj) -> dict:
+    if (train_loss_weight_maj is not None or val_loss_weight_maj is not None) \
+            and (data_train != 'gossipcop' or model_name != 'prototypical'):
+        raise ValueError("Can not use majority class loss values for dataset other than gossipcop or model "
+                         "other than prototypical!")
 
-        if test_f1_queries_std is not None:
-            print(f'{round_format(test_f1_queries_std[label])}')
+    train_loss_w = []
+    if train_loss_weight is not None:
+        train_loss_w = [train_loss_weight]
+    if train_loss_weight_maj is not None:
+        train_loss_w = [train_loss_weight_maj] + train_loss_w
 
-    print(f'{round_format(f1_macro_query)}\n{round_format(f1_weighted_query)}\n')
+    val_loss_w = []
+    if val_loss_weight is not None:
+        val_loss_w = [val_loss_weight]
+    if val_loss_weight_maj is not None:
+        val_loss_w = [val_loss_weight_maj] + val_loss_w
+
+    other_params = {}
+    if len(train_loss_w) > 0:
+        other_params['train_loss_weight'] = torch.tensor(train_loss_w).float()
+    if len(val_loss_w) > 0:
+        other_params['val_loss_weight'] = torch.tensor(val_loss_w).float()
+
+    return other_params
 
 
 def get_output_dim(model_name, proto_dim):
@@ -424,6 +458,12 @@ if __name__ == "__main__":
     parser.add_argument('--train-loss-weight', dest='train_loss_weight', type=int, default=None,
                         help="Weight of the minority class for the training loss function.")
 
+    parser.add_argument('--val-loss-weight-maj', dest='val_loss_weight_maj', type=int, default=None,
+                        help="Weight of the majority class for the validation loss function.")
+
+    parser.add_argument('--train-loss-weight-maj', dest='train_loss_weight_maj', type=int, default=None,
+                        help="Weight of the majority class for the training loss function.")
+
     # parser.add_argument('--train-size', dest='train_size', type=float, default=0.875)
     # parser.add_argument('--val-size', dest='val_size', type=float, default=0.125)
     # parser.add_argument('--test-size', dest='test_size', type=float, default=0.0)
@@ -446,6 +486,8 @@ if __name__ == "__main__":
     train(balance_data=not params['no_balance_data'],
           val_loss_weight=params['val_loss_weight'],
           train_loss_weight=params['train_loss_weight'],
+          val_loss_weight_maj=params['val_loss_weight_maj'],
+          train_loss_weight_maj=params['train_loss_weight_maj'],
           progress_bar=params['progress_bar'],
           model_name=params['model'],
           seed=params['seed'],

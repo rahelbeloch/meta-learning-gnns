@@ -218,8 +218,8 @@ def test_protomaml(model, test_loader, label_names, loss_module, num_classes=1):
     # test_data_outer = tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing")
     # test_data_inner = test_loader
 
-    for support_batch_idx, batch in tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing"):
-        support_graphs, _, support_targets, _ = batch
+    for support_episode_idx, support_episode in tqdm(enumerate(test_loader), "Performing few-shot fine tuning in testing"):
+        support_graphs, _, support_targets, _ = support_episode
 
         # graphs are automatically put to device in adapt few shot
         support_targets = support_targets.to(DEVICE)
@@ -236,13 +236,13 @@ def test_protomaml(model, test_loader, label_names, loss_module, num_classes=1):
             local_model.eval()
 
             # Evaluate all examples in test dataset
-            for query_batch_idx, test_batch in enumerate(test_loader):
+            for query_episode_idx, query_episode in enumerate(test_loader):
 
-                if support_batch_idx == query_batch_idx:
+                if support_episode_idx == query_episode_idx:
                     # Exclude support set elements
                     continue
 
-                support_graphs, query_graphs, support_targets, query_targets = batch
+                support_graphs, query_graphs, support_targets, query_targets = query_episode
                 graphs = support_graphs + query_graphs
                 targets = torch.cat([support_targets, query_targets]).to(DEVICE)
 

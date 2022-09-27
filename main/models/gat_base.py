@@ -89,11 +89,6 @@ class GatBase(GraphTrainer):
         # logits should be batch size x 1, not batch size x 2!
         # x 2 --> multiple label classification (only if labels are exclusive, can be only one and not multiple)
 
-        # Loss function is not weighted differently
-
-        # 1. valdiation, not balanced --> loss weighting, see what and if it changes; (no loss weighting during training)
-        # - keep using full validation set: 1 with balanced, 1 with unbalanced
-
         # BCE loss
         # BCE with logits loss
         # BCE with Sigmoid and 1 output of the model
@@ -206,6 +201,7 @@ def evaluate(trainer, model, test_dataloader, label_names):
         trainer (pl.Trainer) - Lightning trainer to use.
         model (pl.LightningModule) - The Lightning Module which should be used.
         test_dataloader (DataLoader) - Data loader for the test split.
+        label_names (list) - List of names describing the dataset respective labels.
     """
 
     print('\nTesting model on validation and test ..........\n')
@@ -219,10 +215,10 @@ def evaluate(trainer, model, test_dataloader, label_names):
         f1_supports[t] = results[0][f'test/f1_{t}_support']
         f1_queries[t] = results[0][f'test/f1_{t}_query']
 
-    f1_macro_support = results[0][f'test/f1_macro_support']
+    # f1_macro_support = results[0][f'test/f1_macro_support']
     f1_macro_query = results[0][f'test/f1_macro_query']
 
-    f1_weighted_support = results[0][f'test/f1_weighted_support']
+    # f1_weighted_support = results[0][f'test/f1_weighted_support']
     f1_weighted_query = results[0][f'test/f1_weighted_query']
 
     test_end = time.time()

@@ -1,4 +1,5 @@
 import itertools
+import json
 
 import networkx as nx
 import torch
@@ -16,7 +17,7 @@ model_name = 'gat'
 h_size = 2
 top_users, top_users_excluded = 30, 1
 k_shot = 5
-train_split_size, eval_split_size = (0.7, 0.1, 0.2), None
+train_split_size, eval_split_size = (0.7, 0.1, 0.2), (0.0, 0.0, 1)
 feature_type = 'one-hot'
 vocab_size = 10000
 dirs = "data", "../data/tsv", "../data/complete"
@@ -38,50 +39,113 @@ def sub_graphs_loader_validation():
                     'Center idx stored in wrong index per class!'
 
 
-shot_batch_size_map = {
-    5: 8112,
-    10: 8349,
-    20: 4221,
-    40: 8442
-}
+gat_train_batches = 1
 
 
 def validate_query_set_equal():
-    query_shot_nodes = dict()
+    query_shot_nodes = {'train': {}, 'val': {}, 'test': {}}
+
     for k in SHOTS:
         loaders, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
                                                     top_users_excluded, k, train_split_size, eval_split_size,
-                                                    feature_type, vocab_size, dirs, shot_batch_size_map[k], num_workers)
+                                                    feature_type, vocab_size, dirs, gat_train_batches, num_workers)
 
-        train_loader, train_val_loader, test_loader, test_val_loader = loaders
-
-        query_nodes, support_nodes = [], []
-        for episode in iter(train_loader):
-            if model_name == 'gat':
-                sub_graphs, _ = episode
-                half_len = int(len(sub_graphs) / 2)
-                query_sub_graphs = sub_graphs[half_len:]
-            else:
-                support_sub_graphs, query_sub_graphs, _, _ = episode
-            query_nodes += [(graph.orig_center_idx, graph.target, graph.set_type) for graph in query_sub_graphs]
-        query_shot_nodes[k] = query_nodes
+        query_nodes = get_loader_query_nodes(loaders[0])
         print(f"\nCollected {len(query_nodes)} query nodes for shot '{k}'")
+        query_shot_nodes['train'][k] = query_nodes
 
-    difference_5_10 = set(query_shot_nodes[5]).symmetric_difference(set(query_shot_nodes[10]))
-    difference_5_20 = set(query_shot_nodes[5]).symmetric_difference(set(query_shot_nodes[20]))
-    difference_5_40 = set(query_shot_nodes[5]).symmetric_difference(set(query_shot_nodes[40]))
+        query_nodes = get_loader_query_nodes(loaders[1])
+        print(f"\nCollected {len(query_nodes)} query nodes for shot '{k}'")
+        query_shot_nodes['val'][k] = query_nodes
 
-    difference_10_20 = set(query_shot_nodes[10]).symmetric_difference(set(query_shot_nodes[20]))
-    difference_10_40 = set(query_shot_nodes[10]).symmetric_difference(set(query_shot_nodes[40]))
+        query_nodes = get_loader_query_nodes(loaders[2])
+        print(f"\nCollected {len(query_nodes)} query nodes for shot '{k}'")
+        query_shot_nodes['test'][k] = query_nodes
 
-    difference_20_40 = set(query_shot_nodes[20]).symmetric_difference(set(query_shot_nodes[40]))
+    # verify overlap within single loaders
+    verify_non_overlap(query_shot_nodes, 'train')
+    verify_non_overlap(query_shot_nodes, 'val')
+    verify_non_overlap(query_shot_nodes, 'test')
 
-    assert len(difference_5_10) == 0
-    assert len(difference_5_20) == 0
-    assert len(difference_5_40) == 0
-    assert len(difference_10_20) == 0
-    assert len(difference_10_40) == 0
-    assert len(difference_20_40) == 0
+    # verify overlap across loaders
+    verify_across_loaders(query_shot_nodes, 'train', 'val')
+    verify_across_loaders(query_shot_nodes, 'train', 'test')
+    verify_across_loaders(query_shot_nodes, 'val', 'test')
+
+    with open('sample_stats.json', 'w') as fp:
+        json.dump(query_shot_nodes, fp)
+
+
+def verify_across_loaders(query_shot_nodes, loader1, loader2):
+    diff1 = set(query_shot_nodes[loader1][4]).intersection(set(query_shot_nodes[loader2][8]))
+    diff2 = set(query_shot_nodes[loader1][4]).intersection(set(query_shot_nodes[loader2][12]))
+    diff3 = set(query_shot_nodes[loader1][4]).intersection(set(query_shot_nodes[loader2][16]))
+    diff4 = set(query_shot_nodes[loader1][8]).intersection(set(query_shot_nodes[loader2][12]))
+    diff5 = set(query_shot_nodes[loader1][8]).intersection(set(query_shot_nodes[loader2][16]))
+    diff6 = set(query_shot_nodes[loader1][12]).intersection(set(query_shot_nodes[loader2][16]))
+    assert len(diff1) == 0
+    assert len(diff2) == 0
+    assert len(diff3) == 0
+    assert len(diff4) == 0
+    assert len(diff5) == 0
+    assert len(diff6) == 0
+    print(f"Difference 4 and 8: {diff1}")
+    print(f"Difference 4 and 12: {diff2}")
+    print(f"Difference 4 and 16: {diff3}")
+    print(f"Difference 8 and 12: {diff4}")
+    print(f"Difference 8 and 16: {diff5}")
+    print(f"Difference 12 and 16: {diff6}")
+
+
+def verify_non_overlap(query_shot_nodes, loader_name):
+    diff_5_10 = set(query_shot_nodes[loader_name][4]).symmetric_difference(set(query_shot_nodes[loader_name][8]))
+    diff_5_20 = set(query_shot_nodes[loader_name][4]).symmetric_difference(set(query_shot_nodes[loader_name][12]))
+    diff_5_40 = set(query_shot_nodes[loader_name][4]).symmetric_difference(set(query_shot_nodes[loader_name][16]))
+    diff_10_20 = set(query_shot_nodes[loader_name][8]).symmetric_difference(set(query_shot_nodes[loader_name][12]))
+    diff_10_40 = set(query_shot_nodes[loader_name][8]).symmetric_difference(set(query_shot_nodes[loader_name][16]))
+    diff_20_40 = set(query_shot_nodes[loader_name][12]).symmetric_difference(set(query_shot_nodes[loader_name][16]))
+
+    assert len(diff_5_10) == 0
+    assert len(diff_5_20) == 0
+    assert len(diff_5_40) == 0
+    assert len(diff_10_20) == 0
+    assert len(diff_10_40) == 0
+    assert len(diff_20_40) == 0
+
+    print(f"Difference 4 and 8: {diff_5_10}")
+    print(f"Difference 4 and 12: {diff_5_20}")
+    print(f"Difference 4 and 16: {diff_5_40}")
+    print(f"Difference 8 and 12: {diff_10_20}")
+    print(f"Difference 8 and 16: {diff_10_40}")
+    print(f"Difference 12 and 16: {diff_20_40}")
+
+
+def get_loader_query_nodes(loader):
+    # gat + train --> episode contains 2 things
+    # gat + val --> episode contains 4 things
+    # gat + test --> episode contains 4 things
+
+    query_nodes, support_nodes = [], []
+    for episode in iter(loader):
+        if model_name == 'gat':
+
+            if loader.mode == 'train':
+                # sub graphs are organizes as: [s,s,s,s,s... q,q,q,q, ..., s,s,s,s, ...q,q,q,q ...]
+                sub_graphs, targets = episode
+            else:
+                support_graphs, query_graphs, support_targets, query_targets = episode
+                sub_graphs = query_graphs
+                targets = query_targets
+
+            for i, g in enumerate(sub_graphs):
+                if g.set_type == 'query':
+                    query_nodes.append((g.orig_center_idx, targets[i].item(), g.set_type))
+        else:
+            for graphs, targets in episode:
+                for i, g in enumerate(graphs):
+                    if g.set_type == 'query':
+                        query_nodes.append((g.orig_center_idx, targets[i].item(), g.set_type))
+    return query_nodes
 
 
 def check_train_loader_query_samples():
@@ -145,8 +209,7 @@ def unused_samples_stats():
 def visualize_subgraphs():
     loaders, train_graph, eval_graph = get_data(data_train, data_eval, model_name, h_size, top_users,
                                                 top_users_excluded, 5, train_split_size, eval_split_size,
-                                                feature_type, vocab_size, dirs, num_workers=num_workers,
-                                                batch_size=344)
+                                                feature_type, vocab_size, dirs, num_workers=num_workers)
 
     for loader in loaders:
         for episode in iter(loader):
@@ -192,8 +255,7 @@ def node_indices_belong_to_split():
         model, shots, batch_size = s
         loaders, train_graph, eval_graph = get_data(data_train, data_eval, model, h_size, top_users,
                                                     top_users_excluded, shots, train_split_size, eval_split_size,
-                                                    feature_type, vocab_size, dirs, num_workers=num_workers,
-                                                    batch_size=batch_size)
+                                                    feature_type, vocab_size, dirs, num_workers=num_workers)
         for loader in loaders:
             verify_node_indices(loader)
 
@@ -201,7 +263,7 @@ def node_indices_belong_to_split():
 if __name__ == '__main__':
     # check_train_loader_query_samples()
 
-    # validate_query_set_equal()
+    validate_query_set_equal()
 
     # data_config = {'top_users': top_users, 'top_users_excluded': top_users_excluded, 'feature_type': feature_type,
     #                'vocab_size': vocab_size}
@@ -217,4 +279,4 @@ if __name__ == '__main__':
 
     # visualize_subgraphs()
 
-    node_indices_belong_to_split()
+    # node_indices_belong_to_split()

@@ -1,0 +1,53 @@
+--model prototypical --seed 8173 --patience 20 --lr 1e-4 --hidden-dim 64 --k-shot 4 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 2471 --patience 20 --lr 1e-4 --hidden-dim 64 --k-shot 4 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 5321 --patience 20 --lr 1e-4 --hidden-dim 64 --k-shot 4 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 8173 --patience 20 --lr 1e-4 --hidden-dim 128 --k-shot 4 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 2471 --patience 20 --lr 1e-4 --hidden-dim 128 --k-shot 4 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 5321 --patience 20 --lr 1e-4 --hidden-dim 128 --k-shot 4 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 8173 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 8 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 2471 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 8 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 5321 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 8 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 8173 --patience 20 --lr 2e-4 --hidden-dim 64 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 2471 --patience 20 --lr 2e-4 --hidden-dim 64 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 5321 --patience 20 --lr 2e-4 --hidden-dim 64 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 8173 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 2471 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 5321 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 8 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 8173 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 2471 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 5321 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 8173 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 8 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 2471 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 8 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 5321 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 12 --no-progress-bar --wb-mode online --gat-heads 8 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 8173 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 8 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 2471 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 8 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 5321 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 8 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 8173 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 3 --train-loss-weight-maj 1 --val-loss-weight 3 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 2471 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 3 --train-loss-weight-maj 1 --val-loss-weight 3 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 5321 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 3 --train-loss-weight-maj 1 --val-loss-weight 3 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 8173 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 2471 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+--model prototypical --seed 5321 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 16 --no-progress-bar --wb-mode online --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+
+--model prototypical --seed 5321 --patience 20 --lr 2e-4 --hidden-dim 128 --k-shot 16 --gat-heads 16 --train-loss-weight 2 --train-loss-weight-maj 1 --val-loss-weight 2 --val-loss-weight-maj 1 --suffix best
+
+
+8173
+2471
+5321
+
+4 Shot
+
+hidden dim: 128 or 64
+gat heads: the more the better: 16
+loss weight: [1,2] better than [1,3]
+
+8 Shot
+loss weight: [1,2] better than [1,3]
+
+12 Shot
+loss weight: [1,2] better than [1,3]
+
+16 Shot
+loss weight: [1,3] better than [1,2]
+
