@@ -175,9 +175,9 @@ def test_proto_net(model, test_loader, label_names, k_shot=4, num_classes=1):
 
     test_start = time.time()
 
-    f1_target = tm.F1(num_classes=num_classes, average='none').to(DEVICE)
-    f1_macro = tm.F1(num_classes=num_classes, average='macro').to(DEVICE)
-    f1_weighted = tm.F1(num_classes=num_classes, average='weighted').to(DEVICE)
+    f1_target = tm.F1Score(num_classes=num_classes, average='none').to(DEVICE)
+    f1_macro = tm.F1Score(num_classes=num_classes, average='macro').to(DEVICE)
+    f1_weighted = tm.F1Score(num_classes=num_classes, average='weighted').to(DEVICE)
 
     f1_fakes, f1_macros, f1_weights = defaultdict(list), [], []
 

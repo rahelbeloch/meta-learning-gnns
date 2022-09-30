@@ -7,7 +7,7 @@ import torch.nn
 import torch.nn.functional as func
 from torch import optim
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss
-from torchmetrics import F1
+from torchmetrics import F1Score
 from tqdm import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
@@ -228,9 +228,9 @@ def test_protomaml(model, test_loader, label_names, loss_module, num_classes=1):
         local_model, output_weight, output_bias, _ = model.adapt_few_shot(*get_subgraph_batch(support_graphs),
                                                                           support_targets, mode, loss_module)
 
-        f1_target = F1(num_classes=num_classes, average='none').to(DEVICE)
-        f1_macro = F1(num_classes=num_classes, average='macro').to(DEVICE)
-        f1_weighted = F1(num_classes=num_classes, average='weighted').to(DEVICE)
+        f1_target = F1Score(num_classes=num_classes, average='none').to(DEVICE)
+        f1_macro = F1Score(num_classes=num_classes, average='macro').to(DEVICE)
+        f1_weighted = F1Score(num_classes=num_classes, average='weighted').to(DEVICE)
 
         with torch.no_grad():  # No gradients for query set needed
             local_model.eval()

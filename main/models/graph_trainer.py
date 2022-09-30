@@ -39,7 +39,7 @@ class GraphTrainer(pl.LightningModule):
         for the split with given name for the number of classes provided.
         """
         for name, (split_dict, avg) in self.metrics.items():
-            metric = tm.F1 if name.startswith('f1') else None
+            metric = tm.F1Score if name.startswith('f1') else None
             if metric is None:
                 raise ValueError(f"Metric with key '{name}' not supported.")
             split_dict[split_name] = metric(num_classes=n_classes, average=avg).to(self._device)
@@ -52,7 +52,7 @@ class GraphTrainer(pl.LightningModule):
     def log_on_epoch(self, metric, value):
         self.log(metric, value, on_step=False, on_epoch=True)
 
-    def log(self, metric, value, on_step=True, on_epoch=False):
+    def log(self, metric, value, on_step=True, on_epoch=False, **kwargs):
         b_size = self.hparams["model_params"]["batch_size"]
         super().log(metric, value, on_step=on_step, on_epoch=on_epoch, batch_size=b_size, add_dataloader_idx=False)
 

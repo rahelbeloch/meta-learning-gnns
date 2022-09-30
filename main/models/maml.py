@@ -5,7 +5,7 @@ from statistics import mean, stdev
 
 from torch import optim, nn
 from torch.nn import CrossEntropyLoss
-from torchmetrics import F1
+from torchmetrics import F1Score
 from tqdm import tqdm
 
 from models.gat_encoder_sparse_pushkar import GatNet
@@ -186,9 +186,9 @@ def test_maml(model, test_loader, label_names, loss_module, num_classes=1):
     # test_data_inner = test_data_outer
     # test_data_inner = test_loader
 
-    f1_target = F1(num_classes=num_classes, average='none').to(DEVICE)
-    f1_macro = F1(num_classes=num_classes, average='macro').to(DEVICE)
-    f1_weighted = F1(num_classes=num_classes, average='weighted').to(DEVICE)
+    f1_target = F1Score(num_classes=num_classes, average='none').to(DEVICE)
+    f1_macro = F1Score(num_classes=num_classes, average='macro').to(DEVICE)
+    f1_weighted = F1Score(num_classes=num_classes, average='weighted').to(DEVICE)
 
     for support_episode_idx, support_episode in tqdm(enumerate(test_loader),
                                                      "Performing few-shot fine tuning in testing"):
