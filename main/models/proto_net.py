@@ -140,10 +140,10 @@ class ProtoNet(GraphTrainer):
 
         return loss
 
-    def training_step(self, batch):
+    def training_step(self, batch, batch_idx):
         return self.calculate_loss(batch, mode="train", loss_module=self.train_loss_module)
 
-    def validation_step(self, batch):
+    def validation_step(self, batch, batch_idx):
         self.calculate_loss(batch, mode="val", loss_module=self.val_loss_module)
 
 
