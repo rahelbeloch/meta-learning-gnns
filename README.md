@@ -185,7 +185,7 @@ To reproduce (most of) the figures and tables in the paper, we have included cod
 
 <!-- TODO add paper URL to citation-->
 
-```latex
+```bibtex
 @inproceedings{verhoeven-etal-2024-generalisation,
     title = "A (More) Realistic Evaluation Setup for Generalisation of Community Models on Malicious Content Detection",
     author = "Verhoeven, Ivo and
