@@ -146,7 +146,7 @@ Since we avoid user modelling, it should be possible to reconstruct the graphs u
 
 ## Running Code
 
-We use [Hydra](https://hydra.cc/docs/intro/) as a configuration system. All scripts in `/main/` can be ran from the command line, using the Hydra syntax. For example,
+We use [Hydra](https://hydra.cc/docs/intro/) as a configuration system. All scripts in `/main/` can be run from the command line, using the Hydra syntax. For example,
 
 ```bash
 python -u evaluate.py \
@@ -179,7 +179,7 @@ would train a ProtoMAML model on an accompanying dataset. See the three `*.job` 
 
 ## Results
 
-To reproduce (most of) the figures and tables in the paper, we have included code to parse files in the `/results/` folder. This can be ran interactively using the [`./results_parsed.ipynb`](./results_parsed.ipynb). Be warned, this is extremely poorly formatted code.
+To reproduce (most of) the figures and tables in the paper, we have included code to parse files in the `/results/` folder. This can be run interactively using the [`./results_parser.ipynb`](./results_parser.ipynb). Be warned, this is extremely poorly formatted code.
 
 ## Citation
 
