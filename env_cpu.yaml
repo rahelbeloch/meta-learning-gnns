@@ -1,0 +1,34 @@
+name: meta-learning-gnns-cpu
+channels:
+  - pytorch
+  - pyg
+  - huggingface
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10.6
+  - pip=22.2.2
+  - nltk=3.6.5
+  - cpuonly=2.0.0
+  - pytorch=1.13.0
+  - pyg
+  - pandas
+  - importlib_resources
+  - matplotlib
+  - scipy
+  - networkx
+  - transformers
+  - datasets
+  - ipykernel
+  - huggingface_hub
+  - pip:
+      - pytorch-lightning==1.8.1
+      - torchmetrics==0.11.0
+      - hydra-core==1.2
+      - ujson
+      - wandb
+      - pymetis
+      - protobuf==3.20.*
+      - sentencepiece
+      - scalene
+      - black[jupyter]

@@ -1,0 +1,6 @@
+meta_learner: "protomaml"
+k: ${k}
+n_inner_updates: 5
+lr_inner: 5.0e-3
+head_lr_inner: 5.0e-2
+reset_classifier: true

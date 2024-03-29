@@ -1,0 +1,59 @@
+defaults:
+  - global@_global_: default
+  - hydra: default
+  - data: gossipcop
+  - features@data: roberta
+  - structure: full
+  - _self_
+  - learning_algorithm: non_episodic
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+print_config: false
+
+seed: 942
+k: 4
+structure_mode: inductive
+batch_size: 32
+
+fold: 0
+
+version: null
+
+checkpoint: null
+checkpoint_address_file: null
+checkpoint_dir: "meta-gnn"
+checkpoint_strategy: earliest
+checkpoint_name: null
+
+model_architecture: gat
+
+use_train: false
+use_val: false
+use_test: true
+
+data:
+  overwrite: true
+  fold: ${fold}
+  seed: ${seed}
+  origin: ${data.dataset}
+  num_splits: 5
+  user2doc_aggregator: zeros
+  pre_or_post_compression: post
+  label_mask: -1
+
+structure:
+  structure_mode: ${structure_mode}
+  labels_per_graph: ${k}
+  overwrite: false
+  batch_size: ${batch_size}
+  _doc_limit: -1
+
+data_loading:
+  pin_memory: True
+
+learning_algorithm:
+  n_inner_updates: 0
+  lr_inner: 0.0
+  reset_classifier: false
+  class_weights: ${data.class_weights}

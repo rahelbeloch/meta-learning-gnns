@@ -1,0 +1,74 @@
+defaults:
+  - global@_global_: default
+  - hydra: default
+  - data: gossipcop
+  - features@data: roberta
+  - structure: episodic_khop
+  - _self_
+  - learning_algorithm: maml
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+print_config: false
+
+skip_data_transfer: false
+use_val: false
+use_test: true
+
+seed: 942
+k: 4
+structure_mode: transductive
+batch_size: 32
+
+orig_version: null
+version: null
+
+checkpoint: null
+checkpoint_address_file: null
+checkpoint_dir: "meta-gnn"
+checkpoint_strategy: earliest
+checkpoint_name: null
+
+reset_checkpoint: false
+checkpoint_reset_seed: 0
+avg_pool_doc_neighbours: false
+
+model_architecture: gat
+
+data:
+  overwrite: true
+  fold: null
+  seed: ${seed}
+  origin: ${data.dataset}
+  num_splits: 5
+  user2doc_aggregator: zeros
+  pre_or_post_compression: post
+  label_mask: -1
+
+structure:
+  structure_mode: ${structure_mode}
+  labels_per_graph: ${k}
+  overwrite: false
+  batch_size: ${batch_size}
+  _doc_limit: -1
+
+data_loading:
+  pin_memory: True
+
+feature_extraction:
+  n_epochs: 15
+  patience: 1
+  batch_size: 64
+  p_dropout: 0.50
+  p_mask_token: 0.15
+  lr: 5.0e-4
+  weight_decay: 1.0e-2
+  optimize_on: loss
+  prog_bar: 10
+
+learning_algorithm:
+  n_inner_updates: null
+  lr_inner: null
+  head_lr_inner: null
+  class_weights: ${data.class_weights}
+  reset_classifier: false

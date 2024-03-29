@@ -1,0 +1,5 @@
+feature_type: lm-embeddings
+compression: prajjwal1/bert-mini
+vocab_size: null
+compressed_size: null
+use_joint_vocab: False

@@ -1,0 +1,18 @@
+dataset: CoAID
+labels:
+  0: real
+  1: fake
+num_classes: 2
+class_weights:
+  - 1
+  - 20
+
+filter_out_isolated_docs: True
+min_len: 0
+top_users: 30
+top_users_excluded: 0
+user_doc_threshold: 0.3
+
+keep_non_articles: True
+remove_unicode: True
+append_title: True

@@ -1,0 +1,6 @@
+run:
+  dir: .
+output_subdir: null
+sweep:
+  dir: .
+  subdir: .

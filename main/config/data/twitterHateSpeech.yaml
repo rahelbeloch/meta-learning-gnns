@@ -1,0 +1,18 @@
+dataset: twitterHateSpeech
+labels:
+  0: racism
+  1: sexism
+  2: none
+num_classes: 3
+class_weights:
+  - 3
+  - 2
+  - 1
+
+content_file: "twitter_data_waseem_hovy.csv"
+
+filter_out_isolated_docs: true
+min_len: 0
+top_users: 30
+top_users_excluded: 0
+user_doc_threshold: 1.0

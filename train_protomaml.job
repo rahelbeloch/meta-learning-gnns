@@ -1,0 +1,130 @@
+#!/bin/bash
+
+#SBATCH --job-name=protomaml
+#SBATCH --time=06:00:00
+
+# GPU Settings
+#SBATCH --gpus=1
+#SBATCH --ntasks=1
+
+set -e
+
+TEMP_LOCAL_DATA_DIR=...
+
+mkdir -p TEMP_LOCAL_DATA_DIR
+TEMP_LOCAL_DATA_DIR=$(mktemp -d TEMP_LOCAL_DATA_DIR/temp-XXXXXXXXXX)
+rsync -aru $HOME/meta-learning-gnns/main/data/tsv $TEMP_LOCAL_DATA_DIR
+rsync -aru $HOME/meta-learning-gnns/main/data/complete $TEMP_LOCAL_DATA_DIR
+rsync -aru $HOME/meta-learning-gnns/main/data/processed $TEMP_LOCAL_DATA_DIR
+
+echo -e "Showing content of temporary data dir:"
+ls -alt $TEMP_LOCAL_DATA_DIR
+
+CHECKPOINT_DIR=...
+mkdir -p $CHECKPOINT_DIR
+
+module purge
+# LOAD ANACONDA MDOULE
+
+# Activate your environment
+source activate meta-learning-gnns
+
+declare -i BATCH_SIZE
+declare -i NODES_BUDGET
+declare -i PARTITION_BUDGET
+
+BATCH_SIZE=32
+NODES_BUDGET=2048
+PARTITION_BUDGET=256
+SUPPORT_PARTITION_BUDGET=$((BATCH_SIZE * PARTITION_BUDGET))
+
+for FOLD in 0 1 2 3 4
+do
+
+    echo -e "\n\n\n>>> FOLD ${FOLD} <<<\n\n\n"
+
+    TEMP_FILE=$(mktemp $CHECKPOINT_DIR/checkpoints-XXXXXXXXXX)
+
+    echo -e "\n>>> Training <<<\n"
+
+    srun python -u train.py \
+        fold=$FOLD \
+        data.processed_data_dir=$TEMP_LOCAL_DATA_DIR \
+        checkpoint_address_file=$TEMP_FILE \
+        print_config=true \
+            structure=episodic_khop \
+            structure.batch_size=$BATCH_SIZE \
+            structure.max_nodes_per_subgraph=$NODES_BUDGET \
+            structure.max_samples_per_partition=$SUPPORT_PARTITION_BUDGET\
+            structure.max_samples_per_eval_partition=$PARTITION_BUDGET \
+            structure.node_weights_dist=uniform \
+            structure.label_dist=frequency \
+            structure.prop_query=0.5 \
+            learning_algorithm=protomaml \
+            ++learning_algorithm.n_inner_updates=10 \
+            ++learning_algorithm.lr_inner=5.0e-3 \
+            ++learning_algorithm.head_lr_inner=1.0e-2 \
+            ++learning_algorithm.reset_classifier=true \
+        data_loading.pin_memory=True \
+        ++data_loading.num_workers=18 \
+        optimizer.scheduler=step \
+        optimizer.step_frequency=batch \
+        optimizer.max_norm=7.50 \
+        optimizer.lr_decay_factor=0.7943 \
+        ++trainer.val_check_interval=64 \
+        optimizer.lr_decay_steps=128 \
+        ++trainer.max_steps=2560 \
+        callbacks.early_stopping.patience=5 \
+            ++optimizer.lr=5.0e-4 \
+            ++optimizer.weight_decay=5.0e-2 \
+            ++model.hid_dim=256 \
+            ++model.fc_dim=64 \
+            ++model.n_heads=3 \
+            ++model.node_mask_p=0.10 \
+            ++model.dropout=0.50 \
+            ++model.attn_dropout=0.10 \
+            ++callbacks.early_stopping.metric='val/mcc' \
+            ++callbacks.early_stopping.mode=max \
+        logger.kwargs.tags=\["protomaml"\] \
+		$(head -$SLURM_ARRAY_TASK_ID $PARAMETERS_FILE | tail -1)
+
+    echo -e "\n>>> Testing <<<\n"
+
+    srun python -u evaluate.py \
+        fold=$FOLD \
+        data.processed_data_dir=$DATA_DIR \
+        checkpoint_address_file=$TEMP_FILE \
+        print_config=false \
+            structure=episodic_khop \
+            structure.batch_size=$BATCH_SIZE \
+            structure.max_nodes_per_subgraph=$NODES_BUDGET \
+            structure.max_samples_per_partition=$SUPPORT_PARTITION_BUDGET\
+            structure.max_samples_per_eval_partition=$PARTITION_BUDGET \
+            structure.node_weights_dist=uniform \
+            structure.label_dist=frequency \
+            structure.prop_query=0.5 \
+            learning_algorithm=protomaml \
+            ++learning_algorithm.n_inner_updates=10 \
+            ++learning_algorithm.lr_inner=5.0e-3 \
+            ++learning_algorithm.head_lr_inner=1.0e-2 \
+            ++learning_algorithm.reset_classifier=true \
+        data_loading.pin_memory=True \
+        ++data_loading.num_workers=18 \
+            ++optimizer.lr=5.0e-4 \
+            ++optimizer.weight_decay=5.0e-2 \
+            ++model.hid_dim=256 \
+            ++model.fc_dim=64 \
+            ++model.n_heads=3 \
+            ++model.node_mask_p=0.10 \
+            ++model.dropout=0.50 \
+            ++model.attn_dropout=0.10 \
+            ++callbacks.early_stopping.metric='val/mcc' \
+            ++callbacks.early_stopping.mode=max \
+        use_train=false \
+        use_val=true \
+        use_test=true \
+        checkpoint_dir="meta-gnn" \
+        checkpoint_name=protomaml \
+		$(head -$SLURM_ARRAY_TASK_ID $PARAMETERS_FILE | tail -1)
+
+done

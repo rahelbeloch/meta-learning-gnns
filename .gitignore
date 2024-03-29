@@ -128,16 +128,29 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Raw data
-/main/data
-/logs
-main/data_prep/.vector_cache
-main/.vector_cache
-main/wandb
-
 # Intellij project files
 /.idea/*
 
 # Mac Stuff
 .DS_STORE
 ._.DS_Store
+
+# Raw data
+#/main/data
+/data/*/*
+/main/data/*/*
+/logs
+main/data_prep/.vector_cache
+main/.vector_cache
+main/wandb
+
+# My stuff
+*/klad*/
+klad*.*
+main/.vscode
+logs/
+misc/
+results/
+resources/
+results_legacy/
+*/results_parser.ipynb

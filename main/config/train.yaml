@@ -1,0 +1,107 @@
+defaults:
+  - global@_global_: default
+  - hydra: default
+  - data: gossipcop
+  - features@data: roberta
+  - structure: full
+  - _self_
+  - learning_algorithm: non_episodic
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+print_config: false
+
+seed: 942
+k: 4
+structure_mode: inductive
+batch_size: 32
+
+fold: 0
+
+version: null
+
+checkpoint_address_file: null
+model_architecture: gat
+epochs: 100
+
+data:
+  overwrite: true
+  fold: ${fold}
+  seed: ${seed}
+  origin: ${data.dataset}
+  num_splits: 5
+  user2doc_aggregator: zeros
+  pre_or_post_compression: post
+  label_mask: -1
+
+structure:
+  structure_mode: ${structure_mode}
+  overwrite: false
+  batch_size: ${batch_size}
+  _doc_limit: -1
+
+data_loading:
+  pin_memory: True
+
+model:
+  input_dim: ${data.compressed_size}
+  output_dim: ${data.num_classes}
+  hid_dim: 256
+  fc_dim: 64
+  n_heads: 3
+  node_mask_p: 0.10
+  dropout: 0.50
+  attn_dropout: 0.10
+
+learning_algorithm:
+  n_inner_updates: 0
+  lr_inner: 0.0
+  head_lr_inner: 0.0
+  reset_classifier: false
+  class_weights: ${data.class_weights}
+
+evaluation:
+  k: ${k}
+  n_inner_updates: ${learning_algorithm.n_inner_updates}
+  lr_inner: ${learning_algorithm.lr_inner}
+  head_lr_inner: ${learning_algorithm.lr_inner}
+  class_weights: ${data.class_weights}
+  reset_classifier: ${learning_algorithm.reset_classifier}
+
+optimizer:
+  optimizer: Adam
+  lr: 5.0e-4
+  weight_decay: 1.0e-2
+  scheduler: step
+  step_frequency: batch
+  lr_decay_steps: 128
+  lr_decay_factor: 0.794328234724
+  warmup_steps: 0
+  max_epochs: ${epochs}
+  max_norm: 1.00
+
+callbacks:
+  early_stopping:
+    metric: val/mcc
+    mode: max
+    patience: 25
+  checkpoint:
+    save_top_k: 1
+  progress_bar:
+    refresh_rate: 100
+
+logger:
+  project: null
+  mode: offline
+  kwargs:
+    job_type: ${data.dataset}_${data.top_users_excluded}_${data.compression}_k=${k}
+    group: ${structure.structure}_${structure_mode}_${learning_algorithm.meta_learner}
+    tags: null
+
+trainer:
+  max_epochs: ${epochs}
+  log_every_n_steps: 1
+  enable_progress_bar: true
+  num_sanity_val_steps: 0
+  check_val_every_n_epoch: 1
+  enable_model_summary: true

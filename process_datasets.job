@@ -1,0 +1,99 @@
+#!/bin/bash
+
+#SBATCH --job-name=data_process
+#SBATCH --time=06:00:00
+#SBATCH --array=1-4
+
+set -e
+
+module purge
+# LOAD ANACONDA MDOULE
+
+# Activate your environment
+source activate meta-learning-gnns
+
+cd $HOME/meta-learning-gnns/main
+PARAMETERS_FILE=../job_parameters/default_datasets_process.txt
+echo $(head -$SLURM_ARRAY_TASK_ID $PARAMETERS_FILE | tail -1)
+
+declare -i BATCH_SIZE
+declare -i NODES_BUDGET
+declare -i PARTITION_BUDGET
+declare -i NUM_WORKERS
+
+BATCH_SIZE=32
+NODES_BUDGET=2048
+PARTITION_BUDGET=256
+NUM_WORKERS=0
+
+# Define the variable $DATA_DIR
+# Could be a temporary directory for fast copy
+
+# First process the features
+srun python -u preprocess.py \
+	print_config=false \
+	data.processed_data_dir=$DATA_DIR \
+	skip_data_processing=false \
+	skip_graph_processing=false \
+	skip_feature_extraction=false \
+	skip_structure=true \
+	structure=full \
+	$(head -$SLURM_ARRAY_TASK_ID $PARAMETERS_FILE | tail -1)
+
+for FOLD in 0 1 2 3 4
+do
+	# Then do all the structuring
+	echo -e "\n\n##### Fold ${FOLD} #####\n\n"
+	echo -e "\n\n>>> Full Graph <<<\n\n"
+
+	srun python -u preprocess.py \
+		data.processed_data_dir=$DATA_DIR \
+		print_config=false \
+		skip_data_processing=true \
+		skip_graph_processing=true \
+		skip_feature_extraction=true \
+		fold=$FOLD \
+		structure=full \
+		$(head -$SLURM_ARRAY_TASK_ID $PARAMETERS_FILE | tail -1)
+
+	echo -e "\n\n>>> Subgraphs <<<\n\n"
+
+	srun python -u preprocess.py \
+		data.processed_data_dir=$DATA_DIR \
+		print_config=false \
+		skip_data_processing=true \
+		skip_graph_processing=true \
+		skip_feature_extraction=true \
+		fold=$FOLD \
+		structure=khop \
+		structure.batch_size=$BATCH_SIZE \
+		structure.max_nodes_per_subgraph=$NODES_BUDGET \
+		structure.max_samples_per_partition=$PARTITION_BUDGET \
+		structure.num_workers=$NUM_WORKERS \
+		structure.node_weights_dist=uniform \
+		structure.label_dist=frequency \
+		$(head -$SLURM_ARRAY_TASK_ID $PARAMETERS_FILE | tail -1)
+
+	echo -e "\n\n>>> Episodic Subgraphs <<<\n\n"
+
+	SUPPORT_PARTITION_BUDGET=$((BATCH_SIZE * PARTITION_BUDGET))
+	srun python -u preprocess.py \
+		data.processed_data_dir=$DATA_DIR \
+		print_config=false \
+		skip_data_processing=true \
+		skip_graph_processing=true \
+		skip_feature_extraction=true \
+		fold=$FOLD \
+		structure=episodic_khop \
+		structure.batch_size=$BATCH_SIZE \
+		structure.max_nodes_per_subgraph=$NODES_BUDGET \
+		structure.max_samples_per_partition=$SUPPORT_PARTITION_BUDGET\
+		structure.max_samples_per_eval_partition=$PARTITION_BUDGET \
+		structure.num_workers=$NUM_WORKERS \
+		structure.node_weights_dist=uniform \
+		structure.label_dist=frequency \
+		structure.prop_query=0.5 \
+		$(head -$SLURM_ARRAY_TASK_ID $PARAMETERS_FILE | tail -1)
+done
+
+echo -e "\nDone."

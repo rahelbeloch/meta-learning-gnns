@@ -1,0 +1,73 @@
+#!/bin/bash
+
+#SBATCH --job-name=twitter_transfer
+#SBATCH --time=00:45:00
+#SBATCH --array=1-5
+
+# GPU Settings
+#SBATCH --gpus=1
+#SBATCH --ntasks=1
+
+set -e
+
+TEMP_LOCAL_DATA_DIR=...
+
+mkdir -p TEMP_LOCAL_DATA_DIR
+TEMP_LOCAL_DATA_DIR=$(mktemp -d TEMP_LOCAL_DATA_DIR/temp-XXXXXXXXXX)
+rsync -aru $HOME/meta-learning-gnns/main/data/tsv $TEMP_LOCAL_DATA_DIR
+rsync -aru $HOME/meta-learning-gnns/main/data/complete $TEMP_LOCAL_DATA_DIR
+rsync -aru $HOME/meta-learning-gnns/main/data/processed $TEMP_LOCAL_DATA_DIR
+
+echo -e "Showing content of temporary data dir:"
+ls -alt $TEMP_LOCAL_DATA_DIR
+
+CHECKPOINT_DIR=...
+mkdir -p $CHECKPOINT_DIR
+
+module purge
+# LOAD ANACONDA MDOULE
+
+# Activate your environment
+source activate meta-learning-gnns
+
+# Your job starts in the directory where you call sbatch
+cd $HOME/meta-learning-gnns/main
+PARAMETERS_FILE=../job_parameters/transfer_twitter_sweep.txt
+echo -e "Running with params:"
+echo $(head -$SLURM_ARRAY_TASK_ID $PARAMETERS_FILE | tail -1)
+
+declare -i BATCH_SIZE
+declare -i NODES_BUDGET
+declare -i PARTITION_BUDGET
+declare -i K
+
+BATCH_SIZE=32
+NODES_BUDGET=2048
+PARTITION_BUDGET=256
+
+for K in 4 8 12 16
+do
+
+    srun python -u transfer.py \
+        print_config=false \
+        data.processed_data_dir=$TEMP_LOCAL_DATA_DIR \
+            data.num_splits=0 \
+        k=$K \
+        structure_mode=transductive \
+            structure=episodic_khop \
+            structure.batch_size=$BATCH_SIZE \
+            structure.max_nodes_per_subgraph=$NODES_BUDGET \
+            structure.max_samples_per_partition=$PARTITION_BUDGET\
+            structure.max_samples_per_eval_partition=$PARTITION_BUDGET \
+            structure.node_weights_dist=uniform \
+            structure.label_dist=frequency \
+            structure.prop_query=0.5 \
+        skip_data_transfer=false \
+        use_val=false \
+        use_test=true \
+            learning_algorithm.class_weights=\[1.0\,\ 1.0\,\ 1.0\] \
+        $(head -$SLURM_ARRAY_TASK_ID $PARAMETERS_FILE | tail -1)
+
+done
+
+rm -rf $TEMP_LOCAL_DATA_DIR
