@@ -37,30 +37,26 @@ Please direct your questions to: [ivo.verhoeven@uva.nl](mailto:ivo.verhoeven@uva
 /job_parameters/
     some text files with hyperparameters for the SLURM jobs
 /main/
-    ├── config
+    ├── /config/
     │       config files needed for Hydra processing, replaces CLI
-    ├── data
+    ├── /data/
     │       various empty folders where the processed data should be stored
-    ├── data_loading
+    ├── /data_loading/
     │       code for sampling subgraphs and episodes
-    ├── data_prep
+    ├── /data_prep/
     │       code taking raw datasets and forming social media graphs
-    ├── models
+    ├── /models/
     │       PyTorch models
-    ├── utils
+    ├── /utils/
     │       various utility functions
-    ├── evaluate.py
-    │       script for evaluating models after pre-training
     ├── preprocess.py
     │       script taking adjacency lists to meta-learning episode graphs
     ├── train.py
     │       script for pre-training models
-    ├── transfer.py
-    │       script for transferring to auxilliary datasets
-    ├── graph_stats.ipynb
-    │       code for computing stats on the sampled episodes
+    ├── evaluate.py
+    │       script for evaluating models after pre-training
     └── transfer.py
-            code for generating tables and plots from results
+            script for transferring to auxilliary datasets
 /results/
     results stored for various model runs
 ```
