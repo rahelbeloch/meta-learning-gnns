@@ -147,10 +147,5 @@ main/wandb
 # My stuff
 */klad*/
 klad*.*
-main/.vscode
 logs/
 misc/
-results/
-resources/
-results_legacy/
-*/results_parser.ipynb
