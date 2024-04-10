@@ -5,19 +5,19 @@
 
 <!-- TODO add URL to ACL anthology -->
 
+
+<p align="center"><b>Ivo Verhoeven<sup>&dagger;</sup>, Pushkar Mishra<sup>&Dagger;</sup>, Rahel Beloch<sup>&dagger;</sup>, Helen Yannakoudakis<sup>&sect;</sup> and Ekaterina Shutova<sup>&dagger;</sup></b></p>
+
+<p align="center"><small>&dagger; ILLC, University of Amsterdam, &Dagger; MetaAI, London, &sect; Dept. of Informatics, King’s College London</small></p>
+
 <p align="center">
-<a href="https://wandb.ai/verhivo/morph_tag_lemmatize?workspace=user-verhivo">
+<a href="https://arxiv.org/abs/2404.01822">
     <img src="https://img.shields.io/static/v1.svg?logo=arxiv&label=Paper&message=Open%20Paper&color=green"
     alt="Arxiv Link"
     style="float: center;"
     />
 </a>
 </p>
-
-<p align="center"><b>Ivo Verhoeven<sup>&dagger;</sup>, Pushkar Mishra<sup>&Dagger;</sup>, Rahel Beloch<sup>&dagger;</sup>, Helen Yannakoudakis<sup>&sect;</sup> and Ekaterina Shutova<sup>&dagger;</sup></b></p>
-
-<p align="center"><small>&dagger; ILLC, University of Amsterdam, &Dagger; MetaAI, London, &sect; Dept. of Informatics, King’s College London</small></p>
-
 
 This is an anonymized version of the codebase accompanying our paper, without any references users or content from the datasets used. As we are bound by the Twitter API terms-of-service, we cannot re-release these datasets.
 
