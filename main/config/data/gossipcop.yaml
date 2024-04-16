@@ -1,0 +1,14 @@
+dataset: gossipcop
+labels:
+  0: real
+  1: fake
+num_classes: 2
+class_weights:
+  - 1
+  - 3
+
+filter_out_isolated_docs: True
+min_len: 0
+top_users: 30
+top_users_excluded: 1
+user_doc_threshold: 0.3

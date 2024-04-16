@@ -1,0 +1,13 @@
+structure: khop
+k_hop: 2
+min_k_hop: 2
+max_k_hop: 5
+max_nodes_per_subgraph: 2048
+walk_length: 5
+node_weights_dist: uniform
+label_dist: frequency
+labels_per_graph: ${k}
+batch_size: null
+max_samples_per_partition: -1
+num_workers: 0
+keep_cc: largest

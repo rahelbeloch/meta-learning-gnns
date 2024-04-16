@@ -1,0 +1,5 @@
+feature_type: one-hot
+compression: random
+vocab_size: 10000
+compressed_size: 768
+use_joint_vocab: True

@@ -1,0 +1,4 @@
+data=gossipcop data.top_users_excluded=1 seed=942 k=4 structure_mode=inductive features@data=roberta
+data=CoAID seed=942 k=4 structure_mode=inductive features@data=roberta
+data=twitterHateSpeech seed=942 k=4 structure_mode=inductive features@data=roberta
+data=HealthStory seed=942 k=4 structure_mode=inductive features@data=roberta

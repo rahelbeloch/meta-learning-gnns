@@ -1,0 +1,14 @@
+log_path: "../logs/"
+results_path: "../results/"
+shots:
+  - 4
+  - 8
+  - 12
+  - 16
+data:
+  raw_data_dir: "../data"
+  processed_data_dir: "data"
+  tsv_dir: "tsv"
+  complete_dir: "complete"
+  processed_dir: "processed"
+  structure_dir: "structured"

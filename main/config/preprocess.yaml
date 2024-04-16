@@ -1,0 +1,52 @@
+defaults:
+  - global@_global_: default
+  - hydra: default
+  - data: gossipcop
+  - features@data: roberta
+  - structure: full
+  - _self_
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+print_config: true
+
+seed: 942
+k: 4
+structure_mode: inductive
+batch_size: 32
+
+fold: 0
+
+version: null
+
+skip_data_processing: false
+skip_graph_processing: false
+skip_feature_extraction: false
+skip_structure: false
+
+data:
+  overwrite: true
+  fold: ${fold}
+  seed: ${seed}
+  origin: ${data.dataset}
+  num_splits: 5
+  user2doc_aggregator: zeros
+  pre_or_post_compression: post
+  label_mask: -1
+
+structure:
+  structure_mode: ${structure_mode}
+  overwrite: false
+  batch_size: ${batch_size}
+  _doc_limit: -1
+
+feature_extraction:
+  n_epochs: 15
+  patience: 1
+  batch_size: 64
+  p_dropout: 0.50
+  p_mask_token: 0.15
+  lr: 5.0e-4
+  weight_decay: 1.0e-2
+  optimize_on: loss
+  prog_bar: 10

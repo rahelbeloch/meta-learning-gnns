@@ -1,0 +1,5 @@
+feature_type: lm-embeddings
+compression: roberta-base
+vocab_size: null
+compressed_size: null
+use_joint_vocab: False

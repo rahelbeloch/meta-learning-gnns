@@ -1,0 +1,10 @@
+structure: episodic_doc_only_khop
+doc_k_hop: 0
+node_weights_dist: uniform
+labels_per_graph: ${k}
+max_samples_per_partition: -1
+max_samples_per_eval_partition: ${structure.max_samples_per_partition}
+num_workers: 0
+keep_cc: largest
+
+prop_query: 0.5
